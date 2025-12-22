@@ -33,10 +33,23 @@ async function getProductData(): Promise<ProductSections[]> {
 
 const page = async () => {
   const productData = await getProductData();
+
+  console.log('=== DEBUG USER PAGE ===');
+  console.log('Total categorías:', productData.length);
+  console.log('Categorías:', productData.map(p => p.productName));
+  console.log('Total paquetes:', productData.reduce((acc, cat) => acc + cat.packages.length, 0));
+
   return (
     <div className=" w-full">
       <Header />
       <div className="w-full flex flex-col">
+        {productData.length === 0 && (
+          <div className="p-12 text-center">
+            <p className="text-2xl text-muted-foreground">
+              No se encontraron productos
+            </p>
+          </div>
+        )}
         {productData.map((el) => (
           <ProductSection key={el.productName} item={el} />
         ))}
