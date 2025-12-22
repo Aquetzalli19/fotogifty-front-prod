@@ -11,11 +11,11 @@ import { Loader2, PackageX } from "lucide-react";
 
 const StorePage = () => {
   const [allOrders, setAllOrders] = useState<AdmiOrder[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<AdmiOrder[]>([]);
+  const [inProgressOrders, setInProgressOrders] = useState<AdmiOrder[]>([]);
   const [sentOrders, setSentOrders] = useState<AdmiOrder[]>([]);
-  const [printOrders, setPrintOrders] = useState<AdmiOrder[]>([]);
-  const [packagesOrders, setPackagesOrders] = useState<AdmiOrder[]>([]);
-  const [ongoingOrders, setOngoingOrders] = useState<AdmiOrder[]>([]);
-  const [archiveOrders, setArchiveOrders] = useState<AdmiOrder[]>([]);
+  const [deliveredOrders, setDeliveredOrders] = useState<AdmiOrder[]>([]);
+  const [cancelledOrders, setCancelledOrders] = useState<AdmiOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadOrders = async () => {
@@ -42,11 +42,11 @@ const StorePage = () => {
 
   useEffect(() => {
     const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
+    setPendingOrders(allOrders.filter((order) => getStatus(order) === "Pendiente"));
+    setInProgressOrders(allOrders.filter((order) => getStatus(order) === "En Proceso"));
     setSentOrders(allOrders.filter((order) => getStatus(order) === "Enviado"));
-    setPrintOrders(allOrders.filter((order) => getStatus(order) === "En Proceso"));
-    setPackagesOrders(allOrders.filter((order) => getStatus(order) === "Pendiente"));
-    setOngoingOrders(allOrders.filter((order) => getStatus(order) === "En Proceso"));
-    setArchiveOrders(allOrders.filter((order) => getStatus(order) === "Entregado" || getStatus(order) === "Cancelado"));
+    setDeliveredOrders(allOrders.filter((order) => getStatus(order) === "Entregado"));
+    setCancelledOrders(allOrders.filter((order) => getStatus(order) === "Cancelado"));
   }, [allOrders]);
 
   const renderOrderList = (orders: AdmiOrder[], emptyMessage: string) => {
@@ -78,20 +78,20 @@ const StorePage = () => {
           <TabsTrigger value="all" className="text-xs sm:text-sm">
             Todos
           </TabsTrigger>
-          <TabsTrigger value="ongoing" className="text-xs sm:text-sm">
-            En proceso
-          </TabsTrigger>
-          <TabsTrigger value="print" className="text-xs sm:text-sm">
-            Impresión
-          </TabsTrigger>
-          <TabsTrigger value="packages" className="text-xs sm:text-sm">
+          <TabsTrigger value="pending" className="text-xs sm:text-sm">
             Pendientes
+          </TabsTrigger>
+          <TabsTrigger value="inprogress" className="text-xs sm:text-sm">
+            En Proceso
           </TabsTrigger>
           <TabsTrigger value="sent" className="text-xs sm:text-sm">
             Enviados
           </TabsTrigger>
-          <TabsTrigger value="archive" className="text-xs sm:text-sm">
-            Archivo
+          <TabsTrigger value="delivered" className="text-xs sm:text-sm">
+            Entregados
+          </TabsTrigger>
+          <TabsTrigger value="cancelled" className="text-xs sm:text-sm">
+            Cancelados
           </TabsTrigger>
         </TabsList>
 
@@ -107,24 +107,24 @@ const StorePage = () => {
                 {renderOrderList(allOrders, "No hay pedidos registrados")}
               </TabsContent>
 
-              <TabsContent value="ongoing" className="m-0">
-                {renderOrderList(ongoingOrders, "No hay pedidos en proceso")}
+              <TabsContent value="pending" className="m-0">
+                {renderOrderList(pendingOrders, "No hay pedidos pendientes")}
               </TabsContent>
 
-              <TabsContent value="print" className="m-0">
-                {renderOrderList(printOrders, "No hay pedidos en impresión")}
-              </TabsContent>
-
-              <TabsContent value="packages" className="m-0">
-                {renderOrderList(packagesOrders, "No hay pedidos pendientes")}
+              <TabsContent value="inprogress" className="m-0">
+                {renderOrderList(inProgressOrders, "No hay pedidos en proceso")}
               </TabsContent>
 
               <TabsContent value="sent" className="m-0">
                 {renderOrderList(sentOrders, "No hay pedidos enviados")}
               </TabsContent>
 
-              <TabsContent value="archive" className="m-0">
-                {renderOrderList(archiveOrders, "No hay pedidos archivados")}
+              <TabsContent value="delivered" className="m-0">
+                {renderOrderList(deliveredOrders, "No hay pedidos entregados")}
+              </TabsContent>
+
+              <TabsContent value="cancelled" className="m-0">
+                {renderOrderList(cancelledOrders, "No hay pedidos cancelados")}
               </TabsContent>
             </>
           )}
