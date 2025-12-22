@@ -4,6 +4,9 @@ import { ProductSections } from "@/interfaces/product-card";
 import React from "react";
 import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/packages";
 
+// Forzar renderizado dinámico para que las peticiones a la API funcionen
+export const dynamic = 'force-dynamic';
+
 /**
  * Obtiene todos los productos dinámicamente desde la API.
  * Todas las categorías (incluyendo Calendarios y Polaroids) son dinámicas.
