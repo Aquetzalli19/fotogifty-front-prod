@@ -1,46 +1,80 @@
+"use client";
+
 import Header from "@/components/user/main/Header";
 import ProductSection from "@/components/user/main/ProductCatalogue/ProductSection";
 import { ProductSections } from "@/interfaces/product-card";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/packages";
 
-// Forzar renderizado dinámico para que las peticiones a la API funcionen
-export const dynamic = 'force-dynamic';
+export default function UserPage() {
+  const [productData, setProductData] = useState<ProductSections[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-/**
- * Obtiene todos los productos dinámicamente desde la API.
- * Todas las categorías (incluyendo Calendarios y Polaroids) son dinámicas.
- */
-async function getProductData(): Promise<ProductSections[]> {
-  try {
-    // Obtener todos los paquetes desde la API
-    const response = await obtenerTodosPaquetes();
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        console.log('🔍 Obteniendo paquetes desde la API...');
 
-    if (response.success && response.data) {
-      // Transformar los paquetes de la API a ProductSections agrupados por categoría
-      const products = agruparPaquetesPorCategoria(response.data);
-      console.log('Productos obtenidos de la API:', products.length, 'categorías');
-      return products;
-    } else {
-      console.warn('No se pudieron obtener productos de la API');
-      return [];
-    }
-  } catch (error) {
-    console.error("Error fetching product data:", error);
-    return [];
+        const response = await obtenerTodosPaquetes();
+        console.log('📦 Respuesta de la API:', response);
+
+        if (response.success && response.data) {
+          const products = agruparPaquetesPorCategoria(response.data);
+
+          console.log('=== DEBUG USER PAGE ===');
+          console.log('Total categorías:', products.length);
+          console.log('Categorías:', products.map(p => p.productName));
+          console.log('Total paquetes:', products.reduce((acc, cat) => acc + cat.packages.length, 0));
+          console.log('Datos completos:', products);
+
+          setProductData(products);
+        } else {
+          console.warn('⚠️ No se pudieron obtener productos:', response);
+          setError(response.message || 'No se pudieron cargar los productos');
+        }
+      } catch (err) {
+        console.error('❌ Error al obtener productos:', err);
+        setError(err instanceof Error ? err.message : 'Error al cargar productos');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full">
+        <Header />
+        <div className="w-full flex items-center justify-center p-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-xl text-muted-foreground">Cargando productos...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
-}
 
-const page = async () => {
-  const productData = await getProductData();
-
-  console.log('=== DEBUG USER PAGE ===');
-  console.log('Total categorías:', productData.length);
-  console.log('Categorías:', productData.map(p => p.productName));
-  console.log('Total paquetes:', productData.reduce((acc, cat) => acc + cat.packages.length, 0));
+  if (error) {
+    return (
+      <div className="w-full">
+        <Header />
+        <div className="w-full flex items-center justify-center p-12">
+          <div className="text-center">
+            <p className="text-2xl text-destructive mb-2">Error al cargar productos</p>
+            <p className="text-muted-foreground">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className=" w-full">
+    <div className="w-full">
       <Header />
       <div className="w-full flex flex-col">
         {productData.length === 0 && (
@@ -56,6 +90,4 @@ const page = async () => {
       </div>
     </div>
   );
-};
-
-export default page;
+}
