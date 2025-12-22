@@ -205,24 +205,62 @@ The application uses Next.js App Router with route groups for role-based layouts
 - User sessions persisted in Zustand store (not in localStorage by default)
 - Admin routes require admin-type authentication
 
+## Deployment
+
+**Production URL**: Desplegado en Vercel
+**Backend API**: Railway (URL protegida mediante proxy de Next.js)
+**Documentación completa**: Ver `VERCEL_DEPLOYMENT.md`
+
+Para hacer deploy en Vercel:
+1. Conecta el repositorio GitHub: `Aquetzalli19/fotogifty-front-prod`
+2. Configura la variable de entorno: `NEXT_PUBLIC_API_URL` (URL de Railway)
+3. Vercel auto-detecta Next.js 15 y ejecuta `npm run build`
+
+**Importante**: La URL del backend NUNCA se expone al cliente gracias al proxy configurado en `next.config.ts`.
+
 ## Additional Documentation
 
-- `docs/API_ORDENES_BACKEND.md` - Orders API backend documentation
-- `API_REAL_DOCUMENTATION.md` - Complete API reference with examples
-- `CART_AND_ORDERS_ARCHITECTURE.md` - Full cart and orders flow architecture
-- `MIGRATION_GUIDE.md` - Guide for migrating from mock data to real API
-- `BACKEND_API_DOCS.md` - Additional backend API documentation
+- `VERCEL_DEPLOYMENT.md` - Guía completa de deployment en Vercel con configuración de seguridad
+- `docs/API_ORDENES_BACKEND.md` - Documentación de API de órdenes del backend
+- `API_REAL_DOCUMENTATION.md` - Referencia completa de API con ejemplos
+- `CART_AND_ORDERS_ARCHITECTURE.md` - Arquitectura completa del flujo de carrito y órdenes
+- `MIGRATION_GUIDE.md` - Guía para migrar de mock data a API real
+- `BACKEND_API_DOCS.md` - Documentación adicional del backend
 
 ## Important Notes
 
-- **API Conectada**: Backend corriendo en `http://localhost:3001` - Ver `API_REAL_DOCUMENTATION.md` para detalles completos
-- **Página de Prueba**: Visita `http://localhost:3000/test-api` para probar la conexión con la API
+- **API Conectada**: Backend en Railway - Ver `API_REAL_DOCUMENTATION.md` para detalles completos
+- **Página de Prueba**: Visita `/test-api` para probar la conexión con la API
 - **Convención de Nombres**: La API usa snake_case (`categoria_id`) mientras el frontend usa camelCase
-- Duplicate admin routes exist (`/admin/` and `/admi/`) - `/admi/` is the active implementation
-- The photo editor uses canvas transformations based on Igor Zinken's MIT-licensed code (`src/lib/canvas-utils.ts:62-130`)
-- IVA (tax) rate is hardcoded at 16% in `cart-store.ts:6`
-- Mock data still available in `src/test-data/` for fallback during development
-- Sepia and other pixel-manipulation effects are performance-intensive for large images
-- Mobile touch events are supported for canvas manipulation in the photo editor
-- Toast notifications via `useToast` hook - use `success()`, `error()`, `warning()`, `info()` methods
-- Address management fully integrated with backend via `useAddresses` hook
+- **Rutas Admin Duplicadas**: Existen `/admin/` y `/admi/` - `/admi/` es la implementación activa
+- **Editor de Fotos**: Usa transformaciones canvas basadas en código MIT de Igor Zinken (`src/lib/canvas-utils.ts:62-130`)
+- **IVA**: Tasa de impuesto del 16% hardcoded en `cart-store.ts:6`
+- **Mock Data**: Disponible en `src/test-data/` como fallback durante desarrollo
+- **Performance**: Efectos de manipulación de píxeles (sepia) son intensivos para imágenes grandes
+- **Mobile**: Eventos táctiles soportados para manipulación del canvas en el editor
+- **Notificaciones**: Via `useToast` hook - usa `success()`, `error()`, `warning()`, `info()`
+- **Direcciones**: Gestión completamente integrada con backend via `useAddresses` hook
+
+## Common Issues & Solutions
+
+### Build Errors en Vercel
+
+Si el build falla en Vercel por warnings de ESLint/TypeScript:
+- Los errores críticos deben corregirse en el código
+- Los warnings no deberían bloquear el build (configurado para permitirlos)
+- Revisa logs en Vercel Dashboard para errores específicos
+
+### Problemas de CORS
+
+Si ves errores de CORS:
+- Verifica que estés usando `/api/*` en el código (NO la URL completa de Railway)
+- El proxy de Next.js (`next.config.ts`) maneja CORS automáticamente
+- En desarrollo: proxy redirige a `localhost:3001`
+- En producción: proxy redirige a Railway
+
+### Variables de Entorno
+
+- `.env.local` NO se commitea (está en `.gitignore`)
+- Usa `.env.example` como plantilla
+- En Vercel: configura `NEXT_PUBLIC_API_URL` en Dashboard
+- Reinicia el servidor de desarrollo después de cambiar variables de entorno
