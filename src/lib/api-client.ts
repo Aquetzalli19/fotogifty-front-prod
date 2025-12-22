@@ -33,15 +33,34 @@ class ApiClient {
    * Construye la URL completa con query parameters
    */
   private buildUrl(endpoint: string, params?: Record<string, string | number | boolean>): string {
-    const url = new URL(`${this.baseUrl}${endpoint}`);
+    // Si baseUrl es relativo (empieza con /), construir URL relativa
+    // Si baseUrl es absoluto (empieza con http), usar new URL()
+    let fullUrl: string;
 
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        url.searchParams.append(key, String(value));
-      });
+    if (this.baseUrl.startsWith('http')) {
+      // URL absoluta - usar new URL()
+      const url = new URL(`${this.baseUrl}${endpoint}`);
+      if (params) {
+        Object.entries(params).forEach(([key, value]) => {
+          url.searchParams.append(key, String(value));
+        });
+      }
+      fullUrl = url.toString();
+    } else {
+      // URL relativa - construir manualmente
+      fullUrl = `${this.baseUrl}${endpoint}`;
+      if (params) {
+        const queryString = new URLSearchParams(
+          Object.entries(params).reduce((acc, [key, value]) => {
+            acc[key] = String(value);
+            return acc;
+          }, {} as Record<string, string>)
+        ).toString();
+        fullUrl += `?${queryString}`;
+      }
     }
 
-    return url.toString();
+    return fullUrl;
   }
 
   /**
