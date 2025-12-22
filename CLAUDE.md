@@ -32,8 +32,23 @@ NEXT_PUBLIC_API_URL=http://localhost:3001/api
 ```
 
 **Variables disponibles**:
-- `NEXT_PUBLIC_API_URL`: URL base del backend API (requerida para peticiones HTTP)
+- `NEXT_PUBLIC_API_URL`: URL base del backend API (usada por el proxy de Next.js configurado en `next.config.ts`)
 - Stripe keys (futuro): `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+
+### API Proxy Configuration
+
+El proyecto usa **rewrites de Next.js** para hacer proxy de las peticiones API, evitando problemas de CORS:
+
+- **Desarrollo**: Todas las peticiones a `/api/*` se redirigen a `http://localhost:3001/api/*`
+- **Producción**: Las peticiones se redirigen a la URL configurada en `NEXT_PUBLIC_API_URL`
+- **Configuración**: Ver `next.config.ts` función `rewrites()`
+- **Uso en código**: Todas las peticiones usan `/api` como base (ver `src/lib/config.ts`)
+
+**Ventajas del proxy**:
+- ✅ Sin problemas de CORS
+- ✅ URL del backend oculta al cliente
+- ✅ Mismo dominio en cliente y servidor
+- ✅ Fácil cambio de backend sin modificar código
 
 ## Architecture
 

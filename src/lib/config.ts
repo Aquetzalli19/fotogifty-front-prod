@@ -6,9 +6,10 @@
 export const config = {
   /**
    * URL base de la API del backend
-   * Por defecto apunta a localhost:3001/api para desarrollo
+   * Usa '/api' que será redirigido por el proxy de Next.js (configurado en next.config.ts)
+   * El proxy redirige a la URL configurada en NEXT_PUBLIC_API_URL o localhost:3001/api
    */
-  apiUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+  apiUrl: '/api',
 
   /**
    * Indica si estamos en modo desarrollo
