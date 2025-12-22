@@ -49,6 +49,22 @@ const MONTHS_SHORT = [
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
 ];
 
+// Mapeo de mes (1-12) a archivo de calendario
+const MONTH_CALENDAR_FILES: Record<number, string> = {
+  1: "/calendarios2026/1-ENERO 2026.png",
+  2: "/calendarios2026/Calendario Febrero 2026.png",
+  3: "/calendarios2026/3-MARZO 2026.png",
+  4: "/calendarios2026/Calendario Abril 2026.png",
+  5: "/calendarios2026/Calendario Mayo 2026.png",
+  6: "/calendarios2026/6-JUNIO 2026.png",
+  7: "/calendarios2026/Calendario Julio 2026.png",
+  8: "/calendarios2026/Calendario Agosto 2026.png",
+  9: "/calendarios2026/Calendario Septiembre 2026.png",
+  10: "/calendarios2026/Calendario Octubre 2026.png",
+  11: "/calendarios2026/Calendario Noviembre 2026.png",
+  12: "/calendarios2026/Calendario Diciembre 2026.png",
+};
+
 // Dimensiones del calendario
 const CALENDAR_WIDTH = 2400;
 const CALENDAR_HEIGHT = 3600;
@@ -98,15 +114,19 @@ export default function CalendarEditor() {
 
   const { execute, undo, redo, canUndo, canRedo } = useHistory();
 
-  // Cargar imagen del template
+  // Cargar imagen del template según el mes seleccionado
   useEffect(() => {
     const img = new Image();
-    img.src = "/Calendar.png";
+    const calendarFile = MONTH_CALENDAR_FILES[selectedMonth];
+    img.src = calendarFile;
     img.onload = () => {
       templateImageRef.current = img;
       renderCanvas();
     };
-  }, []);
+    img.onerror = () => {
+      console.error(`Error cargando calendario para mes ${selectedMonth}: ${calendarFile}`);
+    };
+  }, [selectedMonth]);
 
   // Ajustar zoom inicial basado en el tamaño de pantalla
   useEffect(() => {
