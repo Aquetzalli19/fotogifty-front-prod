@@ -1,27 +1,30 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Cliente } from '@/interfaces/users';
+import { AuthenticatedUser, UserType } from '@/interfaces/users';
 
 export interface AuthResponse {
-  user: Cliente;
+  user: AuthenticatedUser;
   token: string;
 }
 
 interface AuthState {
-  user: Cliente | null;
+  user: AuthenticatedUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (userData: Cliente, token: string) => void;
+  userType: UserType | null;
+  login: (userData: AuthenticatedUser, token: string) => void;
   logout: () => void;
-  updateUserData: (userData: Partial<Cliente>) => void;
+  updateUserData: (userData: Partial<AuthenticatedUser>) => void;
+  isUserType: (type: UserType) => boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       token: null,
       isAuthenticated: false,
+      userType: null,
       login: (userData, token) => {
         // Guardar token en localStorage separadamente para api-client
         if (typeof window !== 'undefined') {
@@ -30,7 +33,8 @@ export const useAuthStore = create<AuthState>()(
         set({
           user: userData,
           token,
-          isAuthenticated: true
+          isAuthenticated: true,
+          userType: userData.tipo
         });
       },
       logout: () => {
@@ -38,11 +42,20 @@ export const useAuthStore = create<AuthState>()(
         if (typeof window !== 'undefined') {
           localStorage.removeItem('auth_token');
         }
-        set({ user: null, token: null, isAuthenticated: false });
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+          userType: null
+        });
       },
       updateUserData: (userData) => set((state) => ({
         user: state.user ? { ...state.user, ...userData } : null
-      }))
+      })),
+      isUserType: (type: UserType) => {
+        const state = get();
+        return state.userType === type;
+      }
     }),
     {
       name: 'auth-storage',

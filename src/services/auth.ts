@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { Cliente } from '@/interfaces/users';
+import { AuthenticatedUser, Cliente, StoreUser, AdminUser } from '@/interfaces/users';
 
 /**
  * Servicio para autenticación
@@ -27,36 +27,48 @@ export interface RegistroAdminDTO {
 }
 
 /**
- * Respuesta de autenticación
+ * Respuesta de autenticación para clientes
  */
-export interface UsuarioResponse {
-  id: number;
-  email: string;
-  nombre: string;
-  apellido: string;
-  telefono?: string;
-  tipo?: 'admin' | 'super_admin' | 'cliente';
-  activo?: boolean;
-  fecha_creacion?: string;
-  fecha_ultima_conexion?: string;
-  // Agrega otros campos que retorne tu API
+export interface ClienteAuthResponse {
+  user: Cliente;
+  token: string;
+  expiresIn?: number;
 }
 
 /**
- * Respuesta completa de autenticación
+ * Respuesta de autenticación para stores
+ */
+export interface StoreAuthResponse {
+  user: StoreUser;
+  token: string;
+  expiresIn?: number;
+}
+
+/**
+ * Respuesta de autenticación para admins
+ */
+export interface AdminAuthResponse {
+  user: AdminUser;
+  token: string;
+  expiresIn?: number;
+}
+
+/**
+ * Respuesta genérica de autenticación
  */
 export interface AuthResponse {
-  user: Cliente;
+  user: AuthenticatedUser;
   token: string;
+  expiresIn?: number;
 }
 
 /**
  * Login de cliente
  * @param credentials - Email y contraseña
- * @returns Datos del usuario autenticado y token
+ * @returns Datos del cliente autenticado y token
  */
 export async function loginCliente(credentials: LoginDTO) {
-  return apiClient.post<AuthResponse>('/auth/login/cliente', credentials);
+  return apiClient.post<ClienteAuthResponse>('/auth/login/cliente', credentials);
 }
 
 /**
@@ -65,7 +77,7 @@ export async function loginCliente(credentials: LoginDTO) {
  * @returns Datos del admin autenticado y token
  */
 export async function loginAdmin(credentials: LoginDTO) {
-  return apiClient.post<AuthResponse>('/auth/login/admin', credentials);
+  return apiClient.post<AdminAuthResponse>('/auth/login/admin', credentials);
 }
 
 /**
@@ -74,7 +86,7 @@ export async function loginAdmin(credentials: LoginDTO) {
  * @returns Datos del store autenticado y token
  */
 export async function loginStore(credentials: LoginDTO) {
-  return apiClient.post<AuthResponse>('/auth/login/store', credentials);
+  return apiClient.post<StoreAuthResponse>('/auth/login/store', credentials);
 }
 
 /**
@@ -82,7 +94,7 @@ export async function loginStore(credentials: LoginDTO) {
  * @returns Datos del usuario actual
  */
 export async function obtenerUsuarioActual() {
-  return apiClient.get<Cliente>('/auth/me');
+  return apiClient.get<AuthenticatedUser>('/auth/me');
 }
 
 /**
@@ -91,5 +103,5 @@ export async function obtenerUsuarioActual() {
  * @returns Datos del admin creado
  */
 export async function registroAdmin(data: RegistroAdminDTO) {
-  return apiClient.post<UsuarioResponse>('/admin/registro', data);
+  return apiClient.post<AdminUser>('/admin/registro', data);
 }
