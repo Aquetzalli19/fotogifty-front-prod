@@ -34,7 +34,7 @@ const editStoreUserSchema = z.object({
   apellido: z.string().min(1, "Apellido es requerido"),
   codigo_empleado: z.string().min(1, "Código de empleado es requerido"),
   telefono: z.string().min(1, "Teléfono es requerido"),
-  activo: z.boolean().default(true),
+  activo: z.boolean(),
   newPassword: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional().or(z.literal("")),
 });
 

@@ -4,7 +4,7 @@ import { Address } from '@/types/Address';
 export const addressService = {
   getAll: async (userId: number): Promise<Address[]> => {
     // Obtenemos todas las direcciones del usuario autenticado actualmente
-    const response = await apiClient.get(`/direcciones/usuario/${userId}`);
+    const response = await apiClient.get<Address[]>(`/direcciones/usuario/${userId}`);
     // Asegurarse de que la respuesta tiene la estructura esperada
     if (response.success && response.data) {
       return response.data;
@@ -15,7 +15,7 @@ export const addressService = {
   create: async (addressData: Omit<Address, 'id' | 'usuario_id'>, userId: number): Promise<Address> => {
     // Añadir el usuario_id al cuerpo de la solicitud
     const requestData = { ...addressData, usuario_id: userId };
-    const response = await apiClient.post('/direcciones', requestData);
+    const response = await apiClient.post<Address>('/direcciones', requestData);
     if (response.success && response.data) {
       return response.data;
     }
@@ -23,7 +23,7 @@ export const addressService = {
   },
 
   update: async (id: number, addressData: Omit<Address, 'id' | 'usuario_id'>): Promise<Address> => {
-    const response = await apiClient.put(`/direcciones/${id}`, addressData);
+    const response = await apiClient.put<Address>(`/direcciones/${id}`, addressData);
     if (response.success && response.data) {
       return response.data;
     }

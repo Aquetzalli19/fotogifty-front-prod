@@ -22,6 +22,7 @@ export interface Cliente {
   apellido: string;
   telefono: string;
   activo: boolean;
+  tipo?: string; // Tipo de usuario: 'cliente', 'admin', 'super_admin', 'store'
   fecha_creacion?: string;
   fecha_ultima_compra?: string;
   total_pedidos?: number;

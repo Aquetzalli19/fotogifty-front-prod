@@ -74,20 +74,10 @@ class ApiClient {
   }
 
   /**
-   * Obtiene el token de autenticación del store o localStorage
+   * Obtiene el token de autenticación del localStorage
    */
   private getAuthToken(): string | null {
     if (typeof window !== 'undefined') {
-      // Primero intentamos obtener del store de autenticación
-      try {
-        const authStore = require('@/stores/auth-store').useAuthStore;
-        const token = authStore.getState().token;
-        if (token) return token;
-      } catch (e) {
-        console.warn('Auth store not available');
-      }
-      
-      // Si no está en el store, intentamos obtener del localStorage
       return localStorage.getItem('auth_token');
     }
     return null;
@@ -96,13 +86,32 @@ class ApiClient {
   /**
    * Agrega encabezados comunes a las peticiones
    */
-  private addAuthHeader(headers: HeadersInit = {}): HeadersInit {
+  private addAuthHeader(headers?: HeadersInit): Record<string, string> {
+    const result: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
     const token = this.getAuthToken();
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      result['Authorization'] = `Bearer ${token}`;
     }
-    headers['Content-Type'] = 'application/json';
-    return headers;
+
+    // Merge with existing headers if provided
+    if (headers) {
+      if (headers instanceof Headers) {
+        headers.forEach((value, key) => {
+          result[key] = value;
+        });
+      } else if (Array.isArray(headers)) {
+        headers.forEach(([key, value]) => {
+          result[key] = value;
+        });
+      } else {
+        Object.assign(result, headers);
+      }
+    }
+
+    return result;
   }
 
   /**

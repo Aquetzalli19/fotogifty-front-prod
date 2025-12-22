@@ -53,8 +53,8 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
             onClick={() => onSelect(address.id!)}
           >
             <div className="flex items-start space-x-3">
-              <RadioGroupItem 
-                value={address.id?.toString()} 
+              <RadioGroupItem
+                value={address.id?.toString() || ''}
                 id={`address-${address.id}`}
                 className="mt-0.5"
               />

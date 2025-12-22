@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { Cliente } from '@/interfaces/users';
 
 /**
  * Servicio para autenticación

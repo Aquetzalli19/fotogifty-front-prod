@@ -72,7 +72,7 @@ export function DeleteCategoryDialog({
           <DialogDescription className="pt-4">
             ¿Estás seguro de que deseas eliminar la categoría{" "}
             <span className="font-semibold text-foreground">
-              "{category?.nombre}"
+              &quot;{category?.nombre}&quot;
             </span>
             ?
             <br />

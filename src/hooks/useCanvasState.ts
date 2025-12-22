@@ -1,19 +1,10 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Transformations, Effect, Command } from "@/lib/types";
 
 type CanvasStyle = {
   backgroundColor: string;
   borderColor: string;
   borderWidth: number;
-};
-
-type CommandHistory = {
-  execute: (command: Command) => void;
-  undo: () => void;
-  redo: () => void;
-  canUndo: boolean;
-  canRedo: boolean;
-  reset: () => void;
 };
 
 export const useCanvasState = () => {
@@ -437,6 +428,18 @@ export const useCanvasDragging = (
     };
   }, []);
 
+  // Función común para iniciar el arrastre
+  const startDragging = useCallback((clientX: number, clientY: number) => {
+    if (!imageSrc || !canvasRef.current) return;
+
+    isDraggingRef.current = true;
+    rafPending.current = false;
+    setIsDragging(true);
+    dragStartPos.current = { x: clientX, y: clientY };
+    startTransformations.current = { ...transformations };
+    lastDelta.current = { x: 0, y: 0 };
+  }, [imageSrc, transformations]);
+
   // Registrar touchstart en el canvas con passive: false
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -456,19 +459,7 @@ export const useCanvasDragging = (
     return () => {
       canvas.removeEventListener('touchstart', handleTouchStart);
     };
-  }, [imageSrc, transformations]);
-
-  // Función común para iniciar el arrastre
-  const startDragging = (clientX: number, clientY: number) => {
-    if (!imageSrc || !canvasRef.current) return;
-
-    isDraggingRef.current = true;
-    rafPending.current = false;
-    setIsDragging(true);
-    dragStartPos.current = { x: clientX, y: clientY };
-    startTransformations.current = { ...transformations };
-    lastDelta.current = { x: 0, y: 0 };
-  };
+  }, [imageSrc, startDragging]);
 
   // Handle mouse down on canvas
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {

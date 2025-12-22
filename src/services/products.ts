@@ -93,6 +93,9 @@ export async function getProductsByCategory() {
         itemDescription: product.description,
         itemPrice: product.packagePrice,
         numOfRequiredImages: product.photoQuantity,
+        photoResolution: 300, // Valor por defecto
+        photoWidth: 0, // El backend debería proveer esto
+        photoHeight: 0, // El backend debería proveer esto
       });
     } else {
       acc.push({
@@ -105,6 +108,9 @@ export async function getProductsByCategory() {
             itemDescription: product.description,
             itemPrice: product.packagePrice,
             numOfRequiredImages: product.photoQuantity,
+            photoResolution: 300, // Valor por defecto
+            photoWidth: 0, // El backend debería proveer esto
+            photoHeight: 0, // El backend debería proveer esto
           },
         ],
       });

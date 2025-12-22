@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { getEditorType } from '@/lib/category-utils';
 
 /**
  * Servicio para la gestión de paquetes (productos)
@@ -113,8 +114,6 @@ export async function eliminarPaquete(id: number) {
  * @returns Paquetes agrupados por categoría en formato ProductSections con editorType
  */
 export function agruparPaquetesPorCategoria(paquetes: Paquete[]): import('@/interfaces/product-card').ProductSections[] {
-  // Importar la función para determinar el tipo de editor
-  const { getEditorType } = require('@/lib/category-utils');
 
   // Crear un Map para agrupar por categoría
   const categoriesMap = new Map<string, Paquete[]>();

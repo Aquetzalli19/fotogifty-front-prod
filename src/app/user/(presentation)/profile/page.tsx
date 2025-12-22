@@ -168,8 +168,6 @@ const ProfilePage = () => {
           <div className="w-full space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-base sm:text-lg">Direcciones:</h3>
-import Link from 'next/link';
-
               <Button variant="outline" className="border border-primary bg-background text-primary hover:text-primary-foreground" asChild>
                 <Link href="/user/profile/addresses">Gestionar</Link>
               </Button>

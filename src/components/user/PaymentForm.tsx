@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 
 interface PaymentFormProps {
   amount: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onSubmit: (paymentInfo: any) => void; //Seria el tipo de dato de información a subir
 }
 

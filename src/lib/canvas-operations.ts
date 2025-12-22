@@ -1,5 +1,4 @@
 import { useEffect, useRef } from "react";
-import { applyTransformation, Layer } from "./canvas-utils";
 import { Transformations, Effect } from "./types";
 
 type CanvasStyle = {

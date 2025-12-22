@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Address } from '@/types/Address';
 import { addressService } from '@/services/addressService';
 import { useAuthStore } from '@/stores/auth-store';
@@ -7,10 +7,10 @@ export const useAddresses = () => {
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user } = useAuthStore();
 
-  const fetchAddresses = async () => {
+  const fetchAddresses = useCallback(async () => {
     if (!user) {
       setError('Usuario no autenticado');
       setLoading(false);
@@ -22,13 +22,14 @@ export const useAddresses = () => {
       setError(null);
       const data = await addressService.getAll(user.id);
       setAddresses(data);
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar las direcciones');
+    } catch (err) {
+      const error = err as Error;
+      setError(error.message || 'Error al cargar las direcciones');
       console.error('Error fetching addresses:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   const createAddress = async (addressData: Omit<Address, 'id' | 'usuario_id'>) => {
     if (!user) {
@@ -39,9 +40,10 @@ export const useAddresses = () => {
       const newAddress = await addressService.create(addressData, user.id);
       setAddresses([...addresses, newAddress]);
       return { success: true };
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Error creating address:', err);
-      return { success: false, error: err.message || 'Error al crear la dirección' };
+      return { success: false, error: error.message || 'Error al crear la dirección' };
     }
   };
 
@@ -50,9 +52,10 @@ export const useAddresses = () => {
       const updatedAddress = await addressService.update(id, addressData);
       setAddresses(addresses.map(addr => addr.id === id ? updatedAddress : addr));
       return { success: true };
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Error updating address:', err);
-      return { success: false, error: err.message || 'Error al actualizar la dirección' };
+      return { success: false, error: error.message || 'Error al actualizar la dirección' };
     }
   };
 
@@ -61,9 +64,10 @@ export const useAddresses = () => {
       await addressService.delete(id);
       setAddresses(addresses.filter(addr => addr.id !== id));
       return { success: true };
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Error deleting address:', err);
-      return { success: false, error: err.message || 'Error al eliminar la dirección' };
+      return { success: false, error: error.message || 'Error al eliminar la dirección' };
     }
   };
 
@@ -75,9 +79,10 @@ export const useAddresses = () => {
         predeterminada: addr.id === id
       })));
       return { success: true };
-    } catch (err: any) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Error setting default address:', err);
-      return { success: false, error: err.message || 'Error al establecer dirección predeterminada' };
+      return { success: false, error: error.message || 'Error al establecer dirección predeterminada' };
     }
   };
 
@@ -87,7 +92,7 @@ export const useAddresses = () => {
     } else {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, fetchAddresses]);
 
   return {
     addresses,

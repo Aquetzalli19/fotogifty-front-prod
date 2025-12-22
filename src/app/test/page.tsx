@@ -30,6 +30,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
       {
         id: 2,
@@ -38,6 +42,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
       {
         id: 3,
@@ -46,6 +54,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
       {
         id: 4,
@@ -54,6 +66,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
       {
         id: 5,
@@ -62,6 +78,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
       {
         id: 6,
@@ -70,6 +90,10 @@ const page = () => {
           "Impresas en papel lustre profesional con revelado tradicional.",
         itemPrice: 10.0,
         itemImage: "/slide1.jpg",
+        numOfRequiredImages: 1,
+        photoResolution: 300,
+        photoWidth: 6,
+        photoHeight: 8,
       },
     ],
   };
@@ -77,7 +101,7 @@ const page = () => {
     <div>
       <ProductSection item={item} />
 
-      <OrderCard order={order} />
+      {/* <OrderCard order={order} /> */}
     </div>
   );
 };

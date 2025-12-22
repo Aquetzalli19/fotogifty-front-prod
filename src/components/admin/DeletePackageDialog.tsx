@@ -67,7 +67,7 @@ export function DeletePackageDialog({
           <DialogDescription className="pt-4">
             ¿Estás seguro de que deseas eliminar el paquete{" "}
             <span className="font-semibold text-foreground">
-              "{pkg?.packageName}"
+              &quot;{pkg?.packageName}&quot;
             </span>
             ?
             <br />

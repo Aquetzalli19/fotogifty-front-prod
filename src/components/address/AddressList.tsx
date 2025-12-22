@@ -126,7 +126,7 @@ const AddressList: React.FC = () => {
               setShowForm(false);
               setEditingAddress(null);
             }}
-            editingAddress={editingAddress}
+            editingAddress={editingAddress || undefined}
           />
         </div>
       )}
