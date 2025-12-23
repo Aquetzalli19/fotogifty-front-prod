@@ -180,10 +180,28 @@ export default function CalendarEditor() {
 
     ctx.clearRect(0, 0, CALENDAR_WIDTH, CALENDAR_HEIGHT);
 
+    // 1. Dibujar la foto del usuario PRIMERO (abajo)
+    if (currentMonthPhoto.imageSrc) {
+      const img = photoImageRefs.current.get(selectedMonth);
+      if (img) {
+        ctx.save();
+        const { scale, posX, posY } = currentMonthPhoto.transformations;
+        const centerX = CALENDAR_WIDTH / 2;
+        const centerY = PHOTO_AREA.height / 2;
+
+        ctx.translate(centerX + posX, centerY + posY);
+        ctx.scale(scale, scale);
+        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+        ctx.restore();
+      }
+    }
+
+    // 2. Dibujar el template del calendario ENCIMA (con transparencia)
     if (templateImageRef.current) {
       ctx.drawImage(templateImageRef.current, 0, 0, CALENDAR_WIDTH, CALENDAR_HEIGHT);
     }
 
+    // 3. Si no hay foto, mostrar el área de foto
     if (!currentMonthPhoto.imageSrc) {
       ctx.save();
       ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
@@ -198,21 +216,6 @@ export default function CalendarEditor() {
       ctx.textAlign = "center";
       ctx.fillText("ÁREA DE FOTO", CALENDAR_WIDTH / 2, PHOTO_AREA.height / 2);
       ctx.restore();
-    }
-
-    if (currentMonthPhoto.imageSrc) {
-      const img = photoImageRefs.current.get(selectedMonth);
-      if (img) {
-        ctx.save();
-        const { scale, posX, posY } = currentMonthPhoto.transformations;
-        const centerX = CALENDAR_WIDTH / 2;
-        const centerY = PHOTO_AREA.height / 2;
-
-        ctx.translate(centerX + posX, centerY + posY);
-        ctx.scale(scale, scale);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
-        ctx.restore();
-      }
     }
   };
 
