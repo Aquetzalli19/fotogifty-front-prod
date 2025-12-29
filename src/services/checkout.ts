@@ -144,6 +144,7 @@ export async function subirImagenesPedido(
 
 /**
  * Convierte un dataURL (base64) a Blob
+ * @deprecated Use dataURLtoBlobWithDPI from png-dpi.ts for better DPI preservation
  */
 export function dataURLtoBlob(dataURL: string): Blob {
   const arr = dataURL.split(',');
@@ -173,13 +174,18 @@ export function isBlobURL(str: string): boolean {
 }
 
 /**
- * Convierte cualquier tipo de imagen URL a Blob
+ * Convierte cualquier tipo de imagen URL a Blob con DPI preservado
  * Soporta: data URLs, blob URLs, y URLs normales
+ * @param imageURL - URL de la imagen
+ * @param dpi - DPI para la imagen (default: 300 para impresión de calidad)
+ * @returns Promise<Blob> con metadatos DPI
  */
-export async function imageURLtoBlob(imageURL: string): Promise<Blob> {
-  // Si es un data URL, convertir directamente
+export async function imageURLtoBlob(imageURL: string, dpi: number = 300): Promise<Blob> {
+  // Si es un data URL, convertir con DPI
   if (isDataURL(imageURL)) {
-    return dataURLtoBlob(imageURL);
+    // Importar dinámicamente para evitar problemas de SSR
+    const { dataURLtoBlobWithDPI } = await import('@/lib/png-dpi');
+    return dataURLtoBlobWithDPI(imageURL, dpi);
   }
 
   // Si es un blob URL o URL normal, hacer fetch
