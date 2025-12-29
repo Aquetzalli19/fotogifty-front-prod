@@ -18,6 +18,7 @@ import {
   StandardCustomization
 } from "@/stores/customization-store";
 import CartItemComponent from "@/components/user/stepper/CartItem";
+import ProductRecommendations from "@/components/user/cart/ProductRecommendations";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -374,6 +375,17 @@ const CartPage = () => {
                   )}
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Sección de recomendaciones */}
+          {!isLoadingProducts && items.length > 0 && (
+            <div className="w-full max-w-7xl px-4">
+              <ProductRecommendations
+                productSections={products}
+                cartItemIds={items.map((item) => item.id)}
+                maxRecommendations={4}
+              />
             </div>
           )}
         </div>
