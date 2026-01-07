@@ -17,7 +17,8 @@ export interface CheckoutItem {
  */
 export interface CrearSesionRequest {
   id_usuario: number;
-  id_direccion: number;
+  id_direccion?: number; // Opcional - requerido solo si metodo_entrega es 'envio_domicilio'
+  metodo_entrega: 'envio_domicilio' | 'recogida_tienda';
   nombre_cliente: string;
   email_cliente: string;
   telefono_cliente?: string;
@@ -84,7 +85,18 @@ export interface SubirImagenesResponse {
  * Crea una sesión de Stripe Checkout
  */
 export async function crearSesionCheckout(data: CrearSesionRequest) {
-  return apiClient.post<CrearSesionResponse>('/checkout/crear-sesion', data);
+  // Validar dirección solo para envío a domicilio
+  if (data.metodo_entrega === 'envio_domicilio' && !data.id_direccion) {
+    throw new Error('La dirección de envío es requerida para envío a domicilio');
+  }
+
+  // Limpiar id_direccion si es recogida en tienda
+  const payload = {
+    ...data,
+    id_direccion: data.metodo_entrega === 'envio_domicilio' ? data.id_direccion : undefined,
+  };
+
+  return apiClient.post<CrearSesionResponse>('/checkout/crear-sesion', payload);
 }
 
 /**

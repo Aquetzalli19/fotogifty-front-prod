@@ -23,11 +23,14 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
-import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/packages";
 import { addressService } from "@/services/addressService";
 import { crearSesionCheckout, CheckoutItem } from "@/services/checkout";
+import { config } from "@/lib/config";
 
 const CartPage = () => {
   const router = useRouter();
@@ -45,6 +48,9 @@ const CartPage = () => {
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  // Estado para método de entrega
+  const [deliveryMethod, setDeliveryMethod] = useState<'envio_domicilio' | 'recogida_tienda'>('envio_domicilio');
 
   const { items, getTotals, clearCart, removeItem } = useCartStore();
   const { getCustomization, getInstanceProgress, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
@@ -207,7 +213,8 @@ const CartPage = () => {
       return;
     }
 
-    if (!selectedAddressId) {
+    // Validar dirección solo si es envío a domicilio
+    if (deliveryMethod === 'envio_domicilio' && !selectedAddressId) {
       setCheckoutError("Selecciona una dirección de envío");
       return;
     }
@@ -231,7 +238,8 @@ const CartPage = () => {
 
       const response = await crearSesionCheckout({
         id_usuario: user.id,
-        id_direccion: selectedAddressId,
+        id_direccion: deliveryMethod === 'envio_domicilio' ? (selectedAddressId ?? undefined) : undefined,
+        metodo_entrega: deliveryMethod,
         nombre_cliente: user.nombre || user.email,
         email_cliente: user.email,
         telefono_cliente: user.telefono,
@@ -706,12 +714,68 @@ const CartPage = () => {
                 </div>
               ) : (
                 <>
-                  {/* Selector de Dirección */}
-                  <div>
-                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <MapPin className="h-5 w-5" />
-                      Dirección de Envío
-                    </h2>
+                  {/* Selector de Método de Entrega */}
+                  <div className="mb-6">
+                    <h2 className="text-xl font-semibold mb-4">Método de Entrega</h2>
+
+                    <RadioGroup
+                      value={deliveryMethod}
+                      onValueChange={(value) => setDeliveryMethod(value as 'envio_domicilio' | 'recogida_tienda')}
+                      className="space-y-3"
+                    >
+                      {/* Opción: Envío a domicilio */}
+                      <div
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          deliveryMethod === 'envio_domicilio'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                        onClick={() => setDeliveryMethod('envio_domicilio')}
+                      >
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem value="envio_domicilio" id="envio_domicilio" className="mt-0.5" />
+                          <div className="flex-1">
+                            <Label htmlFor="envio_domicilio" className="font-semibold cursor-pointer text-base">
+                              Envío a domicilio
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Tu pedido será enviado a la dirección que selecciones
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Opción: Recoger en tienda */}
+                      <div
+                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                          deliveryMethod === 'recogida_tienda'
+                            ? 'border-primary bg-primary/5'
+                            : 'border-muted hover:border-primary/50'
+                        }`}
+                        onClick={() => setDeliveryMethod('recogida_tienda')}
+                      >
+                        <div className="flex items-start gap-3">
+                          <RadioGroupItem value="recogida_tienda" id="recogida_tienda" className="mt-0.5" />
+                          <div className="flex-1">
+                            <Label htmlFor="recogida_tienda" className="font-semibold cursor-pointer text-base">
+                              Recoger en tienda
+                            </Label>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Recoge tu pedido en nuestra tienda física
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </RadioGroup>
+                  </div>
+
+                  {/* Selector de Dirección - Solo si es envío a domicilio */}
+                  {deliveryMethod === 'envio_domicilio' && (
+                    <div>
+                      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <MapPin className="h-5 w-5" />
+                        Dirección de Envío
+                      </h2>
 
                     {isLoadingAddresses ? (
                       <div className="flex items-center justify-center p-8">
@@ -782,7 +846,61 @@ const CartPage = () => {
                         </Button>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  )}
+
+                  {/* Información de Tienda - Solo si es recogida en tienda */}
+                  {deliveryMethod === 'recogida_tienda' && (
+                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-6 border-2 border-blue-200 dark:border-blue-800">
+                      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <MapPin className="h-5 w-5 text-blue-600" />
+                        Ubicación de la Tienda
+                      </h2>
+
+                      <div className="space-y-3">
+                        <div>
+                          <p className="font-semibold text-lg">{config.storeInfo.nombre}</p>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Dirección</p>
+                            <p className="font-medium">{config.storeInfo.direccion}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {config.storeInfo.ciudad}, {config.storeInfo.estado}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              C.P. {config.storeInfo.codigo_postal}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <Phone className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Teléfono</p>
+                            <p className="font-medium">{config.storeInfo.telefono}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-sm text-muted-foreground">Horario</p>
+                            <p className="font-medium">{config.storeInfo.horario}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-100 dark:bg-blue-900/30 rounded-md p-3 mt-4">
+                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                            <strong>Importante:</strong> Te notificaremos por email cuando tu pedido esté listo para recoger.
+                            No olvides traer una identificación oficial al recoger tu pedido.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Botón de Pago */}
                   <div className="mt-4">
@@ -807,7 +925,11 @@ const CartPage = () => {
                     <Button
                       className="w-full h-14 text-lg font-semibold"
                       onClick={handleCheckout}
-                      disabled={isProcessingCheckout || !selectedAddressId || items.length === 0}
+                      disabled={
+                        isProcessingCheckout ||
+                        (deliveryMethod === 'envio_domicilio' && !selectedAddressId) ||
+                        items.length === 0
+                      }
                     >
                       {isProcessingCheckout ? (
                         <>
@@ -822,9 +944,16 @@ const CartPage = () => {
                       )}
                     </Button>
 
-                    {selectedAddress && (
+                    {/* Mensaje dinámico según método de entrega */}
+                    {deliveryMethod === 'envio_domicilio' && selectedAddress && (
                       <p className="text-xs text-muted-foreground text-center mt-3">
                         Envío a: {selectedAddress.alias} - {selectedAddress.ciudad}
+                      </p>
+                    )}
+
+                    {deliveryMethod === 'recogida_tienda' && (
+                      <p className="text-xs text-muted-foreground text-center mt-3">
+                        Recoger en: {config.storeInfo.nombre}
                       </p>
                     )}
                   </div>

@@ -3,6 +3,7 @@ export interface UserOrder {
   orderItems: OrderItem[];
   status: "Enviado" | "En reparto" | "Entregado";
   images: string[];
+  metodo_entrega?: 'envio_domicilio' | 'recogida_tienda';
 }
 
 export interface OrderItem {
@@ -57,6 +58,7 @@ export interface AdmiOrder {
   email_cliente: string;
   telefono_cliente?: string | null;
   direccion_envio?: DireccionEnvio;
+  metodo_entrega?: 'envio_domicilio' | 'recogida_tienda';
 
   // Alias para compatibilidad (deprecados)
   clientName?: string;

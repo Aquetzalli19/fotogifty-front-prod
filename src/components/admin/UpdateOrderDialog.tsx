@@ -20,6 +20,7 @@ import { useState } from "react";
 import { actualizarEstadoPedido } from "@/services/pedidos";
 import { Separator } from "../ui/separator";
 import DownloadPedidoFotos from "@/components/user/DownloadPedidoFotos";
+import { config } from "@/lib/config";
 
 interface OrderDialogProps {
   order: AdmiOrder;
@@ -291,8 +292,29 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
           </div>
         </div>
 
-        {/* Dirección de envío */}
-        {address && (
+        {/* Dirección de envío o información de tienda */}
+        {order.metodo_entrega === 'recogida_tienda' ? (
+          // Mostrar información de tienda si es recogida
+          <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+            <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-blue-600" />
+              Recoger en Tienda
+            </h3>
+            <div className="space-y-1 text-sm">
+              <p className="font-medium">{config.storeInfo.nombre}</p>
+              <p className="text-muted-foreground">{config.storeInfo.direccion}</p>
+              <p className="text-muted-foreground">
+                {config.storeInfo.ciudad}, {config.storeInfo.estado}
+              </p>
+              <p className="text-muted-foreground">C.P. {config.storeInfo.codigo_postal}</p>
+              <p className="text-muted-foreground">{config.storeInfo.telefono}</p>
+              <p className="text-xs text-blue-600 mt-2">
+                Horario: {config.storeInfo.horario}
+              </p>
+            </div>
+          </div>
+        ) : address ? (
+          // Mostrar dirección de envío (código existente)
           <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
             <h3 className="font-semibold text-sm mb-3 flex items-center gap-2">
               <MapPin className="h-4 w-4 text-blue-600" />
@@ -309,13 +331,12 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
               <p className="text-muted-foreground">{address.pais}</p>
             </div>
           </div>
-        )}
-
-        {!address && (
+        ) : (
+          // Sin dirección ni recogida en tienda (código existente)
           <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
             <div className="flex items-center gap-2 text-yellow-800 dark:text-yellow-200">
               <MapPin className="h-4 w-4" />
-              <p className="text-sm">Sin dirección de envío registrada</p>
+              <p className="text-sm">Sin información de entrega</p>
             </div>
           </div>
         )}

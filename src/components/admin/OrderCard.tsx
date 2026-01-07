@@ -14,7 +14,7 @@ import {
 import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
 import { Separator } from "../ui/separator";
 import { Dialog, DialogTrigger } from "@/components/ui/dialog";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, MapPin } from "lucide-react";
 
 import UpdateOrderDialog from "./UpdateOrderDialog";
 
@@ -144,6 +144,18 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
               >
                 {status}
               </Badge>
+
+              {/* Badge de método de entrega */}
+              {order.metodo_entrega === 'recogida_tienda' && (
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-100 text-blue-800 border-blue-300 text-xs sm:text-sm flex items-center gap-1"
+                >
+                  <MapPin className="h-3 w-3" />
+                  Recoger en tienda
+                </Badge>
+              )}
+
               {images.length > 0 && (
                 <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                   <ImageIcon className="h-3 w-3" />
