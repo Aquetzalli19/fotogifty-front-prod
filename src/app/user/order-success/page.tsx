@@ -18,6 +18,7 @@ import {
 
 import { verificarSesion, subirImagenesPedido, imageURLtoBlob, ItemPedidoCreado } from "@/services/checkout";
 import { useCartStore } from "@/stores/cart-store";
+import { useCartStepStore } from "@/stores/cart-step-store";
 import {
   useCustomizationStore,
   CalendarCustomization,
@@ -43,6 +44,7 @@ export default function OrderSuccessPage() {
   const sessionId = searchParams.get("session_id");
 
   const { items, clearCart } = useCartStore();
+  const { resetStep } = useCartStepStore();
   const { customizations, clearAll: clearCustomizations } = useCustomizationStore();
 
   const [status, setStatus] = useState<PageStatus>("loading");
@@ -133,7 +135,14 @@ export default function OrderSuccessPage() {
             console.log("🖼️ Generando imágenes renderizadas estándar...");
 
             if (data.images && Array.isArray(data.images)) {
-              for (const img of data.images) {
+              // IMPORTANTE: Deduplicar imágenes por ID para evitar subir duplicados
+              const uniqueImages = data.images.filter((img, index, self) =>
+                index === self.findIndex((t) => t.id === img.id)
+              );
+
+              console.log(`📊 Total de imágenes: ${data.images.length}, Únicas: ${uniqueImages.length}`);
+
+              for (const img of uniqueImages) {
                 try {
                   // Importar función de renderizado dinámicamente
                   const { renderStandardImage } = await import('@/lib/standard-render-utils');
@@ -163,28 +172,21 @@ export default function OrderSuccessPage() {
 
             for (const month of data.months) {
               if (month.imageSrc) {
-                // IMPORTANTE: Generar AMBAS versiones justo antes de subir
-                // (no están en localStorage para evitar QuotaExceededError)
+                // IMPORTANTE: Solo generar área recortada para impresión
+                // (la versión con template solo se usa para preview en el editor)
 
                 try {
-                  // Importar dinámicamente las funciones de renderizado
-                  const { renderCroppedPhoto, renderCalendarMonth } = await import('@/lib/calendar-render-utils');
+                  // Importar dinámicamente la función de renderizado
+                  const { renderCroppedPhoto } = await import('@/lib/calendar-render-utils');
 
-                  // 1. Área recortada (sin template) - PARA IMPRESIÓN
+                  // Área recortada (sin template) - PARA IMPRESIÓN
                   const croppedImage = await renderCroppedPhoto(month);
                   if (croppedImage) {
                     imageURLs.push(croppedImage);
                     console.log(`✂️ Área recortada generada para mes ${month.month}`);
                   }
-
-                  // 2. Calendario completo (con template) - PARA PREVIEW/VISUALIZACIÓN
-                  const renderedImage = await renderCalendarMonth(month);
-                  if (renderedImage) {
-                    imageURLs.push(renderedImage);
-                    console.log(`📅 Calendario completo generado para mes ${month.month}`);
-                  }
                 } catch (error) {
-                  console.error(`Error generando imágenes del mes ${month.month}:`, error);
+                  console.error(`Error generando imagen del mes ${month.month}:`, error);
                   // Fallback: subir imagen original si falla el renderizado
                   imageURLs.push(month.imageSrc);
                 }
@@ -284,9 +286,10 @@ export default function OrderSuccessPage() {
         console.warn("Hay customizations pero no se pudieron asociar a items del pedido");
       }
 
-      // 5. Limpiar el carrito y las personalizaciones
+      // 5. Limpiar el carrito, personalizaciones y resetear el paso
       clearCart();
       clearCustomizations();
+      resetStep(); // Volver al paso 1 del carrito
 
       setStatus("success");
     } catch (err) {
