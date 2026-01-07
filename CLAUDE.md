@@ -50,6 +50,29 @@ El proyecto usa **rewrites de Next.js** para hacer proxy de las peticiones API, 
 - ✅ Mismo dominio en cliente y servidor
 - ✅ Fácil cambio de backend sin modificar código
 
+### Next.js Image Configuration
+
+El proyecto tiene configurados patrones de imágenes remotas en `next.config.ts`:
+
+```typescript
+images: {
+  remotePatterns: [
+    {
+      protocol: "https",
+      hostname: "encrypted-tbn0.gstatic.com", // Google images (legacy)
+      pathname: "/images/**",
+    },
+    {
+      protocol: "https",
+      hostname: "fotogifty.s3.us-east-1.amazonaws.com", // AWS S3 bucket
+      pathname: "/fotos/**",
+    },
+  ],
+}
+```
+
+**Importante**: Para usar `next/image` con nuevas fuentes, agregar el hostname a `remotePatterns`
+
 ## Architecture
 
 ### Route Structure
@@ -71,6 +94,8 @@ The application uses Next.js App Router with route groups for role-based layouts
   - `/admi/(delivercontrol)/` - Order tracking and delivery management
   - `/admi/itemcontrol/` - Product inventory management
   - `/admi/addItem/` - Add new products to catalogue
+  - `/app/admin/analytics/` - Analytics dashboard with KPIs, charts, sales data
+    - Requires backend implementation (see `ANALYTICS_ENDPOINTS_SPEC.md`)
 
 ### State Management
 
@@ -82,26 +107,68 @@ The application uses Next.js App Router with route groups for role-based layouts
   - Stores user data, token, and authentication status
   - Methods: `login()`, `logout()`, `updateUserData()`
 - `src/stores/cart-step-store.ts`: Shopping cart checkout flow state
+- `src/stores/customization-store.ts`: Photo editor customizations per cart item
+  - Persisted to localStorage as `customization-storage`
+  - Stores images, transformations, effects for Standard/Calendar/Polaroid editors
+  - Manages multiple instances per cart item (e.g., 3 separate customizations for quantity=3)
+  - Methods: `saveCustomization()`, `getCustomization()`, `removeCustomization()`, `isInstanceComplete()`
 
 ### Key Features
 
-**Photo Editor** (`src/app/user/editor/page.tsx`):
-- Canvas-based image editing with 800x600 dimensions
-- Mobile-first responsive design with touch event support for canvas manipulation
-- Implements Command pattern for undo/redo via `useHistory` hook (`src/hooks/useHistory.ts`)
-- Transformations: scale, rotation, mirror (X/Y), position (drag/drop and touch)
-- Effects: brightness, contrast, saturation, sepia (custom pixel manipulation)
-- Canvas styling: background color, border color/width
-- Uses `src/lib/canvas-utils.ts` for transformation matrix operations (MIT licensed from Igor Zinken)
-- Export format: PNG via `canvas.toDataURL("image/png")`
-- Zoom support: 0.1x to 2x
+**Photo Editors** (3 types based on product category):
+
+1. **Standard Editor** (`src/app/user/editor/StandardEditor.tsx`):
+   - Canvas-based image editing with configurable dimensions from package
+   - Mobile-first responsive design with touch event support
+   - Implements Command pattern for undo/redo via `useHistory` hook
+   - Transformations: scale, rotation, mirror (X/Y), position (drag/drop and touch)
+   - Effects: brightness, contrast, saturation, sepia (custom pixel manipulation)
+   - Canvas styling: background color, border color/width
+   - Export: PNG with 300 DPI embedded metadata via `png-dpi.ts`
+   - Rendering utilities: `src/lib/standard-render-utils.ts`
+
+2. **Calendar Editor** (`src/components/editor-components/CalendarEditor.tsx`):
+   - 12-month calendar with photo area at 52% top (configurable in `CALENDAR_AREA_CONFIG.md`)
+   - Template-based: loads PNG template and composites photo behind it
+   - Photo area dimensions auto-detected from template (typically 2400×3600px)
+   - Basic transformations: scale, position (no rotation/effects)
+   - Export: Cropped photo area only (without template) for backend printing
+   - Rendering utilities: `src/lib/calendar-render-utils.ts`
+
+3. **Polaroid Editor** (`src/components/editor-components/PolaroidEditor.tsx`):
+   - Polaroid-style frame with white border and caption area
+   - Basic transformations: scale, position within polaroid frame
+   - Rendering utilities: `src/lib/polaroid-render-utils.ts`
+
+**Editor Type Detection** (`src/lib/category-utils.ts`):
+- Auto-detects editor type from category name (case-insensitive):
+  - "calendario"/"calendar" → `calendar` editor
+  - "polaroid" → `polaroid` editor
+  - Others → `standard` editor
+- `EditorType` preserved throughout: ProductCard → Cart → Editor
+- See `EDITOR_TYPE_USAGE.md` for complete guide
+
+**Shared utilities**:
+- `src/lib/canvas-utils.ts`: Transformation matrix operations (MIT licensed from Igor Zinken)
+- `src/lib/canvas-operations.ts`: Canvas manipulation helpers
+- `src/lib/png-dpi.ts`: Embed 300 DPI metadata in PNG files
+- `src/lib/image-compression.ts`: Compress images for upload
 
 **Component Organization**:
 - `src/components/landing-page/`: Marketing sections
 - `src/components/user/`: User-facing features (navbar, profile, product catalogue, cart)
+  - `DownloadFotoButton.tsx`: Download individual photo (Admin/Store only)
+  - `DownloadPedidoFotos.tsx`: Download all photos from an order (Admin/Store only)
 - `src/components/admi/`: Admin components (OrderCard, ItemCard, dialogs)
+- `src/components/admin/`: Admin analytics dashboard components
+- `src/components/store/`: Store (point-of-sale) components
 - `src/components/ui/`: shadcn/ui components (16 Radix UI-based components)
-- `src/components/editor-components/`: Photo editor tabs (TransformTab, AdjustTab, BackgroundTab, FilterPreview, DownloadPreview)
+- `src/components/editor-components/`: Photo editor tabs and controls
+  - `CalendarEditor.tsx`: Calendar-specific editor
+  - `PolaroidEditor.tsx`: Polaroid-specific editor
+  - `TransformTab.tsx`, `AdjustTab.tsx`, `BackgroundTab.tsx`: Standard editor tabs
+  - `FilterPreview.tsx`, `DownloadPreview.tsx`: Shared previews
+- `src/components/debug/`: Debug utilities for development
 
 ### Styling & UI
 
@@ -141,6 +208,16 @@ The application uses Next.js App Router with route groups for role-based layouts
   - `crearCategoria()`, `actualizarCategoria()`, `eliminarCategoria()`
 - `auth.ts`: Autenticación - **Conectado a API real**
   - `loginCliente()`, `loginAdmin()`, `registroAdmin()`
+- `fotos.ts`: Gestión de fotos - **Conectado a API real**
+  - `obtenerUrlDescargaFoto()`: Get signed S3 URL (expires in 1 hour)
+  - `descargarFoto()`: Download single photo with 300 DPI metadata
+  - `descargarMultiplesFotos()`: Batch download photos (Admin/Store only)
+  - `obtenerMetadataFoto()`: Get photo metadata without downloading
+  - **See `DESCARGA_FOTOS_GUIDE.md` for complete usage guide**
+- `analytics.ts`: Admin analytics dashboard - **API endpoints pending implementation**
+  - `obtenerAnalytics()`: Get all analytics data (KPIs, sales, top products)
+  - **See `ANALYTICS_ENDPOINTS_SPEC.md` for backend specification**
+- `checkout.ts`: Stripe payment integration
 - `products.ts`, `orders.ts`: Servicios legacy (usar packages.ts y categories.ts en su lugar)
 
 **Mock Data** (modo desarrollo):
@@ -220,26 +297,51 @@ Para hacer deploy en Vercel:
 
 ## Additional Documentation
 
+### Deployment & API
 - `VERCEL_DEPLOYMENT.md` - Guía completa de deployment en Vercel con configuración de seguridad
 - `docs/API_ORDENES_BACKEND.md` - Documentación de API de órdenes del backend
 - `API_REAL_DOCUMENTATION.md` - Referencia completa de API con ejemplos
-- `CART_AND_ORDERS_ARCHITECTURE.md` - Arquitectura completa del flujo de carrito y órdenes
-- `MIGRATION_GUIDE.md` - Guía para migrar de mock data a API real
 - `BACKEND_API_DOCS.md` - Documentación adicional del backend
+- `MIGRATION_GUIDE.md` - Guía para migrar de mock data a API real
+
+### Architecture & Flow
+- `CART_AND_ORDERS_ARCHITECTURE.md` - Arquitectura completa del flujo de carrito y órdenes
+- `docs/STRIPE_PAYMENT_SPECIFICATION.md` - Especificación de integración de Stripe
+
+### Editor & Features
+- `EDITOR_TYPE_USAGE.md` - Guía completa de sistema de editores (Standard/Calendar/Polaroid)
+- `CALENDAR_AREA_CONFIG.md` - Cómo configurar el área de foto en calendarios (52% top configurable)
+- `DESCARGA_FOTOS_GUIDE.md` - Guía completa del sistema de descarga de fotos con DPI (Admin/Store only)
+- `ANALYTICS_ENDPOINTS_SPEC.md` - Especificación de endpoints de analytics para el backend
 
 ## Important Notes
 
+### Backend & API
 - **API Conectada**: Backend en Railway - Ver `API_REAL_DOCUMENTATION.md` para detalles completos
 - **Página de Prueba**: Visita `/test-api` para probar la conexión con la API
 - **Convención de Nombres**: La API usa snake_case (`categoria_id`) mientras el frontend usa camelCase
+- **Image Storage**: Photos stored in AWS S3 bucket `fotogifty.s3.us-east-1.amazonaws.com/fotos/**`
+- **Signed URLs**: S3 download URLs expire in 1 hour, must be refreshed for new downloads
+
+### Architecture
 - **Rutas Admin Duplicadas**: Existen `/admin/` y `/admi/` - `/admi/` es la implementación activa
-- **Editor de Fotos**: Usa transformaciones canvas basadas en código MIT de Igor Zinken (`src/lib/canvas-utils.ts:62-130`)
+- **Editor Types**: 3 editors auto-detected by category name: Standard, Calendar, Polaroid
+- **Multiple Instances**: `customization-store` handles multiple customizations per cart item (e.g., 3 photos for quantity=3)
+- **DPI Embedding**: All exported photos have 300 DPI metadata embedded via `png-dpi.ts`
+
+### Permissions & Roles
+- **Photo Downloads**: ONLY Admin and Store roles can download photos (enforced in frontend + backend)
+- **User Types**: `cliente` (customer), `admin`, `super_admin`, `store` (point-of-sale)
+- **Protected Routes**: Use `auth-store` to check authentication and role-based access
+
+### Performance & UX
+- **Canvas Transformations**: Uses MIT-licensed code from Igor Zinken (`src/lib/canvas-utils.ts:62-130`)
 - **IVA**: Tasa de impuesto del 16% hardcoded en `cart-store.ts:6`
 - **Mock Data**: Disponible en `src/test-data/` como fallback durante desarrollo
-- **Performance**: Efectos de manipulación de píxeles (sepia) son intensivos para imágenes grandes
-- **Mobile**: Eventos táctiles soportados para manipulación del canvas en el editor
+- **Pixel Effects**: Sepia and other pixel manipulation effects are intensive for large images
+- **Mobile Support**: Touch events supported for canvas manipulation in all editors
 - **Notificaciones**: Via `useToast` hook - usa `success()`, `error()`, `warning()`, `info()`
-- **Direcciones**: Gestión completamente integrada con backend via `useAddresses` hook
+- **Batch Downloads**: 500-800ms delay between downloads to avoid browser saturation
 
 ## Common Issues & Solutions
 

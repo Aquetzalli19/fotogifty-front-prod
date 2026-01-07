@@ -11,40 +11,29 @@ interface ProtectedRouteProps {
   redirectTo?: string; // Ruta a la que redirigir si no está autenticado
 }
 
-export default function ProtectedRoute({ 
-  children, 
-  allowedRoles, 
-  redirectTo = '/login' 
+export default function ProtectedRoute({
+  children,
+  allowedRoles,
+  redirectTo = '/login'
 }: ProtectedRouteProps) {
   const router = useRouter();
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, _hasHydrated } = useAuthStore();
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Esperar a que el store se hidrate antes de verificar autenticación
+    if (!_hasHydrated) {
+      return;
+    }
+
     // Verificar si el usuario está autenticado
     const checkAuth = () => {
       // Verificar si hay token en localStorage
       const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
-      
-      if (!token) {
+
+      if (!token || !isAuthenticated) {
         router.push(redirectTo);
         return;
-      }
-
-      // Si hay token pero no está en el store, es posible que la app se haya recargado
-      // En este caso, intentamos cargar la información del usuario
-      if (token && !isAuthenticated) {
-        // Esperar un breve momento para que AuthProvider cargue la información
-        const timer = setTimeout(() => {
-          // Si aún no está autenticado después de cargar, redirigir
-          if (!isAuthenticated) {
-            router.push(redirectTo);
-          } else {
-            setLoading(false);
-          }
-        }, 100);
-        
-        return () => clearTimeout(timer);
       }
 
       // Verificar si el usuario tiene los roles necesarios
@@ -69,7 +58,7 @@ export default function ProtectedRoute({
     };
 
     checkAuth();
-  }, [isAuthenticated, user, router, redirectTo, allowedRoles]);
+  }, [_hasHydrated, isAuthenticated, user, router, redirectTo, allowedRoles]);
 
   // Mostrar un loader mientras se verifica la autenticación
   if (loading) {

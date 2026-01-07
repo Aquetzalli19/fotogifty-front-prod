@@ -21,7 +21,8 @@ import { useHistory } from "@/hooks/useHistory";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCustomizationStore, PolaroidCustomization } from "@/stores/customization-store";
 import { getEditorType } from "@/lib/category-utils";
-import { compressImage, compressCanvas } from "@/lib/canvas-utils";
+import { compressCanvas } from "@/lib/canvas-utils";
+import { compressAndResizeImage } from "@/lib/image-compression";
 
 // Interfaz para cada polaroid guardada
 interface SavedPolaroid {
@@ -33,6 +34,7 @@ interface SavedPolaroid {
     posY: number;
   };
   thumbnailDataUrl?: string; // Preview pequeño para la galería
+  renderedImageSrc?: string; // ✅ NUEVO: Canvas completo renderizado con todas las transformaciones (WYSIWYG)
 }
 
 // Dimensiones del canvas polaroid
@@ -217,27 +219,31 @@ export default function PolaroidEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const originalSrc = event.target?.result as string;
+    try {
+      // Comprimir la imagen para localStorage
+      // Polaroid área de foto: 700x700px, usamos 1000px para permitir zoom
+      const compressedSrc = await compressAndResizeImage(file, {
+        maxWidth: 1000,
+        maxHeight: 1000,
+        quality: 0.85,
+        mimeType: 'image/jpeg'
+      });
 
-      try {
-        // Comprimir la imagen agresivamente para localStorage
-        // Polaroids usan resolución más baja (600px max, calidad 0.5)
-        const compressedSrc = await compressImage(originalSrc, 600, 600, 0.5);
-
-        // Cargar la imagen comprimida
-        const img = new Image();
-        img.src = compressedSrc;
-        img.onload = () => {
-          currentImageRef.current = img;
-          setCurrentImageSrc(compressedSrc);
-          setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
-          reset();
-        };
-      } catch (error) {
-        console.error("Error comprimiendo imagen:", error);
-        // Fallback: usar imagen original
+      // Cargar la imagen comprimida
+      const img = new Image();
+      img.src = compressedSrc;
+      img.onload = () => {
+        currentImageRef.current = img;
+        setCurrentImageSrc(compressedSrc);
+        setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+        reset();
+      };
+    } catch (error) {
+      console.error("Error comprimiendo imagen:", error);
+      // Fallback: cargar imagen original
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const originalSrc = event.target?.result as string;
         const img = new Image();
         img.src = originalSrc;
         img.onload = () => {
@@ -246,10 +252,9 @@ export default function PolaroidEditor() {
           setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
           reset();
         };
-      }
-    };
-
-    reader.readAsDataURL(file);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // Manejar cambio de escala
@@ -331,6 +336,10 @@ export default function PolaroidEditor() {
     // Comprimir el thumbnail a un tamaño muy pequeño para la galería
     const thumbnailDataUrl = compressCanvas(canvas, 120, 150, 0.4);
 
+    // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
+    // La imagen renderizada se generará SOLO al subir al backend
+    console.log("💾 Guardando polaroid (solo original + transformaciones, sin renderizar)");
+
     if (editingPolaroidId !== null) {
       // Actualizar polaroid existente
       setSavedPolaroids((prev) =>
@@ -340,7 +349,8 @@ export default function PolaroidEditor() {
                 ...p,
                 imageSrc: currentImageSrc,
                 transformations: { ...currentTransformations },
-                thumbnailDataUrl,
+                thumbnailDataUrl, // Pequeño, solo para preview en galería
+                // NO guardamos renderedImageSrc para evitar QuotaExceededError
               }
             : p
         )
@@ -352,7 +362,8 @@ export default function PolaroidEditor() {
         id: nextId,
         imageSrc: currentImageSrc,
         transformations: { ...currentTransformations },
-        thumbnailDataUrl,
+        thumbnailDataUrl, // Pequeño, solo para preview en galería
+        // NO guardamos renderedImageSrc para evitar QuotaExceededError
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
       setNextId((prev) => prev + 1);

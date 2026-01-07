@@ -15,10 +15,13 @@ type CanvasDimensions = {
 export const validateImageResolution = (
   image: HTMLImageElement,
   canvasDimensions: CanvasDimensions,
-  setResolutionWarning: React.Dispatch<React.SetStateAction<string | null>>
+  setResolutionWarning: React.Dispatch<React.SetStateAction<string | null>>,
+  exportDimensions?: CanvasDimensions // Dimensiones de export para validación correcta
 ) => {
-  const requiredWidth = canvasDimensions.width;
-  const requiredHeight = canvasDimensions.height;
+  // Validar contra el canvas de EXPORT (alta resolución), no el de preview
+  const targetDimensions = exportDimensions || canvasDimensions;
+  const requiredWidth = targetDimensions.width;
+  const requiredHeight = targetDimensions.height;
 
   if (image.width < requiredWidth || image.height < requiredHeight) {
     setResolutionWarning(
@@ -147,6 +150,12 @@ export const renderCanvas = (
   const img = imageRef.current;
   if (!img) return;
 
+  console.log("=== RENDERIZANDO CANVAS ===");
+  console.log("Canvas size:", { width: canvas.width, height: canvas.height });
+  console.log("Imagen size:", { width: img.width, height: img.height });
+  console.log("Transformations:", transformations);
+  console.log("Canvas style:", canvasStyle);
+
   // Generar key para el cache (excluye posX y posY)
   const effectsKey = getEffectsKey(
     effects,
@@ -179,6 +188,10 @@ export const renderCanvas = (
   const drawX = (canvas.width - cachedImage.width) / 2 + transformations.posX;
   const drawY = (canvas.height - cachedImage.height) / 2 + transformations.posY;
 
+  console.log("Cached image size:", { width: cachedImage.width, height: cachedImage.height });
+  console.log("Drawing position:", { drawX, drawY });
+  console.log("===========================");
+
   // Dibujar la imagen cacheada (muy rápido - solo una operación drawImage)
   ctx.drawImage(cachedImage, drawX, drawY);
 
@@ -203,7 +216,8 @@ export const useCanvasRendering = (
   canvasStyle: CanvasStyle,
   canvasDimensions: CanvasDimensions,
   setResolutionWarning: React.Dispatch<React.SetStateAction<string | null>>,
-  selectedFilter: string
+  selectedFilter: string,
+  exportDimensions?: CanvasDimensions // Para validación correcta de resolución
 ) => {
   const imageRef = useRef<HTMLImageElement | null>(null);
   const rafIdRef = useRef<number | null>(null);
@@ -237,7 +251,8 @@ export const useCanvasRendering = (
           // Invalidar cache cuando cambia la imagen
           effectsCacheRef.current = { canvas: null, effectsKey: '', imageSrc: null };
 
-          validateImageResolution(img, canvasDimensions, setResolutionWarning);
+          // Validar contra dimensiones de export, no de preview
+          validateImageResolution(img, canvasDimensions, setResolutionWarning, exportDimensions);
 
           renderCanvas(canvas, imageRef, transformations, effects, canvasStyle);
         };

@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { loginCliente } from "@/services/auth";
+import { loginCliente, obtenerUsuarioActual } from "@/services/auth";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
 import { useAuthStore } from "@/stores/auth-store";
@@ -61,18 +61,28 @@ export default function LoginPage() {
       const response = await loginCliente(credentials);
 
       if (response.success && response.data) {
-        // Guardar usuario y token en el store de autenticación
-        login(response.data.user, response.data.token);
-
-        // También guardar en localStorage para persistencia
+        // Guardar token temporalmente para hacer la petición de usuario completo
         if (typeof window !== 'undefined') {
           localStorage.setItem('auth_token', response.data.token);
         }
 
-        success('Inicio de sesión exitoso');
+        // Obtener los datos completos del usuario
+        const userDataResponse = await obtenerUsuarioActual();
 
-        // Redirigir al usuario a la página principal o dashboard
-        router.push('/user');
+        if (userDataResponse.success && userDataResponse.data) {
+          // Guardar usuario COMPLETO y token en el store de autenticación
+          login(userDataResponse.data, response.data.token);
+
+          success('Inicio de sesión exitoso');
+
+          // Redirigir al usuario a la página principal o dashboard
+          router.push('/user');
+        } else {
+          // Si falla obtener datos completos, usar los datos básicos del login
+          console.warn('No se pudieron obtener datos completos del usuario, usando datos básicos');
+          login(response.data.user, response.data.token);
+          router.push('/user');
+        }
       } else {
         const errorMessage = response.message || response.error || 'Error en el inicio de sesión';
         showError(errorMessage);

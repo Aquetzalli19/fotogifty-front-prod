@@ -11,22 +11,32 @@ import {
   Tags,
   Users,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  BarChart3
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePathname } from "next/navigation";
 
 const AdmiNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const { user, logout, _hasHydrated } = useAuthStore();
   const pathname = usePathname();
+  const [isReady, setIsReady] = useState(false);
+
+  // Esperar a que el store se hidrate antes de mostrar los datos del usuario
+  useEffect(() => {
+    if (_hasHydrated) {
+      setIsReady(true);
+    }
+  }, [_hasHydrated]);
 
   const navItems = [
     { href: "/admin", label: "Pedidos", icon: Package },
     { href: "/admin/itemcontrol", label: "Paquetes", icon: Boxes },
     { href: "/admin/categories", label: "Categorías", icon: Tags },
     { href: "/admin/users", label: "Usuarios", icon: Users },
+    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   ];
 
   const isActive = (href: string) => {
@@ -101,7 +111,7 @@ const AdmiNavbar = () => {
 
           {/* User info and logout */}
           <div className="flex items-center gap-2 ml-2 pl-2 border-l">
-            {user && (
+            {isReady && user && (
               <div className="hidden xl:block text-right mr-2">
                 <p className="text-sm font-medium text-foreground truncate max-w-[150px]">
                   {user.nombre} {user.apellido}
@@ -158,7 +168,7 @@ const AdmiNavbar = () => {
           })}
 
           {/* User info section */}
-          {user && (
+          {isReady && user && (
             <div className="mt-2 pt-3 border-t">
               <div className="px-3 pb-2">
                 <p className="text-sm font-medium text-foreground">

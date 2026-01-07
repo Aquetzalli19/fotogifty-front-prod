@@ -4,12 +4,20 @@ import Image from "next/image";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 
 const StoreNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const { user, logout, _hasHydrated } = useAuthStore();
+  const [isReady, setIsReady] = useState(false);
+
+  // Esperar a que el store se hidrate antes de mostrar los datos del usuario
+  useEffect(() => {
+    if (_hasHydrated) {
+      setIsReady(true);
+    }
+  }, [_hasHydrated]);
 
   const handleLogout = () => {
     logout();
@@ -54,7 +62,7 @@ const StoreNavbar = () => {
               Control de pedidos
             </Button>
           </Link>
-          {user && (
+          {isReady && user && (
             <div className="hidden md:block mr-4">
               <p className="text-sm text-muted-foreground">{user.nombre} {user.apellido}</p>
               <p className="text-xs text-muted-foreground">{user.email}</p>
@@ -87,7 +95,7 @@ const StoreNavbar = () => {
               Control de pedidos
             </Button>
           </Link>
-          {user && (
+          {isReady && user && (
             <div className="pt-2 border-t border-gray-200">
               <p className="text-sm text-muted-foreground">{user.nombre} {user.apellido}</p>
               <p className="text-xs text-muted-foreground">{user.email}</p>

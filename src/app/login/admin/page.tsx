@@ -15,7 +15,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { loginAdmin } from "@/services/auth";
+import { loginAdmin, obtenerUsuarioActual } from "@/services/auth";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
 import { useAuthStore } from "@/stores/auth-store";
@@ -54,14 +54,26 @@ export default function AdminLoginPage() {
       const response = await loginAdmin(values);
 
       if (response.success && response.data) {
-        login(response.data.user, response.data.token);
-
+        // Guardar token temporalmente para hacer la petición de usuario completo
         if (typeof window !== 'undefined') {
           localStorage.setItem('auth_token', response.data.token);
         }
 
-        success('Inicio de sesión exitoso');
-        router.push('/admin');
+        // Obtener los datos completos del usuario
+        const userDataResponse = await obtenerUsuarioActual();
+
+        if (userDataResponse.success && userDataResponse.data) {
+          // Guardar usuario COMPLETO y token en el store de autenticación
+          login(userDataResponse.data, response.data.token);
+
+          success('Inicio de sesión exitoso');
+          router.push('/admin');
+        } else {
+          // Si falla obtener datos completos, usar los datos básicos del login
+          console.warn('No se pudieron obtener datos completos del usuario, usando datos básicos');
+          login(response.data.user, response.data.token);
+          router.push('/admin');
+        }
       } else {
         const errorMessage = response.message || response.error || 'Error en el inicio de sesión';
         showError(errorMessage);

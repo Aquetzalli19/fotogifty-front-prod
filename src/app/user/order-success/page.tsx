@@ -129,26 +129,94 @@ export default function OrderSuccessPage() {
         for (const customization of relatedCustomizations) {
           if (customization.editorType === "standard") {
             const data = customization.data as StandardCustomization;
-            // Nuevo formato: array de imágenes
+
+            console.log("🖼️ Generando imágenes renderizadas estándar...");
+
             if (data.images && Array.isArray(data.images)) {
               for (const img of data.images) {
-                if (img.imageSrc) {
+                try {
+                  // Importar función de renderizado dinámicamente
+                  const { renderStandardImage } = await import('@/lib/standard-render-utils');
+
+                  // Generar imagen renderizada con todas las transformaciones
+                  const renderedImage = await renderStandardImage(img);
+
+                  if (renderedImage) {
+                    imageURLs.push(renderedImage);
+                    console.log(`✅ Imagen estándar ${img.id} renderizada`);
+                  } else {
+                    // Fallback: usar imagen original si falla el renderizado
+                    console.warn(`⚠️ Fallo al renderizar imagen ${img.id}, usando original`);
+                    imageURLs.push(img.imageSrc);
+                  }
+                } catch (error) {
+                  console.error(`Error renderizando imagen ${img.id}:`, error);
+                  // Fallback: usar imagen original
                   imageURLs.push(img.imageSrc);
                 }
               }
             }
           } else if (customization.editorType === "calendar") {
             const data = customization.data as CalendarCustomization;
+
+            console.log("📅 Generando imágenes renderizadas de calendario...");
+
             for (const month of data.months) {
               if (month.imageSrc) {
-                imageURLs.push(month.imageSrc);
+                // IMPORTANTE: Generar AMBAS versiones justo antes de subir
+                // (no están en localStorage para evitar QuotaExceededError)
+
+                try {
+                  // Importar dinámicamente las funciones de renderizado
+                  const { renderCroppedPhoto, renderCalendarMonth } = await import('@/lib/calendar-render-utils');
+
+                  // 1. Área recortada (sin template) - PARA IMPRESIÓN
+                  const croppedImage = await renderCroppedPhoto(month);
+                  if (croppedImage) {
+                    imageURLs.push(croppedImage);
+                    console.log(`✂️ Área recortada generada para mes ${month.month}`);
+                  }
+
+                  // 2. Calendario completo (con template) - PARA PREVIEW/VISUALIZACIÓN
+                  const renderedImage = await renderCalendarMonth(month);
+                  if (renderedImage) {
+                    imageURLs.push(renderedImage);
+                    console.log(`📅 Calendario completo generado para mes ${month.month}`);
+                  }
+                } catch (error) {
+                  console.error(`Error generando imágenes del mes ${month.month}:`, error);
+                  // Fallback: subir imagen original si falla el renderizado
+                  imageURLs.push(month.imageSrc);
+                }
               }
             }
           } else if (customization.editorType === "polaroid") {
             const data = customization.data as PolaroidCustomization;
+
+            console.log("📸 Generando imágenes renderizadas de polaroid...");
+
             for (const polaroid of data.polaroids) {
               if (polaroid.imageSrc) {
-                imageURLs.push(polaroid.imageSrc);
+                try {
+                  // Importar función de renderizado dinámicamente
+                  const { renderPolaroid } = await import('@/lib/polaroid-render-utils');
+
+                  // Generar polaroid renderizado con marco y transformaciones
+                  const renderedImage = await renderPolaroid(polaroid);
+
+                  if (renderedImage) {
+                    imageURLs.push(renderedImage);
+                    console.log(`✅ Polaroid ${polaroid.id} renderizado`);
+                  } else {
+                    // Fallback: usar imagen original si falla el renderizado
+                    console.warn(`⚠️ Fallo al renderizar polaroid ${polaroid.id}, usando original`);
+                    imageURLs.push(polaroid.imageSrc);
+                  }
+                } catch (error) {
+                  console.error(`Error renderizando polaroid ${polaroid.id}:`, error);
+                  // Fallback: usar imagen original
+                  imageURLs.push(polaroid.imageSrc);
+                }
               }
             }
           }
@@ -179,10 +247,12 @@ export default function OrderSuccessPage() {
           const blobs: Blob[] = [];
           for (const url of group.imageURLs) {
             try {
+              console.log(`🔄 Convirtiendo imagen a blob (tamaño data URL: ${(url.length / 1024).toFixed(2)} KB)...`);
               const blob = await imageURLtoBlob(url);
+              console.log(`✅ Blob creado: ${(blob.size / 1024 / 1024).toFixed(2)} MB, tipo: ${blob.type}`);
               blobs.push(blob);
             } catch (err) {
-              console.error("Error converting image:", err);
+              console.error("❌ Error converting image:", err);
             }
           }
 

@@ -1,0 +1,12 @@
+### Prueba del endpoint /auth/me
+### Reemplaza el token con el tuyo actual (copialo de localStorage: auth_token)
+
+@baseUrl = http://localhost:3000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MiwiZW1haWwiOiJhcXVldHphbGxpb2JyZWdvbkBnbWFpbC5jb20iLCJ0aXBvIjoiY2xpZW50ZSIsImlhdCI6MTc2NzgwOTIzMywiZXhwIjoxNzY3ODk1NjMzfQ.6v-Q4Q0AEquKpqyzFO4bwZdRsgdwCM5M0nE0-yVJ5z0
+
+### GET /auth/me - Obtener datos completos del usuario
+GET {{baseUrl}}/api/auth/me
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+###

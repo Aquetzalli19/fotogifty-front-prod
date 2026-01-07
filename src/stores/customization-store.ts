@@ -8,7 +8,8 @@ import { Effect } from "@/lib/types";
 // Interfaz para cada imagen guardada en Standard
 export interface SavedStandardImage {
   id: number;
-  imageSrc: string;
+  imageSrc: string; // Imagen ORIGINAL para permitir edición posterior (SE GUARDA EN LOCALSTORAGE)
+  renderedImageSrc?: string; // Imagen RENDERIZADA (canvas con todas las transformaciones) - SE ENVÍA AL BACKEND (NO SE GUARDA, SE GENERA AL SUBIR)
   transformations: {
     scale: number;
     rotation: number;
@@ -24,7 +25,7 @@ export interface SavedStandardImage {
     borderWidth: number;
   };
   selectedFilter: string;
-  thumbnailDataUrl?: string; // Preview pequeño para la galería
+  thumbnailDataUrl?: string; // Preview pequeño para la galería (NO SE GUARDA, SE GENERA AL MOSTRAR)
 }
 
 export interface StandardCustomization {
@@ -35,7 +36,9 @@ export interface StandardCustomization {
 export interface CalendarCustomization {
   months: Array<{
     month: number;
-    imageSrc: string | null;
+    imageSrc: string | null; // Imagen ORIGINAL para permitir edición posterior (SE GUARDA EN LOCALSTORAGE)
+    renderedImageSrc?: string; // CALENDARIO COMPLETO (con template) - Para preview/visualización (NO SE GUARDA, SE GENERA AL SUBIR)
+    croppedPhotoSrc?: string; // SOLO ÁREA DE FOTO RECORTADA (sin template) - SE ENVÍA AL BACKEND (NO SE GUARDA, SE GENERA AL SUBIR)
     transformations: {
       scale: number;
       posX: number;
@@ -47,7 +50,8 @@ export interface CalendarCustomization {
 export interface PolaroidCustomization {
   polaroids: Array<{
     id: number;
-    imageSrc: string;
+    imageSrc: string; // Imagen ORIGINAL para permitir edición posterior
+    renderedImageSrc?: string; // Imagen RENDERIZADA (canvas con marco polaroid y transformaciones) - SE ENVÍA AL BACKEND
     transformations: {
       scale: number;
       posX: number;

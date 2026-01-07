@@ -45,7 +45,7 @@ import { useCanvasRendering, renderCanvas } from "@/lib/canvas-operations";
 import { useCustomizationStore, StandardCustomization, SavedStandardImage } from "@/stores/customization-store";
 import { compressCanvas } from "@/lib/canvas-utils";
 import { getEditorType } from "@/lib/category-utils";
-import { compressImage } from "@/lib/canvas-utils";
+import { compressAndResizeImage } from "@/lib/image-compression";
 
 export default function StandardEditor() {
   const searchParams = useSearchParams();
@@ -172,7 +172,8 @@ export default function StandardEditor() {
     canvasStyle,
     canvasDimensions,
     setResolutionWarning,
-    selectedFilter
+    selectedFilter,
+    exportDimensions // Validar contra dimensiones de export
   );
 
   // Cargar personalización existente si estamos en modo carrito
@@ -215,20 +216,32 @@ export default function StandardEditor() {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
+        console.log("=== GENERANDO CANVAS DE ALTA RESOLUCIÓN ===");
+        console.log("Dimensiones del paquete:", { widthInches, heightInches, exportResolution });
+        console.log("Canvas Preview:", canvasDimensions);
+        console.log("Canvas Export:", exportDimensions);
+        console.log("Imagen cargada:", { width: img.width, height: img.height });
+        console.log("Transformaciones originales:", transformations);
+
         // Crear canvas de alta resolución
         const highResCanvas = document.createElement("canvas");
         highResCanvas.width = exportDimensions.width;
         highResCanvas.height = exportDimensions.height;
 
         // Calcular factor de escala entre preview y export
+        // Este factor se aplica SOLO a las posiciones, NO a la escala de la imagen
         const scaleFactor = exportDimensions.width / canvasDimensions.width;
+        console.log("Scale Factor (preview → export):", scaleFactor);
 
-        // Escalar las transformaciones de posición
+        // Escalar SOLO las transformaciones de posición
+        // La escala de la imagen se mantiene igual (proporción respecto al canvas)
         const scaledTransformations = {
           ...transformations,
           posX: transformations.posX * scaleFactor,
           posY: transformations.posY * scaleFactor,
         };
+
+        console.log("Transformaciones escaladas:", scaledTransformations);
 
         // Escalar el estilo del borde
         const scaledStyle = {
@@ -236,9 +249,17 @@ export default function StandardEditor() {
           borderWidth: canvasStyle.borderWidth * scaleFactor,
         };
 
+        console.log("Estilo escalado:", scaledStyle);
+
         // Renderizar en alta resolución
         const imageRef = { current: img };
         renderCanvas(highResCanvas, imageRef, scaledTransformations, effects, scaledStyle);
+
+        console.log("Canvas final generado:", {
+          width: highResCanvas.width,
+          height: highResCanvas.height
+        });
+        console.log("==========================================");
 
         resolve(highResCanvas);
       };
@@ -253,10 +274,10 @@ export default function StandardEditor() {
     const highResCanvas = await generateHighResCanvas();
     if (!highResCanvas) return;
 
-    const dataUrl = highResCanvas.toDataURL("image/png");
+    const dataUrl = highResCanvas.toDataURL("image/jpeg", 0.95);
     const link = document.createElement("a");
     link.href = dataUrl;
-    link.download = "imagen.png";
+    link.download = "imagen.jpg";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -270,14 +291,18 @@ export default function StandardEditor() {
   };
 
   // Guardar la imagen actual en la galería
-  const handleSaveCurrentImage = () => {
+  const handleSaveCurrentImage = async () => {
     if (!imageSrc) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Generar thumbnail comprimido para la galería
+    // Generar thumbnail comprimido para la galería (del canvas de preview)
     const thumbnailDataUrl = compressCanvas(canvas, 150, 150, 0.5);
+
+    // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
+    // La imagen renderizada se generará SOLO al subir al backend
+    console.log("💾 Guardando imagen (solo original + transformaciones, sin renderizar)");
 
     if (editingImageId !== null) {
       // Actualizar imagen existente
@@ -286,12 +311,13 @@ export default function StandardEditor() {
           img.id === editingImageId
             ? {
                 ...img,
-                imageSrc,
+                imageSrc, // Imagen original para edición posterior
+                // NO guardamos renderedImageSrc para evitar QuotaExceededError
                 transformations: { ...transformations },
                 effects: [...effects],
                 canvasStyle: { ...canvasStyle },
                 selectedFilter,
-                thumbnailDataUrl,
+                thumbnailDataUrl, // Pequeño, solo para preview en galería
               }
             : img
         )
@@ -301,7 +327,8 @@ export default function StandardEditor() {
       // Agregar nueva imagen
       const newImage: SavedStandardImage = {
         id: nextId,
-        imageSrc,
+        imageSrc, // Imagen original para edición posterior
+        // NO guardamos renderedImageSrc para evitar QuotaExceededError
         transformations: { ...transformations },
         effects: [...effects],
         canvasStyle: { ...canvasStyle },
@@ -699,21 +726,34 @@ export default function StandardEditor() {
               onChange={async (e) => {
                 if (e.target.files?.[0]) {
                   const file = e.target.files[0];
-                  // Convertir a data URL para que persista entre navegaciones
-                  const reader = new FileReader();
-                  reader.onload = async (event) => {
-                    const originalSrc = event.target?.result as string;
-                    try {
-                      // Comprimir la imagen agresivamente para localStorage
-                      const compressedSrc = await compressImage(originalSrc, 800, 800, 0.6);
-                      setImageSrc(compressedSrc);
-                    } catch (error) {
-                      console.error("Error comprimiendo imagen:", error);
-                      setImageSrc(originalSrc);
-                    }
+                  try {
+                    // Comprimir la imagen para localStorage
+                    // Usar dimensiones óptimas para impresión de calidad
+                    const maxWidth = Math.round(exportDimensions.width * 1.5);
+                    const maxHeight = Math.round(exportDimensions.height * 1.5);
+
+                    console.log("Comprimiendo imagen a:", {
+                      max: { maxWidth, maxHeight }
+                    });
+
+                    const compressedSrc = await compressAndResizeImage(file, {
+                      maxWidth,
+                      maxHeight,
+                      quality: 0.85,
+                      mimeType: 'image/jpeg'
+                    });
+                    setImageSrc(compressedSrc);
                     reset();
-                  };
-                  reader.readAsDataURL(file);
+                  } catch (error) {
+                    console.error("Error comprimiendo imagen:", error);
+                    // Fallback: intentar cargar la imagen original
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                      setImageSrc(event.target?.result as string);
+                      reset();
+                    };
+                    reader.readAsDataURL(file);
+                  }
                 }
               }}
             />{" "}

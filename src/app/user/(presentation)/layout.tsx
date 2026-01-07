@@ -18,8 +18,9 @@ export default function UserMainLayout({
   return (
     <ProtectedRoute redirectTo="/login">
       <div>
-        <div className=" flex w-full flex-row bg-background">
-          <UserNavBar /> <main className=" w-full">{children}</main>
+        <div className="flex w-full flex-row bg-background">
+          <UserNavBar />
+          <main className="w-full lg:pl-64">{children}</main>
         </div>
       </div>
     </ProtectedRoute>

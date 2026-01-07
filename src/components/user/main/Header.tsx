@@ -8,23 +8,31 @@ import React, { useEffect, useState } from "react";
 
 const Header = () => {
   const items = useCartStore((state) => state.items);
-  const { user } = useAuthStore();
+  const { user, _hasHydrated } = useAuthStore();
   const [totalItems, setTotalItems] = useState(0);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const total = items.reduce((acc, item) => acc + item.quantity, 0);
     setTotalItems(total);
   }, [items]);
 
+  // Esperar a que el store se hidrate antes de mostrar el nombre
+  useEffect(() => {
+    if (_hasHydrated) {
+      setIsReady(true);
+    }
+  }, [_hasHydrated]);
+
   return (
-    <header className=" w-full h-20 sticky top-0 flex flex-row justify-between items-center z-20 bg-background py-2 px-6 pl-16 md:pl-20">
-      <p className=" md:text-5xl text-2xl">
-        ¡Hola, <span className=" text-secondary">{user?.nombre || "Usuario"}</span>!
+    <header className="w-full h-20 sticky top-0 flex flex-row justify-between items-center z-20 bg-background py-2 px-6 pl-16 md:pl-20 lg:pl-6">
+      <p className="md:text-5xl text-2xl">
+        ¡Hola, <span className="text-secondary">{isReady ? (user?.nombre || "Usuario") : "..."}</span>!
       </p>
-      <Link href={"/user/cart"} className=" h-fit md:w-44">
+      <Link href={"/user/cart"} className="h-fit md:w-44">
         <Button className="text-xl w-full justify-center gap-3 h-fit flex flex-row">
           <ShoppingCart className="hidden md:flex" /> <p>Mi carrito</p>{" "}
-          <div className=" rounded-full w-6 h-6 bg-background text-primary font-poppins text-sm justify-center flex items-center text-center">
+          <div className="rounded-full w-6 h-6 bg-background text-primary font-poppins text-sm justify-center flex items-center text-center">
             {totalItems}
           </div>
         </Button>

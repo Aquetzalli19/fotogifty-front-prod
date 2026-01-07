@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import UserNavBarButton from "./UserNavBarButton";
 import {
   ArchiveIcon,
@@ -15,7 +15,15 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const UserNavBar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout } = useAuthStore();
+  const { user, logout, _hasHydrated } = useAuthStore();
+  const [isReady, setIsReady] = useState(false);
+
+  // Esperar a que el store se hidrate antes de mostrar los datos del usuario
+  useEffect(() => {
+    if (_hasHydrated) {
+      setIsReady(true);
+    }
+  }, [_hasHydrated]);
 
   const handleLogout = () => {
     // Limpiar datos de sesión
@@ -32,39 +40,43 @@ const UserNavBar = () => {
 
   return (
     <>
+      {/* Botón de menú solo visible en móvil */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed top-4 left-4 z-30 p-2 rounded-md bg-zinc-800 text-white shadow-lg`}
+        className="lg:hidden fixed top-4 left-4 z-30 p-2 rounded-md bg-zinc-800 text-white shadow-lg"
         aria-label="Abrir menú"
       >
         <MenuIcon size={24} />
       </button>
 
+      {/* Overlay solo en móvil cuando el menú está abierto */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-dark/40 z-30"
+          className="lg:hidden fixed inset-0 bg-dark/40 z-30"
           onClick={() => setIsOpen(false)}
         ></div>
       )}
 
       <nav
-        className={`h-screen w-64 bg-zinc-900 fixed z-40 top-0 left-0 transform transition-transform duration-300 ease-in-out flex flex-col justify-between items-center py-2 ${
+        className={`h-screen w-64 bg-zinc-900 fixed z-40 top-0 left-0 transform transition-transform duration-300 ease-in-out flex flex-col justify-between items-center py-2
+        lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto
+        ${
           isOpen
-            ? "translate-x-0"
-            : "translate-x-0 opacity-0 pointer-events-none"
+            ? "translate-x-0 opacity-100"
+            : "-translate-x-full opacity-0 pointer-events-none"
         }`}
       >
-        {/* Close button inside the sidebar */}
+        {/* Botón de cerrar solo visible en móvil */}
         <button
           onClick={() => setIsOpen(false)}
-          className="absolute top-4 right-4 p-1 rounded-md bg-zinc-800 text-white"
+          className="lg:hidden absolute top-4 right-4 p-1 rounded-md bg-zinc-800 text-white"
           aria-label="Cerrar menú"
         >
           <XIcon size={20} />
         </button>
 
         <div className="w-full flex flex-col items-center content-center space-y-8 pt-12">
-          <Link href={"/"} className="h-fit w-3/4">
+          <Link href={"/user"} className="h-fit w-3/4">
             <Image
               src={"/navBarLogoWhite.png"}
               alt="logo"
@@ -92,7 +104,7 @@ const UserNavBar = () => {
             />
           </div>
 
-          {user && (
+          {isReady && user && (
             <div className="w-full px-4 py-2 border-t border-zinc-700 mt-4">
               <p className="text-zinc-300 text-sm truncate">Hola, {user.nombre} {user.apellido}</p>
               <p className="text-zinc-400 text-xs truncate">{user.email}</p>

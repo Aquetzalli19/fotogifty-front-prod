@@ -134,14 +134,16 @@ export const applyTransformation = (
  * @param imageSrc - Data URL o URL de la imagen
  * @param maxWidth - Ancho máximo (default 800px)
  * @param maxHeight - Alto máximo (default 800px)
- * @param quality - Calidad JPEG 0-1 (default 0.7)
+ * @param quality - Calidad (no usado para PNG, se mantiene para compatibilidad)
  * @returns Promise con el data URL comprimido
  */
 export const compressImage = (
   imageSrc: string,
   maxWidth = 800,
   maxHeight = 800,
-  quality = 0.7
+  quality = 0.7, // Mantener parámetro para compatibilidad (no usado en PNG)
+  minWidth = 0,  // Tamaño mínimo (no comprimir por debajo)
+  minHeight = 0
 ): Promise<string> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -153,6 +155,15 @@ export const compressImage = (
         const ratio = Math.min(maxWidth / width, maxHeight / height);
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);
+      }
+
+      // Asegurar que no sea menor al mínimo requerido
+      if (minWidth > 0 && minHeight > 0) {
+        if (width < minWidth || height < minHeight) {
+          const ratio = Math.max(minWidth / width, minHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
       }
 
       // Crear canvas temporal
@@ -169,8 +180,8 @@ export const compressImage = (
       // Dibujar imagen redimensionada
       ctx.drawImage(img, 0, 0, width, height);
 
-      // Exportar como JPEG con compresión
-      const compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+      // Exportar como JPEG con alta calidad (0.95 para impresión)
+      const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.95);
       resolve(compressedDataUrl);
     };
 
@@ -187,14 +198,14 @@ export const compressImage = (
  * @param canvas - El canvas a comprimir
  * @param maxWidth - Ancho máximo
  * @param maxHeight - Alto máximo
- * @param quality - Calidad JPEG 0-1
+ * @param quality - Calidad (no usado para PNG, se mantiene para compatibilidad)
  * @returns Data URL comprimido
  */
 export const compressCanvas = (
   canvas: HTMLCanvasElement,
   maxWidth = 400,
   maxHeight = 400,
-  quality = 0.6
+  quality = 0.6 // Mantener parámetro para compatibilidad (no usado en PNG)
 ): string => {
   let { width, height } = canvas;
 
@@ -219,6 +230,6 @@ export const compressCanvas = (
   // Dibujar canvas redimensionado
   ctx.drawImage(canvas, 0, 0, width, height);
 
-  // Exportar como JPEG comprimido
-  return tempCanvas.toDataURL("image/jpeg", quality);
+  // Exportar como JPEG con buena calidad
+  return tempCanvas.toDataURL("image/jpeg", 0.85);
 };

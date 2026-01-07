@@ -31,6 +31,18 @@ export interface DireccionEnvio {
   pais: string;
 }
 
+// Foto del pedido con metadatos completos
+export interface FotoDetalle {
+  id: number;
+  url: string;
+  nombre_archivo: string;
+  ancho_foto: number;
+  alto_foto: number;
+  resolucion_foto: number;
+  tamanio_archivo: number;
+  id_item_pedido: number;
+}
+
 // Estructura del pedido desde el backend
 export interface AdmiOrder {
   // IDs
@@ -65,9 +77,10 @@ export interface AdmiOrder {
   iva?: number;
   total: number;
 
-  // Imágenes
-  imagenes: string[];
-  images?: string[]; // Alias para compatibilidad
+  // Imágenes (NUEVO: objetos completos con IDs y metadata)
+  fotos?: FotoDetalle[]; // ✅ Solución permanente: objetos con IDs
+  imagenes?: string[];   // ⚠️ Retrocompatible: solo URLs
+  images?: string[];     // ⚠️ Alias deprecated para compatibilidad
 
   // Timestamps
   creado_en?: string;

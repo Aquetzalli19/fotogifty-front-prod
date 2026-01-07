@@ -19,6 +19,7 @@ import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
 import { useState } from "react";
 import { actualizarEstadoPedido } from "@/services/pedidos";
 import { Separator } from "../ui/separator";
+import DownloadPedidoFotos from "@/components/user/DownloadPedidoFotos";
 
 interface OrderDialogProps {
   order: AdmiOrder;
@@ -46,12 +47,18 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
   const orderId = order.orderId ?? order.id;
   const clientName = order.nombre_cliente ?? order.clientName ?? "Cliente";
   const orderDate = order.fecha_pedido ?? order.dateOfOrder;
-  const images = order.imagenes || order.images || [];
   const clientEmail = order.email_cliente;
   const clientPhone = order.telefono_cliente;
   const address = order.direccion_envio;
   const paymentStatus = order.estado_pago;
   const stripeSessionId = order.id_sesion_stripe;
+
+  // ✅ NUEVO: Detectar si tenemos objetos de fotos con IDs (mejor opción)
+  const fotos = order.fotos || [];
+  const hasFotosWithIds = fotos.length > 0;
+
+  // ⚠️ Fallback: Solo URLs (para pedidos antiguos)
+  const images = order.imagenes || order.images || fotos.map(f => f.url) || [];
 
   // Estado para imagen seleccionada en vista ampliada
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -72,6 +79,57 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
   };
 
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
+  const [downloadingImageIndex, setDownloadingImageIndex] = useState<number | null>(null);
+
+  // Descargar una imagen individual
+  const handleDownloadSingle = async (imageUrl: string, index: number) => {
+    setDownloadingImageIndex(index);
+
+    try {
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
+      console.log(`📥 Descargando imagen ${index + 1}...`);
+
+      const response = await fetch(`${apiUrl}/fotos/download-by-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ imageUrl })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+
+      const nombreArchivo = hasFotosWithIds && fotos[index]?.nombre_archivo
+        ? fotos[index].nombre_archivo
+        : `pedido-${orderId}-imagen-${index + 1}.jpg`;
+
+      link.download = nombreArchivo;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log(`✅ Descargada imagen ${index + 1}: ${nombreArchivo}`);
+    } catch (error) {
+      console.error(`❌ Error descargando imagen ${index + 1}:`, error);
+      alert(`Error al descargar imagen: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    } finally {
+      setDownloadingImageIndex(null);
+    }
+  };
 
   const handleDownload = async () => {
     if (images.length === 0) {
@@ -80,50 +138,72 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
     }
 
     setIsDownloading(true);
+    setDownloadProgress({ current: 0, total: images.length });
 
     try {
-      // Descargar cada imagen
+      // Usar proxy del backend (POST /api/fotos/download-by-url)
+      // Este endpoint tiene requireAdmin y funciona correctamente
+      console.log(`📥 Descargando ${images.length} imágenes del pedido ${orderId}...`);
+
+      const token = localStorage.getItem('auth_token');
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+
       for (let i = 0; i < images.length; i++) {
+        setDownloadProgress({ current: i + 1, total: images.length });
         const imageUrl = images[i];
 
         try {
-          // Fetch la imagen
-          const response = await fetch(imageUrl);
-          if (!response.ok) throw new Error(`Error al obtener imagen ${i + 1}`);
+          const response = await fetch(`${apiUrl}/fotos/download-by-url`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ imageUrl })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
+          }
 
           const blob = await response.blob();
-
-          // Crear URL temporal y descargar
           const url = window.URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
 
-          // Extraer extensión del URL o usar .jpg por defecto
-          const extension = imageUrl.split('.').pop()?.split('?')[0] || 'jpg';
-          link.download = `pedido-${orderId}-imagen-${i + 1}.${extension}`;
+          // Usar nombre de archivo si está disponible, o generar uno
+          const nombreArchivo = hasFotosWithIds && fotos[i]?.nombre_archivo
+            ? fotos[i].nombre_archivo
+            : `pedido-${orderId}-imagen-${i + 1}.jpg`;
+
+          link.download = nombreArchivo;
 
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-
-          // Limpiar URL temporal
           window.URL.revokeObjectURL(url);
 
-          // Pequeña pausa entre descargas para evitar bloqueos del navegador
+          console.log(`✅ Descargada imagen ${i + 1}/${images.length}: ${nombreArchivo}`);
+
+          // Delay entre descargas (1 segundo para evitar bloqueo del navegador)
           if (i < images.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 300));
+            await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (imgError) {
-          console.error(`Error descargando imagen ${i + 1}:`, imgError);
+          console.error(`❌ Error descargando imagen ${i + 1}:`, imgError);
+          alert(`Error al descargar imagen ${i + 1}: ${imgError instanceof Error ? imgError.message : 'Error desconocido'}`);
         }
       }
 
-      console.log(`Descargadas ${images.length} imágenes del pedido ${orderId}`);
+      console.log(`✅ Descarga completada: ${images.length} imágenes del pedido ${orderId}`);
+      alert(`Se descargaron ${images.length} imágenes correctamente`);
     } catch (error) {
-      console.error("Error al descargar archivos:", error);
-      alert("Error al descargar los archivos");
+      console.error("❌ Error al descargar archivos:", error);
+      alert(`Error al descargar los archivos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setIsDownloading(false);
+      setDownloadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -346,24 +426,47 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
               {/* Grid de miniaturas */}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {images.map((imageUrl, index) => (
-                  <button
+                  <div
                     key={index}
-                    onClick={() => setSelectedImage(imageUrl)}
-                    className={`relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 transition-all hover:border-primary ${
+                    className={`relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 transition-all ${
                       selectedImage === imageUrl ? "border-primary" : "border-transparent"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={imageUrl}
-                      alt={`Imagen ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        console.error("Error cargando imagen:", imageUrl);
-                        e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f3f4f6' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='12'%3EError%3C/text%3E%3C/svg%3E";
+                    {/* Imagen - clickeable para ver ampliada */}
+                    <button
+                      onClick={() => setSelectedImage(imageUrl)}
+                      className="w-full h-full hover:opacity-90 transition-opacity"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imageUrl}
+                        alt={`Imagen ${index + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          console.error("Error cargando imagen:", imageUrl);
+                          e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f3f4f6' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='12'%3EError%3C/text%3E%3C/svg%3E";
+                        }}
+                      />
+                    </button>
+
+                    {/* Botón de descarga flotante */}
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="absolute bottom-1 right-1 h-7 w-7 shadow-md hover:shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadSingle(imageUrl, index);
                       }}
-                    />
-                  </button>
+                      disabled={downloadingImageIndex === index}
+                    >
+                      {downloadingImageIndex === index ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Download className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -376,6 +479,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
         </div>
       </div>
       <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between pt-4">
+        {/* Botón de descarga (siempre visible) */}
         <Button
           variant="secondary"
           onClick={handleDownload}
@@ -384,7 +488,8 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
         >
           {isDownloading ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Descargando...
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Descargando {downloadProgress.current}/{downloadProgress.total}...
             </>
           ) : (
             <>

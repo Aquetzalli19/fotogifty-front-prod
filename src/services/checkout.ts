@@ -107,14 +107,24 @@ export async function subirImagenesPedido(
   imagenes: Blob[],
   metadata?: Record<string, unknown>
 ) {
+  console.log(`📤 Preparando subida de ${imagenes.length} imágenes:`);
+  console.log(`   - Pedido ID: ${pedidoId}`);
+  console.log(`   - Item Pedido ID: ${itemPedidoId}`);
+
   const formData = new FormData();
 
   // Agregar el ID del item del pedido
   formData.append('itemPedidoId', itemPedidoId.toString());
 
+  // Agregar imágenes y calcular tamaño total
+  let totalSize = 0;
   imagenes.forEach((imagen, index) => {
+    totalSize += imagen.size;
+    console.log(`   - Imagen ${index + 1}: ${(imagen.size / 1024 / 1024).toFixed(2)} MB, tipo: ${imagen.type}`);
     formData.append('imagenes', imagen, `imagen-${index + 1}.jpg`);
   });
+
+  console.log(`   📊 Tamaño total: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
 
   if (metadata) {
     formData.append('metadata', JSON.stringify(metadata));
@@ -125,21 +135,32 @@ export async function subirImagenesPedido(
     ? localStorage.getItem('auth_token')
     : null;
 
-  const response = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/pedidos/${pedidoId}/imagenes`,
-    {
-      method: 'POST',
-      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      body: formData,
-    }
-  );
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/pedidos/${pedidoId}/imagenes`;
+  console.log(`🌐 Subiendo a: ${url}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  console.log(`📥 Respuesta del servidor: ${response.status} ${response.statusText}`);
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Error al subir imágenes');
+    let errorMessage = 'Error al subir imágenes';
+    try {
+      const error = await response.json();
+      errorMessage = error.message || errorMessage;
+      console.error('❌ Error del backend:', error);
+    } catch (e) {
+      console.error('❌ No se pudo parsear el error del backend');
+    }
+    throw new Error(errorMessage);
   }
 
-  return response.json() as Promise<{ success: boolean; data: SubirImagenesResponse }>;
+  const result = await response.json() as { success: boolean; data: SubirImagenesResponse };
+  console.log('✅ Imágenes subidas exitosamente:', result);
+  return result;
 }
 
 /**
@@ -174,29 +195,53 @@ export function isBlobURL(str: string): boolean {
 }
 
 /**
- * Convierte cualquier tipo de imagen URL a Blob con DPI preservado
+ * Convierte cualquier tipo de imagen URL a Blob en formato JPEG
  * Soporta: data URLs, blob URLs, y URLs normales
+ * La imagen se redibuja en un canvas limpio antes de la conversión
+ * El backend embebe automáticamente metadatos DPI de 300 para impresión
  * @param imageURL - URL de la imagen
- * @param dpi - DPI para la imagen (default: 300 para impresión de calidad)
- * @returns Promise<Blob> con metadatos DPI
+ * @returns Promise<Blob> - Blob en formato JPEG con 95% de calidad
  */
-export async function imageURLtoBlob(imageURL: string, dpi: number = 300): Promise<Blob> {
-  // Si es un data URL, convertir con DPI
-  if (isDataURL(imageURL)) {
-    // Importar dinámicamente para evitar problemas de SSR
-    const { dataURLtoBlobWithDPI } = await import('@/lib/png-dpi');
-    return dataURLtoBlobWithDPI(imageURL, dpi);
-  }
+export async function imageURLtoBlob(imageURL: string): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
 
-  // Si es un blob URL o URL normal, hacer fetch
-  try {
-    const response = await fetch(imageURL);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.status}`);
-    }
-    return await response.blob();
-  } catch (error) {
-    console.error('Error converting image to blob:', error);
-    throw error;
-  }
+    img.onload = () => {
+      // Crear canvas limpio (sin metadatos EXIF problemáticos)
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('No se pudo obtener contexto del canvas'));
+        return;
+      }
+
+      // Dibujar imagen (esto limpia los metadatos EXIF)
+      ctx.drawImage(img, 0, 0);
+
+      // Convertir a Blob (JPEG con alta calidad)
+      // El backend ahora maneja correctamente los metadatos EXIF (.withMetadata(false))
+      // y embebe 300 DPI automáticamente
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            reject(new Error('No se pudo crear blob'));
+            return;
+          }
+          resolve(blob);
+        },
+        'image/jpeg',  // JPEG para archivos más pequeños (2-3x vs PNG)
+        0.95           // 95% calidad - balance perfecto entre tamaño y calidad
+      );
+    };
+
+    img.onerror = () => {
+      reject(new Error('Error al cargar la imagen'));
+    };
+
+    img.src = imageURL;
+  });
 }
