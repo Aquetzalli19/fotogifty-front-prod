@@ -1,10 +1,12 @@
 /**
  * Utilidades para renderizar imágenes estándar
  * Genera la imagen renderizada con todas las transformaciones aplicadas
+ * IMPORTANTE: Exporta PNG con 300 DPI embebido para impresión de calidad
  */
 
 import { SavedStandardImage } from "@/stores/customization-store";
 import { Effect } from "@/lib/types";
+import { canvasToBlobWithDPI } from "@/lib/png-dpi";
 
 // Dimensiones del canvas de alta resolución (300 DPI para 4"×6")
 const CANVAS_WIDTH = 1200;
@@ -19,6 +21,18 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Error cargando imagen`));
     img.src = src;
+  });
+}
+
+/**
+ * Convierte un Blob a data URL
+ */
+async function blobToDataURL(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
   });
 }
 
@@ -117,8 +131,13 @@ export async function renderStandardImage(
       ctx.strokeRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
-    // 4. Convertir a JPEG
-    return canvas.toDataURL("image/jpeg", 0.95);
+    // 4. Convertir a PNG con 300 DPI para impresión de calidad
+    const blob = await canvasToBlobWithDPI(canvas, 300, 0.95);
+    const dataURL = await blobToDataURL(blob);
+
+    console.log(`✅ Imagen estándar renderizada como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+
+    return dataURL;
   } catch (error) {
     console.error("Error renderizando imagen estándar:", error);
     return undefined;

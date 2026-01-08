@@ -34,7 +34,15 @@ interface SavedPolaroid {
     posY: number;
   };
   thumbnailDataUrl?: string; // Preview pequeño para la galería
-  renderedImageSrc?: string; // ✅ NUEVO: Canvas completo renderizado con todas las transformaciones (WYSIWYG)
+  renderedImageSrc?: string; // ✅ Canvas completo renderizado con todas las transformaciones (WYSIWYG)
+  // Campos para polaroid doble
+  isDouble?: boolean;
+  imageSrc2?: string;
+  transformations2?: {
+    scale: number;
+    posX: number;
+    posY: number;
+  };
 }
 
 // Dimensiones del canvas polaroid
@@ -69,9 +77,20 @@ export default function PolaroidEditor() {
   // Detectar si estamos en modo "carrito"
   const isCartMode = cartItemId !== null && instanceIndex !== null;
 
-  // Estado para la foto actual en edición
+  // Estado para modo doble
+  const [isDoubleMode, setIsDoubleMode] = useState(false);
+
+  // Estado para la foto actual en edición (PRIMERA IMAGEN)
   const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null);
   const [currentTransformations, setCurrentTransformations] = useState({
+    scale: 1,
+    posX: 0,
+    posY: 0,
+  });
+
+  // Estado para la SEGUNDA imagen (solo en modo doble)
+  const [currentImageSrc2, setCurrentImageSrc2] = useState<string | null>(null);
+  const [currentTransformations2, setCurrentTransformations2] = useState({
     scale: 1,
     posX: 0,
     posY: 0,
@@ -87,8 +106,11 @@ export default function PolaroidEditor() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef2 = useRef<HTMLCanvasElement>(null); // Segundo canvas para modo doble
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef2 = useRef<HTMLInputElement>(null); // Segundo input para modo doble
   const currentImageRef = useRef<HTMLImageElement | null>(null);
+  const currentImageRef2 = useRef<HTMLImageElement | null>(null); // Segunda imagen para modo doble
 
   const { execute, undo, redo, canUndo, canRedo, reset } = useHistory();
 
@@ -329,6 +351,12 @@ export default function PolaroidEditor() {
   const handleSavePolaroid = () => {
     if (!currentImageSrc) return;
 
+    // Validar modo doble: si está activado, ambas imágenes deben estar presentes
+    if (isDoubleMode && !currentImageSrc2) {
+      alert("Para polaroid doble necesitas subir ambas imágenes");
+      return;
+    }
+
     // Generar thumbnail comprimido para la galería
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -338,7 +366,7 @@ export default function PolaroidEditor() {
 
     // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
     // La imagen renderizada se generará SOLO al subir al backend
-    console.log("💾 Guardando polaroid (solo original + transformaciones, sin renderizar)");
+    console.log(`💾 Guardando polaroid ${isDoubleMode ? 'doble' : 'simple'} (solo original + transformaciones, sin renderizar)`);
 
     if (editingPolaroidId !== null) {
       // Actualizar polaroid existente
@@ -349,8 +377,11 @@ export default function PolaroidEditor() {
                 ...p,
                 imageSrc: currentImageSrc,
                 transformations: { ...currentTransformations },
-                thumbnailDataUrl, // Pequeño, solo para preview en galería
-                // NO guardamos renderedImageSrc para evitar QuotaExceededError
+                thumbnailDataUrl,
+                // Campos para polaroid doble
+                isDouble: isDoubleMode,
+                imageSrc2: isDoubleMode ? (currentImageSrc2 || undefined) : undefined,
+                transformations2: isDoubleMode ? { ...currentTransformations2 } : undefined,
               }
             : p
         )
@@ -362,8 +393,11 @@ export default function PolaroidEditor() {
         id: nextId,
         imageSrc: currentImageSrc,
         transformations: { ...currentTransformations },
-        thumbnailDataUrl, // Pequeño, solo para preview en galería
-        // NO guardamos renderedImageSrc para evitar QuotaExceededError
+        thumbnailDataUrl,
+        // Campos para polaroid doble
+        isDouble: isDoubleMode,
+        imageSrc2: isDoubleMode ? (currentImageSrc2 || undefined) : undefined,
+        transformations2: isDoubleMode ? { ...currentTransformations2 } : undefined,
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
       setNextId((prev) => prev + 1);
@@ -373,6 +407,10 @@ export default function PolaroidEditor() {
     setCurrentImageSrc(null);
     setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
     currentImageRef.current = null;
+    // Limpiar segunda imagen si está en modo doble
+    setCurrentImageSrc2(null);
+    setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 });
+    currentImageRef2.current = null;
     reset();
   };
 
@@ -382,7 +420,23 @@ export default function PolaroidEditor() {
     setCurrentTransformations({ ...polaroid.transformations });
     setEditingPolaroidId(polaroid.id);
 
-    // Cargar la imagen
+    // Si es polaroid doble, cargar también la segunda imagen
+    if (polaroid.isDouble && polaroid.imageSrc2 && polaroid.transformations2) {
+      setIsDoubleMode(true);
+      setCurrentImageSrc2(polaroid.imageSrc2);
+      setCurrentTransformations2({ ...polaroid.transformations2 });
+
+      // Cargar la segunda imagen
+      const img2 = new Image();
+      img2.src = polaroid.imageSrc2;
+      img2.onload = () => {
+        currentImageRef2.current = img2;
+      };
+    } else {
+      setIsDoubleMode(false);
+    }
+
+    // Cargar la primera imagen
     const img = new Image();
     img.src = polaroid.imageSrc;
     img.onload = () => {
@@ -407,6 +461,10 @@ export default function PolaroidEditor() {
     setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
     setEditingPolaroidId(null);
     currentImageRef.current = null;
+    // Limpiar también segunda imagen si existe
+    setCurrentImageSrc2(null);
+    setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 });
+    currentImageRef2.current = null;
     reset();
   };
 
@@ -463,8 +521,25 @@ export default function PolaroidEditor() {
 
         <Separator />
 
-        {/* Cargar imagen */}
+        {/* Checkbox para activar modo doble */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="doubleMode"
+            checked={isDoubleMode}
+            onChange={(e) => setIsDoubleMode(e.target.checked)}
+            className="h-4 w-4"
+          />
+          <label htmlFor="doubleMode" className="text-sm font-medium cursor-pointer">
+            Polaroid doble (dos fotos lado a lado)
+          </label>
+        </div>
+
+        {/* Cargar primera imagen */}
         <div className="space-y-2">
+          <label className="text-sm font-medium">
+            {isDoubleMode ? "Foto 1 (izquierda)" : "Foto"}
+          </label>
           <Input
             ref={fileInputRef}
             type="file"
@@ -478,9 +553,45 @@ export default function PolaroidEditor() {
             variant="secondary"
           >
             <Upload className="mr-2 h-4 w-4" />
-            {currentImageSrc ? "Cambiar foto" : "Cargar foto"}
+            {currentImageSrc ? "Cambiar foto 1" : "Cargar foto 1"}
           </Button>
         </div>
+
+        {/* Cargar segunda imagen (solo en modo doble) */}
+        {isDoubleMode && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Foto 2 (derecha)</label>
+            <Input
+              ref={fileInputRef2}
+              type="file"
+              accept="image/*"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  // Comprimir y redimensionar la imagen antes de cargarla
+                  compressAndResizeImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.9 }).then((imageSrc) => {
+                    setCurrentImageSrc2(imageSrc);
+
+                    const img = new Image();
+                    img.src = imageSrc;
+                    img.onload = () => {
+                      currentImageRef2.current = img;
+                    };
+                  });
+                }
+              }}
+              className="hidden"
+            />
+            <Button
+              onClick={() => fileInputRef2.current?.click()}
+              className="w-full"
+              variant="secondary"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              {currentImageSrc2 ? "Cambiar foto 2" : "Cargar foto 2"}
+            </Button>
+          </div>
+        )}
 
         {/* Controles de escala */}
         {currentImageSrc && (

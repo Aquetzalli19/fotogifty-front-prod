@@ -58,6 +58,14 @@ export interface PolaroidCustomization {
       posY: number;
     };
     thumbnailDataUrl?: string;
+    // Campos para polaroid doble (horizontal)
+    isDouble?: boolean; // Si es polaroid doble (dos imágenes lado a lado)
+    imageSrc2?: string; // Segunda imagen ORIGINAL (solo si isDouble === true)
+    transformations2?: { // Transformaciones independientes para la segunda imagen
+      scale: number;
+      posX: number;
+      posY: number;
+    };
   }>;
   maxPolaroids: number;
 }

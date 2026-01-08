@@ -1,7 +1,10 @@
 /**
  * Utilidades para renderizar calendarios
  * Funciones compartidas entre CalendarEditor y order-success
+ * IMPORTANTE: Exporta PNG con 300 DPI embebido para impresión de calidad
  */
+
+import { canvasToBlobWithDPI } from "@/lib/png-dpi";
 
 // Archivos de templates de calendarios por mes
 export const MONTH_CALENDAR_FILES = {
@@ -90,6 +93,18 @@ async function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 /**
+ * Convierte un Blob a data URL
+ */
+async function blobToDataURL(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
  * Renderiza un mes del calendario completo (con template)
  */
 export async function renderCalendarMonth(
@@ -142,8 +157,13 @@ export async function renderCalendarMonth(
     const templateImg = await loadImage(MONTH_CALENDAR_FILES[monthData.month as keyof typeof MONTH_CALENDAR_FILES]);
     ctx.drawImage(templateImg, 0, 0, calendarWidth, calendarHeight);
 
-    // 4. Convertir a JPEG
-    return tempCanvas.toDataURL("image/jpeg", 0.95);
+    // 4. Convertir a PNG con 300 DPI para impresión de calidad
+    const blob = await canvasToBlobWithDPI(tempCanvas, 300, 0.95);
+    const dataURL = await blobToDataURL(blob);
+
+    console.log(`✅ Calendario mes ${monthData.month} renderizado como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+
+    return dataURL;
   } catch (error) {
     console.error(`Error renderizando mes ${monthData.month}:`, error);
     return undefined;
@@ -194,8 +214,13 @@ export async function renderCroppedPhoto(
     ctx.drawImage(photoImg, -photoImg.width / 2, -photoImg.height / 2, photoImg.width, photoImg.height);
     ctx.restore();
 
-    // 3. Convertir a JPEG
-    return tempCanvas.toDataURL("image/jpeg", 0.95);
+    // 3. Convertir a PNG con 300 DPI para impresión de calidad
+    const blob = await canvasToBlobWithDPI(tempCanvas, 300, 0.95);
+    const dataURL = await blobToDataURL(blob);
+
+    console.log(`✅ Área recortada mes ${monthData.month} renderizada como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+
+    return dataURL;
   } catch (error) {
     console.error(`Error renderizando área recortada mes ${monthData.month}:`, error);
     return undefined;
