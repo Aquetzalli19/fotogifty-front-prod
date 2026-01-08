@@ -40,7 +40,7 @@ const DualImageCard = ({
           </div>
         )}
 
-        <LandingButton text="Ordenar" color="#E04F8B" href="#" />
+        <LandingButton text="Ordenar" color="#E04F8B" href="/login" />
       </div>
       <Image
         src={image}

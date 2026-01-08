@@ -38,7 +38,7 @@ const CollageImageCard = ({
           </h1>
           {subtitle}
         </div>
-        <LandingButton text="Ordenar" href="#" color="#E04F8B" />
+        <LandingButton text="Ordenar" href="/login" color="#E04F8B" />
 
         {options && (
           <div className="text-3xl font-extralight text-center lg:text-left justify-start w-full">

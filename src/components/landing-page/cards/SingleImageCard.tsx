@@ -24,7 +24,7 @@ const SingleImageCard = ({
           <h1 className=" font-normal text-6xl justify-start">{title}</h1>
           {subtitle}
         </div>
-        <LandingButton text="Ordenar" href="#" color={buttonColor} />
+        <LandingButton text="Ordenar" href="/login" color={buttonColor} />
 
         {options && (
           <div className="text-2xl font-extralight justify-start">

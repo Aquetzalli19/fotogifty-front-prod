@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import Link from "next/link";
 import React from "react";
 import Slider from "react-slick";
 
@@ -27,9 +28,11 @@ const Hero = ({ slides }: heroProps) => {
           Imprime y recibe tus fotos <br />
           <span className="text-primary">en pocos clics</span>
         </h1>
-        <Button className="bg-secondary text-secondary-foreground px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl w-fit h-fit cursor-pointer">
-          <span className="font-bold text-lg md:text-2xl lg:text-3xl">Imprime prints</span>
-        </Button>
+        <Link href="/login">
+          <Button className="bg-secondary text-secondary-foreground px-6 py-3 md:px-8 md:py-4 lg:px-10 lg:py-5 rounded-xl w-fit h-fit cursor-pointer hover:bg-secondary/90 transition-colors">
+            <span className="font-bold text-lg md:text-2xl lg:text-3xl">Imprime prints</span>
+          </Button>
+        </Link>
       </div>
       <Slider {...settings}>
         {slides.map((el, index) => (
