@@ -13,7 +13,7 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "fotogifty.s3.us-east-1.amazonaws.com",
         port: "",
-        pathname: "/fotos/**",
+        pathname: "/**", // Permite todas las rutas del bucket (fotos, paquetes, etc.)
       },
     ],
   },

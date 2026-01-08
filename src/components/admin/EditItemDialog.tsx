@@ -9,7 +9,7 @@ import {
   ItemPackageSchemaType,
 } from "@/validations/item-package-schema";
 import { Button } from "@/components/ui/button";
-import { actualizarPaquete } from "@/services/packages";
+import { actualizarPaqueteConImagen } from "@/services/packages";
 import { obtenerTodasCategorias } from "@/services/categories";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
@@ -39,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Upload, X, ImageIcon } from "lucide-react";
+import Image from "next/image";
 
 interface EditItemDialogProps {
   item: itemPackages;
@@ -50,6 +52,11 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
   const [categories, setCategories] = useState<Array<{ id: number; nombre: string }>>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Estados para imagen
+  const [nuevaImagen, setNuevaImagen] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [imagenActual, setImagenActual] = useState<string | null>(null);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -104,8 +111,43 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
         photoWidth: item.photoWidth || 10,
         photoHeight: item.photoHeight || 15,
       });
+      // Cargar imagen actual si existe
+      setImagenActual(item.imagen_url || null);
+      setPreview(null);
+      setNuevaImagen(null);
     }
   }, [item, form]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar tamaño (máx 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showError("La imagen no puede superar los 5MB");
+        return;
+      }
+
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        showError("Solo se permiten archivos de imagen");
+        return;
+      }
+
+      setNuevaImagen(file);
+
+      // Crear preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveNewImage = () => {
+    setNuevaImagen(null);
+    setPreview(null);
+  };
 
   const onSubmit = async (data: ItemPackageSchemaType) => {
     setIsUpdating(true);
@@ -136,8 +178,10 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
       };
 
       console.log("Datos a actualizar:", JSON.stringify(paqueteData, null, 2));
+      console.log("Nueva imagen:", nuevaImagen ? nuevaImagen.name : "Sin cambios en imagen");
 
-      const response = await actualizarPaquete(item.id, paqueteData);
+      // Usar actualizarPaqueteConImagen en lugar de actualizarPaquete
+      const response = await actualizarPaqueteConImagen(item.id, paqueteData, nuevaImagen || undefined);
 
       if (response.success) {
         success(`Paquete "${data.packageName}" actualizado exitosamente`);
@@ -178,6 +222,82 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
           </DialogHeader>
           <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            {/* Sección de imagen del paquete */}
+            <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Imagen del paquete
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {imagenActual && !nuevaImagen
+                    ? "Sube una nueva imagen para reemplazar la actual o deja vacío para mantenerla."
+                    : "Sube una imagen representativa del paquete. Máximo 5MB."}
+                </p>
+
+                {/* Imagen actual */}
+                {imagenActual && !preview && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Imagen actual:</p>
+                    <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden bg-background">
+                      <Image
+                        src={imagenActual}
+                        alt="Imagen actual del paquete"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview de nueva imagen */}
+                {preview && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Nueva imagen:</p>
+                    <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden bg-background">
+                      <Image
+                        src={preview}
+                        alt="Preview nueva imagen"
+                        fill
+                        className="object-cover"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2 h-8 w-8"
+                        onClick={handleRemoveNewImage}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Input de imagen */}
+                {!preview && (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="cursor-pointer"
+                      id="imagen-edit-input"
+                    />
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                )}
+
+                {!imagenActual && !preview && (
+                  <div className="flex items-center justify-center w-full h-32 border-2 border-dashed rounded-lg bg-muted/50">
+                    <div className="text-center">
+                      <ImageIcon className="h-12 w-12 text-muted-foreground/50 mx-auto mb-2" />
+                      <p className="text-xs text-muted-foreground">Sin imagen</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}

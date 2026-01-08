@@ -27,14 +27,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Undo2, Loader2 } from "lucide-react";
+import { Plus, Undo2, Loader2, Upload, X } from "lucide-react";
 import { AddCategoryDialog } from "@/components/admin/AddCategoryDialog";
 import { obtenerTodasCategorias, type Categoria } from "@/services/categories";
-import { crearPaquete } from "@/services/packages";
+import { crearPaqueteConImagen } from "@/services/packages";
 import { mockCategories } from "@/test-data/categories-mockdata";
 import { config } from "@/lib/config";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
+import Image from "next/image";
 
 const AddItemPage = () => {
   const router = useRouter();
@@ -44,6 +45,10 @@ const AddItemPage = () => {
   const [isCustomOption, setIsCustomOption] = useState(false);
   const [isAddCategoryDialogOpen, setIsAddCategoryDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Estados para imagen
+  const [imagen, setImagen] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -62,6 +67,37 @@ const AddItemPage = () => {
       photoHeight: 15,
     },
   });
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar tamaño (máx 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showError("La imagen no puede superar los 5MB");
+        return;
+      }
+
+      // Validar tipo de archivo
+      if (!file.type.startsWith('image/')) {
+        showError("Solo se permiten archivos de imagen");
+        return;
+      }
+
+      setImagen(file);
+
+      // Crear preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImagen(null);
+    setPreview(null);
+  };
 
   const onSubmit = async (data: ItemPackageSchemaType) => {
     setIsCreating(true);
@@ -93,12 +129,15 @@ const AddItemPage = () => {
 
       // Log para debugging
       console.log("Datos a enviar:", JSON.stringify(paqueteData, null, 2));
+      console.log("Imagen:", imagen ? imagen.name : "Sin imagen");
 
-      const response = await crearPaquete(paqueteData);
+      // Usar crearPaqueteConImagen en lugar de crearPaquete
+      const response = await crearPaqueteConImagen(paqueteData, imagen || undefined);
 
       if (response.success) {
         success(`Paquete "${data.packageName}" creado exitosamente`);
         form.reset();
+        handleRemoveImage(); // Limpiar imagen y preview
         // Redirigir a la página de gestión de paquetes después de 1 segundo
         setTimeout(() => {
           router.push("/admin/itemcontrol");
@@ -181,6 +220,53 @@ const AddItemPage = () => {
         </h1>
         <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {/* Sección de imagen del paquete */}
+          <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Imagen del paquete (opcional)
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Sube una imagen representativa del paquete. Máximo 5MB.
+              </p>
+
+              {/* Preview de imagen */}
+              {preview && (
+                <div className="relative w-full max-w-md h-48 border rounded-lg overflow-hidden bg-background">
+                  <Image
+                    src={preview}
+                    alt="Preview del paquete"
+                    fill
+                    className="object-cover"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="absolute top-2 right-2 h-8 w-8"
+                    onClick={handleRemoveImage}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Input de imagen */}
+              {!preview && (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="cursor-pointer"
+                    id="imagen-input"
+                  />
+                  <Upload className="h-5 w-5 text-muted-foreground" />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <FormField
               control={form.control}

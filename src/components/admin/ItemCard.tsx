@@ -11,8 +11,9 @@ import {
 import { itemPackages } from "@/interfaces/admi-items";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, ImageIcon } from "lucide-react";
 import EditItemDialog from "./EditItemDialog";
+import Image from "next/image";
 
 interface ItemCardProps {
   item: itemPackages;
@@ -31,7 +32,24 @@ const ItemCard = ({ item, onDelete, onUpdate }: ItemCardProps) => {
   return (
     <>
       <Card className="mx-2 sm:mx-0">
-        <CardHeader className="flex flex-col sm:flex-row justify-between items-start gap-2 p-3 sm:p-6">
+        <CardHeader className="flex flex-col sm:flex-row justify-between items-start gap-4 p-3 sm:p-6">
+          {/* Imagen del paquete */}
+          {item.imagen_url ? (
+            <div className="relative w-full sm:w-32 h-32 rounded-lg overflow-hidden border bg-muted shrink-0">
+              <Image
+                src={item.imagen_url}
+                alt={item.packageName}
+                fill
+                className="object-cover"
+              />
+            </div>
+          ) : (
+            <div className="relative w-full sm:w-32 h-32 rounded-lg overflow-hidden border bg-muted shrink-0 flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-muted-foreground/50" />
+            </div>
+          )}
+
+          {/* Información del paquete */}
           <div className="flex-1 w-full">
             <div className="flex flex-row justify-between items-start gap-2">
               <CardTitle className="text-base sm:text-lg">{item.packageName}</CardTitle>

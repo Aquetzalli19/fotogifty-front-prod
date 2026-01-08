@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import {
   Card,
@@ -14,6 +15,7 @@ import { ShopItem } from "@/interfaces/product-card";
 import { Separator } from "@/components/ui/separator";
 import { useCartStore } from "@/stores/cart-store";
 import { useRouter } from "next/navigation";
+import { ImageIcon } from "lucide-react";
 
 type ProductPackage = ShopItem & {
   productName: string;
@@ -22,6 +24,8 @@ type ProductPackage = ShopItem & {
 export function ProductCard({ item }: { item: ProductPackage }) {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
+  const [imageError, setImageError] = useState(false);
+
   const handleAddToCart = (productName: string, selectedItem: ShopItem) => {
     addItem(productName, selectedItem);
   };
@@ -34,14 +38,21 @@ export function ProductCard({ item }: { item: ProductPackage }) {
   return (
     <Card className="max-w-86 min-w-86 gap-2 border-none shadow-2xl rounded-sm">
       <CardHeader>
-        <div className="relative w-full h-40">
-          <Image
-            src={item.itemImage}
-            alt={item.name}
-            width={272}
-            height={124}
-            className="w-full h-full object-cover"
-          />
+        <div className="relative w-full h-40 bg-muted">
+          {!imageError ? (
+            <Image
+              src={item.itemImage}
+              alt={item.name}
+              width={272}
+              height={124}
+              className="w-full h-full object-cover"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="h-16 w-16 text-muted-foreground/50" />
+            </div>
+          )}
         </div>
         <CardTitle className=" text-primary w-full text-center font-normal text-lg">
           {item.name}

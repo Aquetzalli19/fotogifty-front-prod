@@ -9,4 +9,5 @@ export interface itemPackages {
   photoResolution: number;
   photoWidth: number;
   photoHeight: number;
+  imagen_url?: string; // URL de la imagen del paquete en S3
 }

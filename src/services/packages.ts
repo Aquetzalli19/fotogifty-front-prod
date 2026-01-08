@@ -21,6 +21,7 @@ export interface Paquete {
   resolucion_foto: number;
   ancho_foto: number;
   alto_foto: number;
+  imagen_url?: string; // URL de la imagen del paquete en S3
 }
 
 /**
@@ -89,6 +90,46 @@ export async function crearPaquete(paquete: CrearPaqueteDTO) {
 }
 
 /**
+ * Crea un nuevo paquete con imagen
+ * @param paquete - Datos del paquete
+ * @param imagen - Archivo de imagen (opcional)
+ * @returns Paquete creado con imagen_url
+ */
+export async function crearPaqueteConImagen(paquete: CrearPaqueteDTO, imagen?: File) {
+  const formData = new FormData();
+
+  // Agregar imagen si existe
+  if (imagen) {
+    formData.append('imagen', imagen);
+  }
+
+  // Agregar todos los campos del paquete
+  formData.append('nombre', paquete.nombre);
+  formData.append('cantidad_fotos', paquete.cantidad_fotos.toString());
+  formData.append('precio', paquete.precio.toString());
+  formData.append('estado', paquete.estado.toString());
+  formData.append('categoria_id', paquete.categoria_id.toString());
+  formData.append('descripcion', paquete.descripcion);
+  formData.append('resolucion_foto', paquete.resolucion_foto.toString());
+  formData.append('ancho_foto', paquete.ancho_foto.toString());
+  formData.append('alto_foto', paquete.alto_foto.toString());
+
+  // Usar fetch directo en lugar de apiClient para enviar FormData
+  const response = await fetch('/api/paquetes', {
+    method: 'POST',
+    body: formData,
+    // NO incluir Content-Type - el navegador lo establece automáticamente con boundary
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al crear paquete con imagen');
+  }
+
+  const result = await response.json();
+  return result;
+}
+
+/**
  * Actualiza un paquete existente
  * @param id - ID del paquete
  * @param paquete - Datos a actualizar
@@ -96,6 +137,47 @@ export async function crearPaquete(paquete: CrearPaqueteDTO) {
  */
 export async function actualizarPaquete(id: number, paquete: ActualizarPaqueteDTO) {
   return apiClient.put<Paquete>(`/paquetes/${id}`, paquete);
+}
+
+/**
+ * Actualiza un paquete existente con imagen
+ * @param id - ID del paquete
+ * @param paquete - Datos a actualizar
+ * @param imagen - Archivo de imagen (opcional) - si se provee, actualiza la imagen
+ * @returns Paquete actualizado con imagen_url
+ */
+export async function actualizarPaqueteConImagen(id: number, paquete: ActualizarPaqueteDTO, imagen?: File) {
+  const formData = new FormData();
+
+  // Agregar imagen si existe
+  if (imagen) {
+    formData.append('imagen', imagen);
+  }
+
+  // Agregar todos los campos del paquete que estén definidos
+  if (paquete.nombre !== undefined) formData.append('nombre', paquete.nombre);
+  if (paquete.cantidad_fotos !== undefined) formData.append('cantidad_fotos', paquete.cantidad_fotos.toString());
+  if (paquete.precio !== undefined) formData.append('precio', paquete.precio.toString());
+  if (paquete.estado !== undefined) formData.append('estado', paquete.estado.toString());
+  if (paquete.categoria_id !== undefined) formData.append('categoria_id', paquete.categoria_id.toString());
+  if (paquete.descripcion !== undefined) formData.append('descripcion', paquete.descripcion);
+  if (paquete.resolucion_foto !== undefined) formData.append('resolucion_foto', paquete.resolucion_foto.toString());
+  if (paquete.ancho_foto !== undefined) formData.append('ancho_foto', paquete.ancho_foto.toString());
+  if (paquete.alto_foto !== undefined) formData.append('alto_foto', paquete.alto_foto.toString());
+
+  // Usar fetch directo en lugar de apiClient para enviar FormData
+  const response = await fetch(`/api/paquetes/${id}`, {
+    method: 'PUT',
+    body: formData,
+    // NO incluir Content-Type - el navegador lo establece automáticamente con boundary
+  });
+
+  if (!response.ok) {
+    throw new Error('Error al actualizar paquete con imagen');
+  }
+
+  const result = await response.json();
+  return result;
 }
 
 /**
@@ -141,7 +223,7 @@ export function agruparPaquetesPorCategoria(paquetes: Paquete[]): import('@/inte
       editorType, // Tipo de editor para toda la categoría
       packages: packages.map(paquete => ({
         id: paquete.id,
-        itemImage: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR1Ymz-9xSwPgIeQq-1wYvupFkYwjUyyvY-0Q&s", // Placeholder - puedes agregar campo de imagen en el futuro
+        itemImage: paquete.imagen_url || "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR1Ymz-9xSwPgIeQq-1wYvupFkYwjUyyvY-0Q&s", // Usa imagen_url si existe, si no usa placeholder
         name: paquete.nombre,
         itemDescription: paquete.descripcion || '',
         itemPrice: paquete.precio,
