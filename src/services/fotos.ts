@@ -36,17 +36,23 @@ export async function obtenerUrlDescargaFoto(fotoId: number) {
  */
 export async function descargarFoto(fotoId: number, nombreArchivo?: string) {
   try {
+    console.log('🔄 Iniciando descarga de foto ID:', fotoId);
+
     // 1. Obtener URL firmada de descarga
     const response = await obtenerUrlDescargaFoto(fotoId);
 
+    console.log('📡 Respuesta del backend:', response);
+
     if (!response.success || !response.data) {
+      console.error('❌ Backend no devolvió datos válidos:', response);
       throw new Error('No se pudo obtener la URL de descarga');
     }
 
     const { downloadUrl, filename, metadata } = response.data;
 
-    console.log('📥 Descargando foto:', {
+    console.log('📥 Descargando foto desde S3:', {
       fotoId,
+      downloadUrl: downloadUrl.substring(0, 100) + '...', // Mostrar solo inicio de URL
       filename,
       metadata
     });
@@ -54,11 +60,23 @@ export async function descargarFoto(fotoId: number, nombreArchivo?: string) {
     // 2. Descargar archivo desde S3
     const fileResponse = await fetch(downloadUrl);
 
+    console.log('📦 Respuesta de S3:', {
+      status: fileResponse.status,
+      statusText: fileResponse.statusText,
+      contentType: fileResponse.headers.get('content-type'),
+      contentLength: fileResponse.headers.get('content-length')
+    });
+
     if (!fileResponse.ok) {
-      throw new Error('Error al descargar el archivo desde S3');
+      console.error('❌ Error en respuesta de S3:', fileResponse.status, fileResponse.statusText);
+      throw new Error(`Error al descargar el archivo desde S3: ${fileResponse.status} ${fileResponse.statusText}`);
     }
 
     const blob = await fileResponse.blob();
+    console.log('💾 Blob creado:', {
+      size: blob.size,
+      type: blob.type
+    });
 
     // 3. Crear enlace de descarga y hacer clic automáticamente
     const url = window.URL.createObjectURL(blob);

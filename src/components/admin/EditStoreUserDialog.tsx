@@ -33,7 +33,12 @@ const editStoreUserSchema = z.object({
   nombre: z.string().min(1, "Nombre es requerido"),
   apellido: z.string().min(1, "Apellido es requerido"),
   codigo_empleado: z.string().min(1, "Código de empleado es requerido"),
-  telefono: z.string().min(1, "Teléfono es requerido"),
+  telefono: z
+    .string()
+    .min(10, "El teléfono debe tener al menos 10 dígitos")
+    .refine((value) => /^[0-9]+$/.test(value), {
+      message: "El número de teléfono solo debe contener dígitos",
+    }),
   activo: z.boolean(),
   newPassword: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional().or(z.literal("")),
 });
@@ -213,7 +218,17 @@ const EditStoreUserDialog: React.FC<EditStoreUserDialogProps> = ({
                   <FormItem>
                     <FormLabel>Teléfono</FormLabel>
                     <FormControl>
-                      <Input placeholder="Teléfono de contacto" {...field} />
+                      <Input
+                        type="tel"
+                        placeholder="4421234567"
+                        {...field}
+                        onInput={(e) => {
+                          // Solo permitir números
+                          const target = e.target as HTMLInputElement;
+                          target.value = target.value.replace(/[^0-9]/g, '');
+                          field.onChange(target.value);
+                        }}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

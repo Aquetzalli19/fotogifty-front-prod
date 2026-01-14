@@ -13,7 +13,10 @@ export const CreateStoreUserSchema = z
       .email({ message: "Ingresa un correo electrónico válido" }),
     telefono: z
       .string()
-      .min(10, { message: "El teléfono debe tener al menos 10 dígitos" }),
+      .min(10, { message: "El teléfono debe tener al menos 10 dígitos" })
+      .refine((value) => /^[0-9]+$/.test(value), {
+        message: "El número de teléfono solo debe contener dígitos",
+      }),
     codigo_empleado: z.string().min(1, { message: "El código de empleado es requerido" }),
     password: z
       .string()

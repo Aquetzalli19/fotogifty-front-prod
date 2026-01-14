@@ -2,15 +2,12 @@
  * Utilidades para renderizar imágenes estándar
  * Genera la imagen renderizada con todas las transformaciones aplicadas
  * IMPORTANTE: Exporta PNG con 300 DPI embebido para impresión de calidad
+ * Las dimensiones se calculan dinámicamente según el paquete
  */
 
 import { SavedStandardImage } from "@/stores/customization-store";
 import { Effect } from "@/lib/types";
-import { canvasToBlobWithDPI } from "@/lib/png-dpi";
-
-// Dimensiones del canvas de alta resolución (300 DPI para 4"×6")
-const CANVAS_WIDTH = 1200;
-const CANVAS_HEIGHT = 1800;
+import { canvasToBlobWithDPI, addPrintMetadataToPNG } from "@/lib/png-dpi";
 
 /**
  * Carga una imagen desde una URL
@@ -90,6 +87,20 @@ export async function renderStandardImage(
 ): Promise<string | undefined> {
   if (!imageData.imageSrc) return undefined;
 
+  // Obtener dimensiones físicas y resolución de impresión
+  // Si no existen (imágenes antiguas), usar valores por defecto de 4×6 a 300 DPI
+  const printDims = imageData.printDimensions || {
+    widthInches: 4,
+    heightInches: 6,
+    resolution: 300,
+  };
+
+  // Calcular dimensiones del canvas en pixels
+  const CANVAS_WIDTH = Math.round(printDims.widthInches * printDims.resolution);
+  const CANVAS_HEIGHT = Math.round(printDims.heightInches * printDims.resolution);
+
+  console.log(`📐 Renderizando: ${printDims.widthInches}"×${printDims.heightInches}" a ${printDims.resolution} DPI = ${CANVAS_WIDTH}×${CANVAS_HEIGHT} px`);
+
   const canvas = document.createElement("canvas");
   canvas.width = CANVAS_WIDTH;
   canvas.height = CANVAS_HEIGHT;
@@ -131,11 +142,23 @@ export async function renderStandardImage(
       ctx.strokeRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
-    // 4. Convertir a PNG con 300 DPI para impresión de calidad
-    const blob = await canvasToBlobWithDPI(canvas, 300, 0.95);
-    const dataURL = await blobToDataURL(blob);
+    // 4. Convertir a PNG con DPI para impresión de calidad
+    const blob = await canvasToBlobWithDPI(canvas, printDims.resolution, 0.95);
 
-    console.log(`✅ Imagen estándar renderizada como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+    // 5. Agregar metadatos de dimensiones físicas (tEXt chunks)
+    const blobWithMetadata = await addPrintMetadataToPNG(
+      blob,
+      printDims.widthInches,
+      printDims.heightInches,
+      printDims.resolution
+    );
+
+    const dataURL = await blobToDataURL(blobWithMetadata);
+
+    console.log(
+      `✅ Imagen estándar renderizada: ${printDims.widthInches}"×${printDims.heightInches}" ` +
+      `a ${printDims.resolution} DPI (${(blobWithMetadata.size / 1024 / 1024).toFixed(2)} MB)`
+    );
 
     return dataURL;
   } catch (error) {

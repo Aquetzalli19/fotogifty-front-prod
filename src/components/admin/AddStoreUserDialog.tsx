@@ -169,9 +169,16 @@ export function AddStoreUserDialog({
                     <FormLabel>Teléfono *</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="+34612345678"
+                        type="tel"
+                        placeholder="4421234567"
                         {...field}
                         disabled={isLoading}
+                        onInput={(e) => {
+                          // Solo permitir números
+                          const target = e.target as HTMLInputElement;
+                          target.value = target.value.replace(/[^0-9]/g, '');
+                          field.onChange(target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />

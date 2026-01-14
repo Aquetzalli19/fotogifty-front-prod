@@ -34,6 +34,7 @@ NEXT_PUBLIC_API_URL=http://localhost:3001/api
 **Variables disponibles**:
 - `NEXT_PUBLIC_API_URL`: URL base del backend API (usada por el proxy de Next.js configurado en `next.config.ts`)
 - Stripe keys (futuro): `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- Store information (para opción de recoger en tienda): `NEXT_PUBLIC_STORE_NAME`, `NEXT_PUBLIC_STORE_ADDRESS`, `NEXT_PUBLIC_STORE_CITY`, `NEXT_PUBLIC_STORE_STATE`, `NEXT_PUBLIC_STORE_ZIP`, `NEXT_PUBLIC_STORE_PHONE`, `NEXT_PUBLIC_STORE_HOURS`
 
 ### API Proxy Configuration
 
@@ -89,20 +90,31 @@ The application uses Next.js App Router with route groups for role-based layouts
   - `/user/editor/page.tsx` - Photo editor
   - `/user/cart/page.tsx` - Shopping cart
 
-- **Admin routes** (`/app/admin/` and `/app/admi/`): Admin dashboard
-  - **Note**: Both `/admin/` and `/admi/` directories exist - `/admi/` is the active implementation
-  - `/admi/(delivercontrol)/` - Order tracking and delivery management
-  - `/admi/itemcontrol/` - Product inventory management
-  - `/admi/addItem/` - Add new products to catalogue
-  - `/app/admin/analytics/` - Analytics dashboard with KPIs, charts, sales data
+- **Admin routes** (`/app/admin/`): Admin dashboard
+  - `/admin/(delivercontrol)/` - Order tracking and delivery management
+  - `/admin/itemcontrol/` - Product inventory management
+  - `/admin/addItem/` - Add new products to catalogue
+  - `/admin/categories/` - Category management
+  - `/admin/users/` - User management
+  - `/admin/analytics/` - Analytics dashboard with KPIs, charts, sales data
     - Requires backend implementation (see `ANALYTICS_ENDPOINTS_SPEC.md`)
+  - Layout includes admin navigation and authentication check
+
+- **Store routes** (`/app/store/`): Point-of-sale interface
+  - Separate login for store employees
+  - Uses store-specific components from `src/components/store/`
+
+- **Test routes** (development only):
+  - `/test` - Development testing page
+  - `/test-api` - API connection testing page
 
 ### State Management
 
 **Zustand stores**:
-- `src/stores/cart-store.ts`: Shopping cart with IVA (16% tax) calculation
+- `src/stores/cart-store.ts`: Shopping cart management
   - Persisted to localStorage as `shopping-cart-storage-final`
   - Handles item quantities, totals, and cart operations
+  - **Important**: Prices already include IVA - no additional tax calculation
 - `src/stores/auth-store.ts`: Authentication state management
   - Stores user data, token, and authentication status
   - Methods: `login()`, `logout()`, `updateUserData()`
@@ -155,28 +167,30 @@ The application uses Next.js App Router with route groups for role-based layouts
 - `src/lib/image-compression.ts`: Compress images for upload
 
 **Component Organization**:
-- `src/components/landing-page/`: Marketing sections
+- `src/components/landing-page/`: Marketing sections for homepage
 - `src/components/user/`: User-facing features (navbar, profile, product catalogue, cart)
   - `DownloadFotoButton.tsx`: Download individual photo (Admin/Store only)
   - `DownloadPedidoFotos.tsx`: Download all photos from an order (Admin/Store only)
-- `src/components/admi/`: Admin components (OrderCard, ItemCard, dialogs)
-- `src/components/admin/`: Admin analytics dashboard components
+- `src/components/admin/`: Admin dashboard components (analytics, order management)
 - `src/components/store/`: Store (point-of-sale) components
-- `src/components/ui/`: shadcn/ui components (16 Radix UI-based components)
+- `src/components/address/`: Address management forms and displays
+- `src/components/common/`: Shared components used across multiple sections
+- `src/components/ui/`: shadcn/ui components (Radix UI-based primitives)
 - `src/components/editor-components/`: Photo editor tabs and controls
   - `CalendarEditor.tsx`: Calendar-specific editor
   - `PolaroidEditor.tsx`: Polaroid-specific editor
   - `TransformTab.tsx`, `AdjustTab.tsx`, `BackgroundTab.tsx`: Standard editor tabs
   - `FilterPreview.tsx`, `DownloadPreview.tsx`: Shared previews
-- `src/components/debug/`: Debug utilities for development
+- `src/components/ProtectedRoute.tsx`: Route protection wrapper component
 
 ### Styling & UI
 
 - **TailwindCSS** with custom configuration (`tailwind.config.js` via `@tailwindcss/postcss`)
 - **Fonts**: Raleway (primary) and Poppins from Google Fonts
-- **Dark mode**: next-themes with system preference support
+- **Dark mode**: next-themes with system preference support via `ThemeProvider` in `src/providers/`
 - **UI Library**: Radix UI primitives + custom shadcn/ui components
 - **Animations**: Framer Motion via `motion` package and Lenis for smooth scrolling
+- **Component configuration**: `components.json` for shadcn/ui component generation
 
 ### Forms & Validation
 
@@ -184,6 +198,11 @@ The application uses Next.js App Router with route groups for role-based layouts
 - **Zod v4.1.8** for schema validation
   - `src/validations/user-schema.ts` - User data validation
   - `src/validations/item-package-schema.ts` - Product validation
+
+### Data Visualization & Export
+
+- **recharts**: Chart library for analytics dashboard
+- **xlsx**: Excel export functionality for admin reports
 
 ### TypeScript Configuration
 
@@ -198,6 +217,7 @@ The application uses Next.js App Router with route groups for role-based layouts
 - URL base configurada en `.env.local`: `NEXT_PUBLIC_API_URL`
 - Cliente HTTP centralizado en `src/lib/api-client.ts`
 - Configuración global en `src/lib/config.ts`
+- Data mappers in `src/lib/mappers/`: Transform between API snake_case and frontend camelCase
 
 **Servicios de API** (`src/services/`):
 - `packages.ts`: Gestión de paquetes (productos) - **Conectado a API real**
@@ -268,7 +288,7 @@ The application uses Next.js App Router with route groups for role-based layouts
 
 **Key Types** (`src/interfaces/`):
 - `ShopItem` / `ProductSections` - Product catalogue structure
-- `CartItem` / `CartTotals` - Shopping cart with IVA (16% tax)
+- `CartItem` / `CartTotals` - Shopping cart (prices include IVA, no separate tax calculation)
 - `UserOrder` - Customer order view (status: "Enviado" | "En reparto" | "Entregado")
 - `AdmiOrder` - Admin order view (includes "Imprimiendo" | "Empaquetado" | "Archivado" states)
 - `OrderItem` - Individual order line items
@@ -277,10 +297,14 @@ The application uses Next.js App Router with route groups for role-based layouts
 ### Protected Routes & Authentication
 
 - Authentication implemented via `auth-store` Zustand store
-- Login pages: `/admin/login` and `/store/login` for different user types
-- Protected routes check authentication state before rendering
-- User sessions persisted in Zustand store (not in localStorage by default)
-- Admin routes require admin-type authentication
+- Login pages:
+  - `/login` - Public/customer login
+  - `/admin/login` - Admin login
+  - `/store/login` - Store employee login
+- Protected routes use `ProtectedRoute.tsx` component to check authentication
+- User sessions persisted in Zustand store
+- Role-based access control enforced for admin and store routes
+- Unauthorized access redirects to `/unauthorized` page
 
 ## Deployment
 
@@ -324,10 +348,10 @@ Para hacer deploy en Vercel:
 - **Signed URLs**: S3 download URLs expire in 1 hour, must be refreshed for new downloads
 
 ### Architecture
-- **Rutas Admin Duplicadas**: Existen `/admin/` y `/admi/` - `/admi/` es la implementación activa
 - **Editor Types**: 3 editors auto-detected by category name: Standard, Calendar, Polaroid
 - **Multiple Instances**: `customization-store` handles multiple customizations per cart item (e.g., 3 photos for quantity=3)
 - **DPI Embedding**: All exported photos have 300 DPI metadata embedded via `png-dpi.ts`
+- **Route Groups**: Uses Next.js route groups `(presentation)` for shared layouts without affecting URL paths
 
 ### Permissions & Roles
 - **Photo Downloads**: ONLY Admin and Store roles can download photos (enforced in frontend + backend)
@@ -336,7 +360,7 @@ Para hacer deploy en Vercel:
 
 ### Performance & UX
 - **Canvas Transformations**: Uses MIT-licensed code from Igor Zinken (`src/lib/canvas-utils.ts:62-130`)
-- **IVA**: Tasa de impuesto del 16% hardcoded en `cart-store.ts:6`
+- **Pricing**: All product prices include IVA (16% Mexican tax) - no additional tax calculation at checkout
 - **Mock Data**: Disponible en `src/test-data/` como fallback durante desarrollo
 - **Pixel Effects**: Sepia and other pixel manipulation effects are intensive for large images
 - **Mobile Support**: Touch events supported for canvas manipulation in all editors

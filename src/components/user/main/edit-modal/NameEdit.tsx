@@ -18,40 +18,45 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
+import { actualizarCliente } from "@/services/usuarios";
+import { useAuthStore } from "@/stores/auth-store";
 
-interface PhoneEditProps {
-  prevPhone: string;
-  userId?: number; // Agregamos el ID de usuario para la actualización
+interface NameEditProps {
+  prevNombre: string;
+  prevApellido: string;
+  userId?: number;
 }
 
-const ChangePhoneSchema = z.object({
-  newPhoneNumber: z
+const ChangeNameSchema = z.object({
+  nombre: z
     .string()
-    .min(10, { message: "El número debe tener al menos 10 dígitos." })
-    .refine((value) => /^[0-9]+$/.test(value), {
-      message: "El número de teléfono solo debe contener dígitos.",
-    }),
+    .min(2, { message: "El nombre debe tener al menos 2 caracteres." })
+    .max(50, { message: "El nombre no puede exceder 50 caracteres." }),
+  apellido: z
+    .string()
+    .min(2, { message: "El apellido debe tener al menos 2 caracteres." })
+    .max(50, { message: "El apellido no puede exceder 50 caracteres." }),
   currentPassword: z
     .string()
     .min(1, { message: "Por favor, ingresa tu contraseña actual." }),
 });
 
-import { actualizarCliente } from "@/services/usuarios";
-
-export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
+export default function NameEdit({ prevNombre, prevApellido, userId }: NameEditProps) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
+  const { updateUserData } = useAuthStore();
 
-  const phoneForm = useForm<z.infer<typeof ChangePhoneSchema>>({
-    resolver: zodResolver(ChangePhoneSchema),
+  const nameForm = useForm<z.infer<typeof ChangeNameSchema>>({
+    resolver: zodResolver(ChangeNameSchema),
     defaultValues: {
-      newPhoneNumber: prevPhone,
+      nombre: prevNombre,
+      apellido: prevApellido,
       currentPassword: "",
     },
     mode: "onSubmit",
   });
 
-  const onSubmit = async (values: z.infer<typeof ChangePhoneSchema>) => {
+  const onSubmit = async (values: z.infer<typeof ChangeNameSchema>) => {
     if (!userId) {
       showError('ID de usuario no disponible.');
       return;
@@ -59,24 +64,31 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
 
     try {
       const response = await actualizarCliente(userId, {
-        telefono: values.newPhoneNumber
+        nombre: values.nombre,
+        apellido: values.apellido
       });
 
-      if (response.success) {
-        success('Teléfono actualizado correctamente.');
-        phoneForm.reset();
+      if (response.success && response.data) {
+        // Actualizar el store con los nuevos datos
+        updateUserData(response.data);
+        success('Nombre y apellido actualizados correctamente.');
+        nameForm.reset({
+          nombre: values.nombre,
+          apellido: values.apellido,
+          currentPassword: "",
+        });
         setIsVerified(false);
       } else {
-        showError(response.message || 'Error al actualizar el teléfono.');
+        showError(response.message || 'Error al actualizar el nombre.');
       }
     } catch (error) {
-      console.error('Error al actualizar el teléfono:', error);
-      showError('Error al actualizar el teléfono. Por favor, inténtalo de nuevo.');
+      console.error('Error al actualizar el nombre:', error);
+      showError('Error al actualizar el nombre. Por favor, inténtalo de nuevo.');
     }
   };
 
   const handleVerifyPassword = async () => {
-    const currentPassword = phoneForm.getValues('currentPassword');
+    const currentPassword = nameForm.getValues('currentPassword');
     if (!currentPassword) {
       showError('Por favor, ingresa tu contraseña actual.');
       return;
@@ -87,16 +99,17 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
     setIsVerified(true);
   };
 
-  const { control, handleSubmit, getValues } = phoneForm;
+  const { control, handleSubmit } = nameForm;
+
   return (
     <div className="py-4">
       <div className="space-y-2 mb-6">
         <Separator />
         <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
         <p className="text-sm text-muted-foreground">
-          Ingresa tu contraseña actual para poder editar tu teléfono.
+          Ingresa tu contraseña actual para poder editar tu nombre y apellido.
         </p>
-        <Label htmlFor="current-password-phone">Contraseña Actual</Label>
+        <Label htmlFor="current-password-name">Contraseña Actual</Label>
         <div className="flex items-center gap-2">
           <FormField
             control={control}
@@ -104,7 +117,7 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
             render={({ field }) => (
               <FormControl>
                 <Input
-                  id="current-password-phone"
+                  id="current-password-name"
                   type="password"
                   placeholder="••••••••"
                   {...field}
@@ -119,26 +132,20 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
         <Separator className="!mt-6" />
       </div>
 
-      <Form {...phoneForm}>
+      <Form {...nameForm}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={control}
-            name="newPhoneNumber"
+            name="nombre"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Nuevo Número de Teléfono:</FormLabel>
+                <FormLabel>Nombre:</FormLabel>
                 <FormControl>
                   <Input
-                    type="tel"
-                    placeholder="4421234567"
+                    type="text"
+                    placeholder="Juan"
                     {...field}
                     disabled={!isVerified}
-                    onInput={(e) => {
-                      // Solo permitir números
-                      const target = e.target as HTMLInputElement;
-                      target.value = target.value.replace(/[^0-9]/g, '');
-                      field.onChange(target.value);
-                    }}
                     className={`${
                       !isVerified
                         ? "bg-zinc-200 text-zinc-700 opacity-50 cursor-not-allowed"
@@ -150,6 +157,31 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
               </FormItem>
             )}
           />
+
+          <FormField
+            control={control}
+            name="apellido"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Apellido:</FormLabel>
+                <FormControl>
+                  <Input
+                    type="text"
+                    placeholder="Pérez"
+                    {...field}
+                    disabled={!isVerified}
+                    className={`${
+                      !isVerified
+                        ? "bg-zinc-200 text-zinc-700 opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className="w-full justify-end flex pt-4">
             <Button type="submit" disabled={!isVerified}>
               Guardar Cambios

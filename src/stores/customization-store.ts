@@ -26,6 +26,13 @@ export interface SavedStandardImage {
   };
   selectedFilter: string;
   thumbnailDataUrl?: string; // Preview pequeño para la galería (NO SE GUARDA, SE GENERA AL MOSTRAR)
+  // Dimensiones físicas y resolución para impresión correcta
+  // OPCIONAL para compatibilidad con imágenes guardadas anteriormente (fallback: 4×6" a 300 DPI)
+  printDimensions?: {
+    widthInches: number;    // Ancho en pulgadas (ej: 4, 5, 8, 10)
+    heightInches: number;   // Alto en pulgadas (ej: 6, 7, 10, 12)
+    resolution: number;     // DPI para exportar (generalmente 300)
+  };
 }
 
 export interface StandardCustomization {

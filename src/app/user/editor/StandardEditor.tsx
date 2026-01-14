@@ -71,26 +71,18 @@ export default function StandardEditor() {
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [nextId, setNextId] = useState(1);
 
-  // Resolución de PREVIEW (baja para fluidez) - usamos 96 DPI para edición
-  const previewResolution = 96;
-
-  // Dimensiones para el canvas de edición (baja resolución, fluido)
+  // IMPORTANTE: El canvas SIEMPRE usa las dimensiones REALES de impresión (300 DPI)
+  // Esto asegura que lo que ves es EXACTAMENTE lo que se imprimirá (WYSIWYG)
   const canvasDimensions = React.useMemo(
-    () => ({
-      width: Math.round(widthInches * previewResolution),
-      height: Math.round(heightInches * previewResolution),
-    }),
-    [widthInches, heightInches, previewResolution]
-  );
-
-  // Dimensiones para exportar (alta resolución)
-  const exportDimensions = React.useMemo(
     () => ({
       width: Math.round(widthInches * exportResolution),
       height: Math.round(heightInches * exportResolution),
     }),
     [widthInches, heightInches, exportResolution]
   );
+
+  // Las dimensiones de exportación son las mismas que las del canvas
+  const exportDimensions = canvasDimensions;
 
 
   const {
@@ -133,13 +125,34 @@ export default function StandardEditor() {
     execute
   );
 
+  // Calcular zoom inicial para que el canvas quepa en pantalla
+  // Asumimos un contenedor de ~1200px de ancho máximo
+  const initialZoom = React.useMemo(() => {
+    const maxContainerWidth = 1200;
+    const maxContainerHeight = 800;
+
+    // Calcular qué zoom necesitamos para que quepa
+    const zoomByWidth = maxContainerWidth / canvasDimensions.width;
+    const zoomByHeight = maxContainerHeight / canvasDimensions.height;
+
+    // Usar el menor (para que quepa completo)
+    const calculatedZoom = Math.min(zoomByWidth, zoomByHeight, 1); // Máximo 1 (100%)
+
+    // Redondear a 2 decimales
+    const zoom = Math.round(calculatedZoom * 100) / 100;
+
+    console.log(`📐 Canvas real: ${canvasDimensions.width}×${canvasDimensions.height} px`);
+    console.log(`🔍 Zoom inicial calculado: ${(zoom * 100).toFixed(0)}%`);
+
+    return zoom;
+  }, [canvasDimensions.width, canvasDimensions.height]);
+
   const {
     canvasZoom,
-
     handleZoomIn,
     handleZoomOut,
     handleResetZoom,
-  } = useCanvasZoom(1);
+  } = useCanvasZoom(initialZoom);
 
   const { handleClearImage } = useImageOperations(
     canvasRef,
@@ -216,10 +229,10 @@ export default function StandardEditor() {
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.onload = () => {
-        console.log("=== GENERANDO CANVAS DE ALTA RESOLUCIÓN ===");
+        console.log("=== GENERANDO CANVAS A TAMAÑO REAL (WYSIWYG) ===");
         console.log("Dimensiones del paquete:", { widthInches, heightInches, exportResolution });
-        console.log("Canvas Preview:", canvasDimensions);
-        console.log("Canvas Export:", exportDimensions);
+        console.log("Canvas (tamaño real de impresión):", canvasDimensions);
+        console.log("Zoom inicial para visualización:", `${(initialZoom * 100).toFixed(0)}%`);
         console.log("Imagen cargada:", { width: img.width, height: img.height });
         console.log("Transformaciones originales:", transformations);
 
@@ -318,6 +331,11 @@ export default function StandardEditor() {
                 canvasStyle: { ...canvasStyle },
                 selectedFilter,
                 thumbnailDataUrl, // Pequeño, solo para preview en galería
+                printDimensions: {
+                  widthInches,
+                  heightInches,
+                  resolution: exportResolution,
+                },
               }
             : img
         )
@@ -334,6 +352,11 @@ export default function StandardEditor() {
         canvasStyle: { ...canvasStyle },
         selectedFilter,
         thumbnailDataUrl,
+        printDimensions: {
+          widthInches,
+          heightInches,
+          resolution: exportResolution,
+        },
       };
       setSavedImages((prev) => [...prev, newImage]);
       setNextId((prev) => prev + 1);
@@ -815,6 +838,20 @@ export default function StandardEditor() {
             </Button>
           </div>
         </div>
+
+        {/* Indicador de dimensiones reales del canvas */}
+        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-500 rounded-md">
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-200">
+            📐 Canvas a tamaño real: {widthInches}&quot; × {heightInches}&quot; a {exportResolution} DPI
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+            Dimensiones: {canvasDimensions.width} × {canvasDimensions.height} px • Vista al {(canvasZoom * 100).toFixed(0)}%
+          </p>
+          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+            ✓ WYSIWYG: Lo que ves es exactamente lo que se imprimirá
+          </p>
+        </div>
+
         <div className="w-full h-full flex items-center justify-center rounded-md max-w-full overflow-hidden">
           <canvas
             ref={canvasRef}

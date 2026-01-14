@@ -150,6 +150,12 @@ export default function RegisterPage() {
                         type="tel"
                         className="h-11 md:h-12"
                         {...field}
+                        onInput={(e) => {
+                          // Solo permitir números
+                          const target = e.target as HTMLInputElement;
+                          target.value = target.value.replace(/[^0-9]/g, '');
+                          field.onChange(target.value);
+                        }}
                       />
                     </FormControl>
                     <FormMessage />

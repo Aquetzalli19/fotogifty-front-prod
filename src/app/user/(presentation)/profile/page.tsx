@@ -8,6 +8,7 @@ import EditModal from "@/components/user/main/edit-modal/EditModal";
 import EmailEdit from "@/components/user/main/edit-modal/EmailEdit";
 import PasswordEdit from "@/components/user/main/edit-modal/PasswordEdit";
 import PhoneEdit from "@/components/user/main/edit-modal/PhoneEdit";
+import NameEdit from "@/components/user/main/edit-modal/NameEdit";
 import { Cliente } from "@/interfaces/users";
 import { obtenerUsuarioActual } from "@/services/auth";
 import { useToast } from "@/hooks/useToast";
@@ -83,26 +84,46 @@ const ProfilePage = () => {
         Información de tu <span className="text-secondary">cuenta</span>
       </h1>
       <div className="w-full max-w-2xl mx-auto">
-        <div className="mb-4">
-          <h3 className="text-base sm:text-lg">Nombre:</h3>
-          <Input
-            type="text"
-            id="name"
-            value={currentUser.nombre}
-            disabled
-            className="bg-zinc-200 text-zinc-700 font-medium text-base sm:text-lg"
-          />
-        </div>
+        {/* Sección de Nombre y Apellido con modal de edición */}
+        <div className="mb-4 border border-border rounded-lg p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+            <h3 className="text-lg font-semibold">Nombre y Apellido</h3>
+            <EditModal
+              title="Editar nombre y apellido"
+              trigger={<EditButton />}
+              content={
+                <NameEdit
+                  prevNombre={currentUser.nombre}
+                  prevApellido={currentUser.apellido}
+                  userId={currentUser.id}
+                />
+              }
+            />
+          </div>
 
-        <div className="mb-4">
-          <h3 className="text-base sm:text-lg">Apellido:</h3>
-          <Input
-            type="text"
-            id="lastName"
-            value={currentUser.apellido}
-            disabled
-            className="bg-zinc-200 text-zinc-700 font-medium text-base sm:text-lg"
-          />
+          <div className="space-y-3">
+            <div>
+              <label className="text-sm text-muted-foreground">Nombre</label>
+              <Input
+                type="text"
+                id="name"
+                value={currentUser.nombre}
+                disabled
+                className="bg-zinc-200 text-zinc-700 font-medium text-base sm:text-lg"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm text-muted-foreground">Apellido</label>
+              <Input
+                type="text"
+                id="lastName"
+                value={currentUser.apellido}
+                disabled
+                className="bg-zinc-200 text-zinc-700 font-medium text-base sm:text-lg"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col md:flex-row w-full gap-4 md:gap-6">

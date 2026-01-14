@@ -366,14 +366,6 @@ const CartPage = () => {
 
               <Separator />
               <div className="md:px-12">
-                <p className=" w-full flex justify-between text-lg">
-                  IVA:{" "}
-                  {isClient ? (
-                    <span className=" font-poppins">$ {iva.toFixed(2)}</span>
-                  ) : (
-                    <span className=" font-poppins">$ 0.00</span>
-                  )}
-                </p>
                 <p className=" w-full flex justify-between text-lg font-semibold">
                   Total:{" "}
                   {isClient ? (
@@ -381,6 +373,9 @@ const CartPage = () => {
                   ) : (
                     <span className=" font-poppins">$ 0.00</span>
                   )}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  * Precios incluyen IVA
                 </p>
               </div>
             </div>
@@ -685,15 +680,14 @@ const CartPage = () => {
                     <span>Subtotal:</span>
                     <span className="font-poppins">$ {subtotal.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span>IVA:</span>
-                    <span className="font-poppins">$ {iva.toFixed(2)}</span>
-                  </div>
                   <Separator className="my-2" />
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
                     <span className="font-poppins">$ {total.toFixed(2)}</span>
                   </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    * Precios incluyen IVA
+                  </p>
                 </div>
               </div>
             </div>
@@ -969,7 +963,8 @@ const CartPage = () => {
           className="text-xl px-4 py-6"
           onClick={() => {
             if (currentStep === 1) {
-              router.back();
+              // Regresar al dashboard principal
+              router.push('/user/');
             } else {
               setCurrentStep(currentStep - 1);
             }

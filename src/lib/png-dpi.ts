@@ -364,3 +364,172 @@ export function readPNGDPI(pngBytes: Uint8Array): number | null {
 
   return null;
 }
+
+/**
+ * Crea un chunk tEXt para PNG
+ * tEXt chunks contienen texto en formato keyword-value
+ */
+function createTextChunk(keyword: string, text: string): Uint8Array {
+  const encoder = new TextEncoder();
+  const keywordBytes = encoder.encode(keyword);
+  const textBytes = encoder.encode(text);
+
+  // Estructura: keyword + null terminator + text
+  const data = new Uint8Array(keywordBytes.length + 1 + textBytes.length);
+  data.set(keywordBytes, 0);
+  data[keywordBytes.length] = 0; // null terminator
+  data.set(textBytes, keywordBytes.length + 1);
+
+  // Type = "tEXt"
+  const type = encoder.encode('tEXt');
+
+  // Calcular CRC (type + data)
+  const crcInput = new Uint8Array(type.length + data.length);
+  crcInput.set(type, 0);
+  crcInput.set(data, type.length);
+  const crcValue = crc32(crcInput);
+
+  // Construir chunk completo
+  const chunk = new Uint8Array(4 + 4 + data.length + 4);
+  const view = new DataView(chunk.buffer);
+
+  // Length
+  view.setUint32(0, data.length, false);
+
+  // Type
+  chunk.set(type, 4);
+
+  // Data
+  chunk.set(data, 8);
+
+  // CRC
+  view.setUint32(8 + data.length, crcValue, false);
+
+  return chunk;
+}
+
+/**
+ * Agrega múltiples chunks tEXt a un PNG
+ */
+function addTextChunks(pngBytes: Uint8Array, chunks: Uint8Array[]): Uint8Array {
+  // Validar PNG
+  if (pngBytes.length < 8) {
+    throw new Error('Invalid PNG: file too small');
+  }
+
+  const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+  for (let i = 0; i < 8; i++) {
+    if (pngBytes[i] !== pngSignature[i]) {
+      throw new Error('Invalid PNG signature');
+    }
+  }
+
+  // Buscar el primer chunk IDAT
+  let idatIndex = 8;
+  let foundIDAT = false;
+
+  while (idatIndex + 12 <= pngBytes.length) {
+    const chunkLength = ((pngBytes[idatIndex] << 24) |
+                        (pngBytes[idatIndex + 1] << 16) |
+                        (pngBytes[idatIndex + 2] << 8) |
+                        pngBytes[idatIndex + 3]) >>> 0;
+
+    if (chunkLength < 0 || chunkLength > 10 * 1024 * 1024) {
+      throw new Error(`Invalid chunk length: ${chunkLength}`);
+    }
+
+    if (idatIndex + 8 > pngBytes.length) {
+      break;
+    }
+
+    const chunkType = String.fromCharCode(
+      pngBytes[idatIndex + 4],
+      pngBytes[idatIndex + 5],
+      pngBytes[idatIndex + 6],
+      pngBytes[idatIndex + 7]
+    );
+
+    if (chunkType === 'IDAT') {
+      foundIDAT = true;
+      break;
+    }
+
+    const nextIndex = idatIndex + 4 + 4 + chunkLength + 4;
+    if (nextIndex > pngBytes.length || nextIndex <= idatIndex) {
+      break;
+    }
+
+    idatIndex = nextIndex;
+  }
+
+  if (!foundIDAT) {
+    throw new Error('Invalid PNG: IDAT chunk not found');
+  }
+
+  // Calcular tamaño total de los nuevos chunks
+  const totalChunksSize = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+
+  // Construir nuevo PNG
+  const resultLength = pngBytes.length + totalChunksSize;
+  const result = new Uint8Array(resultLength);
+
+  const beforeIdatSlice = pngBytes.slice(0, idatIndex);
+  const afterIdatSlice = pngBytes.slice(idatIndex);
+
+  // Copiar: signature + chunks antes de IDAT + nuevos chunks + IDAT y resto
+  result.set(beforeIdatSlice, 0);
+  let offset = beforeIdatSlice.length;
+
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  result.set(afterIdatSlice, offset);
+
+  return result;
+}
+
+/**
+ * Agrega metadatos de impresión a un PNG (dimensiones físicas)
+ * @param blob - Blob del PNG original
+ * @param widthInches - Ancho de impresión en pulgadas
+ * @param heightInches - Alto de impresión en pulgadas
+ * @param dpi - DPI (ya embebido via pHYs, pero incluido como referencia)
+ * @returns Promise<Blob> con metadatos de impresión
+ */
+export async function addPrintMetadataToPNG(
+  blob: Blob,
+  widthInches: number,
+  heightInches: number,
+  dpi: number
+): Promise<Blob> {
+  try {
+    // Leer el blob como array buffer
+    const arrayBuffer = await blob.arrayBuffer();
+    const pngBytes = new Uint8Array(arrayBuffer);
+
+    // Crear chunks tEXt con metadatos de impresión
+    const chunks = [
+      createTextChunk('Print:Width', `${widthInches} inches`),
+      createTextChunk('Print:Height', `${heightInches} inches`),
+      createTextChunk('Print:Resolution', `${dpi} DPI`),
+      createTextChunk('Print:WidthCm', `${(widthInches * 2.54).toFixed(2)} cm`),
+      createTextChunk('Print:HeightCm', `${(heightInches * 2.54).toFixed(2)} cm`),
+      createTextChunk('Software', 'FotoGifty Editor'),
+    ];
+
+    // Agregar chunks al PNG
+    const pngWithMetadata = addTextChunks(pngBytes, chunks);
+
+    console.log(`📝 Metadatos agregados: ${widthInches}"×${heightInches}" (${(widthInches * 2.54).toFixed(1)}×${(heightInches * 2.54).toFixed(1)} cm) a ${dpi} DPI`);
+
+    // Crear nuevo Uint8Array para garantizar compatibilidad con Blob
+    const compatibleArray = new Uint8Array(pngWithMetadata);
+    return new Blob([compatibleArray], { type: 'image/png' });
+  } catch (error) {
+    console.error('Error agregando metadatos de impresión:', error);
+    console.warn('Retornando PNG sin metadatos adicionales');
+    return blob;
+  }
+}

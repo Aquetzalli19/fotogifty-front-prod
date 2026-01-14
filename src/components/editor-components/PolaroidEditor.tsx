@@ -354,6 +354,12 @@ export default function PolaroidEditor() {
         const data = existing.data as PolaroidCustomization;
         setSavedPolaroids(data.polaroids);
 
+        // Actualizar nextId para evitar IDs duplicados
+        if (data.polaroids.length > 0) {
+          const maxId = Math.max(...data.polaroids.map((p) => p.id));
+          setNextId(maxId + 1);
+        }
+
         // Si hay polaroids guardadas, cargar las imágenes
         data.polaroids.forEach((polaroid) => {
           const img = new Image();

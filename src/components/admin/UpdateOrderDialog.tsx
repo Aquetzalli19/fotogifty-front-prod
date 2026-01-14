@@ -19,7 +19,6 @@ import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
 import { useState } from "react";
 import { actualizarEstadoPedido } from "@/services/pedidos";
 import { Separator } from "../ui/separator";
-import DownloadPedidoFotos from "@/components/user/DownloadPedidoFotos";
 import { config } from "@/lib/config";
 
 interface OrderDialogProps {
@@ -79,8 +78,6 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
     }).format(new Date(date));
   };
 
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState({ current: 0, total: 0 });
   const [downloadingImageIndex, setDownloadingImageIndex] = useState<number | null>(null);
 
   // Descargar una imagen individual
@@ -129,82 +126,6 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
       alert(`Error al descargar imagen: ${error instanceof Error ? error.message : 'Error desconocido'}`);
     } finally {
       setDownloadingImageIndex(null);
-    }
-  };
-
-  const handleDownload = async () => {
-    if (images.length === 0) {
-      alert("No hay imágenes para descargar");
-      return;
-    }
-
-    setIsDownloading(true);
-    setDownloadProgress({ current: 0, total: images.length });
-
-    try {
-      // Usar proxy del backend (POST /api/fotos/download-by-url)
-      // Este endpoint tiene requireAdmin y funciona correctamente
-      console.log(`📥 Descargando ${images.length} imágenes del pedido ${orderId}...`);
-
-      const token = localStorage.getItem('auth_token');
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-
-      for (let i = 0; i < images.length; i++) {
-        setDownloadProgress({ current: i + 1, total: images.length });
-        const imageUrl = images[i];
-
-        try {
-          const response = await fetch(`${apiUrl}/fotos/download-by-url`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({ imageUrl })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Error ${response.status}: ${response.statusText}`);
-          }
-
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-
-          // Usar nombre de archivo si está disponible, o generar uno
-          const nombreArchivo = hasFotosWithIds && fotos[i]?.nombre_archivo
-            ? fotos[i].nombre_archivo
-            : `pedido-${orderId}-imagen-${i + 1}.jpg`;
-
-          link.download = nombreArchivo;
-
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          window.URL.revokeObjectURL(url);
-
-          console.log(`✅ Descargada imagen ${i + 1}/${images.length}: ${nombreArchivo}`);
-
-          // Delay entre descargas (1 segundo para evitar bloqueo del navegador)
-          if (i < images.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        } catch (imgError) {
-          console.error(`❌ Error descargando imagen ${i + 1}:`, imgError);
-          alert(`Error al descargar imagen ${i + 1}: ${imgError instanceof Error ? imgError.message : 'Error desconocido'}`);
-        }
-      }
-
-      console.log(`✅ Descarga completada: ${images.length} imágenes del pedido ${orderId}`);
-      alert(`Se descargaron ${images.length} imágenes correctamente`);
-    } catch (error) {
-      console.error("❌ Error al descargar archivos:", error);
-      alert(`Error al descargar los archivos: ${error instanceof Error ? error.message : 'Error desconocido'}`);
-    } finally {
-      setIsDownloading(false);
-      setDownloadProgress({ current: 0, total: 0 });
     }
   };
 
@@ -499,33 +420,13 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
           )}
         </div>
       </div>
-      <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between pt-4">
-        {/* Botón de descarga (siempre visible) */}
-        <Button
-          variant="secondary"
-          onClick={handleDownload}
-          disabled={isDownloading || images.length === 0}
-          className="w-full sm:w-auto text-sm"
-        >
-          {isDownloading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Descargando {downloadProgress.current}/{downloadProgress.total}...
-            </>
-          ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" /> Descargar archivos ({images.length})
-            </>
-          )}
+      <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-4">
+        <Button onClick={handleSaveChanges} disabled={isUpdating} className="w-full sm:w-auto text-sm">
+          {isUpdating ? "Actualizando..." : "Guardar cambios"}
         </Button>
-        <div className="flex flex-col sm:flex-row gap-2 sm:space-x-2">
-          <Button onClick={handleSaveChanges} disabled={isUpdating} className="w-full sm:w-auto text-sm">
-            {isUpdating ? "Actualizando..." : "Guardar cambios"}
-          </Button>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={isUpdating} className="w-full sm:w-auto text-sm">
-            Cancelar
-          </Button>
-        </div>
+        <Button variant="outline" onClick={() => setOpen(false)} disabled={isUpdating} className="w-full sm:w-auto text-sm">
+          Cancelar
+        </Button>
       </DialogFooter>
     </DialogContent>
   );

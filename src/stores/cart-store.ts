@@ -3,8 +3,6 @@ import { ShopItem } from "@/interfaces/product-card";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-const IVA_RATE = 0.16;
-
 export interface CartState {
   items: CartItem[];
   addItem: (productName: string, selectedPackage: ShopItem) => void;
@@ -74,16 +72,14 @@ export const useCartStore = create<CartState>()(
       getTotals: () => {
         const { items } = get();
 
-        const subtotal = items.reduce((acc, item) => {
+        // Los precios ya incluyen IVA, solo sumamos directamente
+        const total = items.reduce((acc, item) => {
           return acc + item.itemPrice * item.quantity;
         }, 0);
 
-        const iva = subtotal * IVA_RATE;
-        const total = subtotal + iva;
-
         return {
-          subtotal: parseFloat(subtotal.toFixed(2)),
-          iva: parseFloat(iva.toFixed(2)),
+          subtotal: parseFloat(total.toFixed(2)), // Mantenemos compatibilidad con la interfaz
+          iva: 0, // Sin cálculo de IVA adicional (ya incluido en precios)
           total: parseFloat(total.toFixed(2)),
         };
       },

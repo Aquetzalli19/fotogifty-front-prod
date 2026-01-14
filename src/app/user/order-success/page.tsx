@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -55,13 +55,24 @@ export default function OrderSuccessPage() {
   const [totalImages, setTotalImages] = useState(0);
   const [retryCount, setRetryCount] = useState(0);
 
+  // Flag para prevenir ejecuciones duplicadas (React Strict Mode monta 2 veces)
+  const hasExecutedRef = useRef(false);
+
   useEffect(() => {
+    // Prevenir ejecución duplicada
+    if (hasExecutedRef.current) {
+      console.log("⚠️ Ejecución duplicada prevenida (React Strict Mode)");
+      return;
+    }
+
     if (!sessionId) {
       setStatus("error");
       setError("No se encontró la sesión de pago");
       return;
     }
 
+    // Marcar como ejecutado
+    hasExecutedRef.current = true;
     verifyAndUpload();
   }, [sessionId]);
 
