@@ -57,9 +57,21 @@ export const useAuthStore = create<AuthState>()(
           userType: null
         });
       },
-      updateUserData: (userData) => set((state) => ({
-        user: state.user ? { ...state.user, ...userData } : null
-      })),
+      updateUserData: (userData) => {
+        set((state) => {
+          if (!state.user) return { user: null };
+
+          // Crear un nuevo objeto completamente para forzar re-render
+          const updatedUser = {
+            ...state.user,
+            ...userData,
+            // Agregar timestamp para garantizar que el objeto es nuevo
+            _lastUpdated: Date.now()
+          };
+
+          return { user: updatedUser };
+        });
+      },
       isUserType: (type: UserType) => {
         const state = get();
         return state.userType === type;

@@ -15,7 +15,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { actualizarCliente } from "@/services/usuarios";
 import { useToast } from "@/hooks/useToast";
@@ -23,6 +22,7 @@ import { useToast } from "@/hooks/useToast";
 interface EmailEditParams {
   prevEmail: string;
   userId?: number; // Agregamos el ID de usuario para la actualización
+  onSuccess?: () => void;
 }
 
 const ChangeEmailSchema = z.object({
@@ -38,7 +38,7 @@ const ChangeEmailSchema = z.object({
     .min(1, { message: "Por favor, ingresa tu contraseña actual." }),
 });
 
-export default function EmailEdit({ prevEmail, userId }: EmailEditParams) {
+export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditParams) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
 
@@ -68,6 +68,10 @@ export default function EmailEdit({ prevEmail, userId }: EmailEditParams) {
         success('Email actualizado correctamente.');
         emailForm.reset();
         setIsVerified(false);
+        // Cerrar el modal si se proporcionó el callback
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         showError(response.message || 'Error al actualizar el email.');
       }
@@ -89,40 +93,42 @@ export default function EmailEdit({ prevEmail, userId }: EmailEditParams) {
     setIsVerified(true);
   };
 
-  const { control, handleSubmit, getValues } = emailForm;
+  const { control, handleSubmit } = emailForm;
   return (
     <div className="py-4">
-      <div className="space-y-2 mb-6">
-        <Separator />
-        <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
-        <p className="text-sm text-muted-foreground">
-          Ingresa tu contraseña actual para poder editar tu correo.
-        </p>
-        <Label htmlFor="current-password-email">Contraseña Actual</Label>
-        <div className="flex items-center gap-2">
-          <FormField
-            control={control}
-            name="currentPassword"
-            render={({ field }) => (
-              <FormControl>
-                <Input
-                  id="current-password-email"
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                />
-              </FormControl>
-            )}
-          />
-          <Button onClick={handleVerifyPassword} type="button">
-            Verificar
-          </Button>
-        </div>
-        <Separator className="!mt-6" />
-      </div>
-
       <Form {...emailForm}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2 mb-6">
+            <Separator />
+            <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
+            <p className="text-sm text-muted-foreground">
+              Ingresa tu contraseña actual para poder editar tu correo.
+            </p>
+            <FormField
+              control={control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="current-password-email">Contraseña Actual</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        id="current-password-email"
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <Button onClick={handleVerifyPassword} type="button">
+                      Verificar
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Separator className="!mt-6" />
+          </div>
           <FormField
             control={control}
             name="newEmail"

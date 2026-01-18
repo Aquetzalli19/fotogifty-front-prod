@@ -18,9 +18,17 @@ import { useAuthStore } from "@/stores/auth-store";
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const { user: currentUser, updateUserData } = useAuthStore();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
+
+  // Forzar re-render cuando el usuario cambia
+  useEffect(() => {
+    if (currentUser) {
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [currentUser?.nombre, currentUser?.apellido, currentUser?.email, currentUser?.telefono]);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -50,12 +58,6 @@ const ProfilePage = () => {
     fetchUserData();
   }, [currentUser, updateUserData, showError]);
 
-  const EditButton = () => (
-    <Button className="border border-primary bg-background text-primary hover:text-primary-foreground">
-      Editar
-    </Button>
-  );
-
   if (loading) {
     return (
       <div className="w-full min-h-screen flex flex-col justify-center items-center px-4 sm:px-8 md:px-20 py-12 gap-6">
@@ -83,21 +85,26 @@ const ProfilePage = () => {
       <h1 className="text-3xl sm:text-4xl md:text-5xl text-center">
         Información de tu <span className="text-secondary">cuenta</span>
       </h1>
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-2xl mx-auto" key={`profile-${refreshKey}`}>
         {/* Sección de Nombre y Apellido con modal de edición */}
         <div className="mb-4 border border-border rounded-lg p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
             <h3 className="text-lg font-semibold">Nombre y Apellido</h3>
             <EditModal
               title="Editar nombre y apellido"
-              trigger={<EditButton />}
-              content={
+              trigger={
+                <Button type="button" className="border border-primary bg-background text-primary hover:text-primary-foreground">
+                  Editar
+                </Button>
+              }
+              content={({ closeModal }) => (
                 <NameEdit
                   prevNombre={currentUser.nombre}
                   prevApellido={currentUser.apellido}
                   userId={currentUser.id}
+                  onSuccess={closeModal}
                 />
-              }
+              )}
             />
           </div>
 
@@ -132,8 +139,18 @@ const ProfilePage = () => {
               <h3 className="text-base sm:text-lg">Número de teléfono:</h3>
               <EditModal
                 title="Editar número de teléfono"
-                trigger={<EditButton />}
-                content={<PhoneEdit prevPhone={currentUser.telefono || ''} userId={currentUser.id} />}
+                trigger={
+                  <Button className="border border-primary bg-background text-primary hover:text-primary-foreground">
+                    Editar
+                  </Button>
+                }
+                content={({ closeModal }) => (
+                  <PhoneEdit
+                    prevPhone={currentUser.telefono || ''}
+                    userId={currentUser.id}
+                    onSuccess={closeModal}
+                  />
+                )}
               />
             </div>
             <Input
@@ -150,8 +167,18 @@ const ProfilePage = () => {
               <h3 className="text-base sm:text-lg">Correo electrónico:</h3>
               <EditModal
                 title="Editar correo electrónico"
-                trigger={<EditButton />}
-                content={<EmailEdit prevEmail={currentUser.email} userId={currentUser.id} />}
+                trigger={
+                  <Button className="border border-primary bg-background text-primary hover:text-primary-foreground">
+                    Editar
+                  </Button>
+                }
+                content={({ closeModal }) => (
+                  <EmailEdit
+                    prevEmail={currentUser.email}
+                    userId={currentUser.id}
+                    onSuccess={closeModal}
+                  />
+                )}
               />
             </div>
             <Input
@@ -170,8 +197,17 @@ const ProfilePage = () => {
               <h3 className="text-base sm:text-lg">Contraseña:</h3>
               <EditModal
                 title="Editar contraseña"
-                trigger={<EditButton />}
-                content={<PasswordEdit userId={currentUser.id} onPasswordChangeSuccess={() => success('Contraseña actualizada correctamente')} />}
+                trigger={
+                  <Button className="border border-primary bg-background text-primary hover:text-primary-foreground">
+                    Editar
+                  </Button>
+                }
+                content={({ closeModal }) => (
+                  <PasswordEdit
+                    userId={currentUser.id}
+                    onSuccess={closeModal}
+                  />
+                )}
               />
             </div>
             <Input

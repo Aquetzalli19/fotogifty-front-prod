@@ -12,7 +12,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Label } from "@radix-ui/react-label";
 import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import z from "zod";
@@ -22,9 +21,10 @@ import { useToast } from "@/hooks/useToast";
 interface PasswordEditProps {
   userId: number;
   onPasswordChangeSuccess?: () => void;
+  onSuccess?: () => void;
 }
 
-const PasswordEdit = ({ userId, onPasswordChangeSuccess }: PasswordEditProps) => {
+const PasswordEdit = ({ userId, onPasswordChangeSuccess, onSuccess }: PasswordEditProps) => {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
 
@@ -68,6 +68,10 @@ const PasswordEdit = ({ userId, onPasswordChangeSuccess }: PasswordEditProps) =>
         if (onPasswordChangeSuccess) {
           onPasswordChangeSuccess();
         }
+        // Cerrar el modal si se proporcionó el callback
+        if (onSuccess) {
+          onSuccess();
+        }
         // Reiniciar el formulario
         changePasswordForm.reset();
         setIsVerified(false);
@@ -89,40 +93,42 @@ const PasswordEdit = ({ userId, onPasswordChangeSuccess }: PasswordEditProps) =>
     }
   };
 
-  const { control, handleSubmit, getValues } = changePasswordForm;
+  const { control, handleSubmit } = changePasswordForm;
   return (
     <div>
-      <div className="space-y-2 mb-6">
-        <Separator />
-        <h3>Verifica tu identidad</h3>
-        <p className="text-sm text-muted-foreground">
-          Ingresa tu contraseña actual para poder editar tus datos.
-        </p>
-        <Label htmlFor="current-password">Contraseña Actual</Label>
-        <div className="flex items-center gap-2">
-          <FormField
-            control={control}
-            name="currentPassword"
-            render={({ field }) => (
-              <FormControl>
-                <Input
-                  id="current-password"
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                />
-              </FormControl>
-            )}
-          />
-          <Button onClick={handleVerifyPassword} type="button">
-            Verificar
-          </Button>
-        </div>
-        <Separator className="mt-4" />
-      </div>
-
       <Form {...changePasswordForm}>
         <form onSubmit={handleSubmit(onSubmit)} className=" space-y-4">
+          <div className="space-y-2 mb-6">
+            <Separator />
+            <h3>Verifica tu identidad</h3>
+            <p className="text-sm text-muted-foreground">
+              Ingresa tu contraseña actual para poder editar tus datos.
+            </p>
+            <FormField
+              control={control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="current-password">Contraseña Actual</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <Button onClick={handleVerifyPassword} type="button">
+                      Verificar
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Separator className="mt-4" />
+          </div>
           <FormField
             control={control}
             name="newPassword"

@@ -15,7 +15,6 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
 import { actualizarCliente } from "@/services/usuarios";
@@ -25,6 +24,7 @@ interface NameEditProps {
   prevNombre: string;
   prevApellido: string;
   userId?: number;
+  onSuccess?: () => void;
 }
 
 const ChangeNameSchema = z.object({
@@ -41,7 +41,7 @@ const ChangeNameSchema = z.object({
     .min(1, { message: "Por favor, ingresa tu contraseña actual." }),
 });
 
-export default function NameEdit({ prevNombre, prevApellido, userId }: NameEditProps) {
+export default function NameEdit({ prevNombre, prevApellido, userId, onSuccess }: NameEditProps) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
   const { updateUserData } = useAuthStore();
@@ -78,6 +78,10 @@ export default function NameEdit({ prevNombre, prevApellido, userId }: NameEditP
           currentPassword: "",
         });
         setIsVerified(false);
+        // Cerrar el modal si se proporcionó el callback
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         showError(response.message || 'Error al actualizar el nombre.');
       }
@@ -103,37 +107,39 @@ export default function NameEdit({ prevNombre, prevApellido, userId }: NameEditP
 
   return (
     <div className="py-4">
-      <div className="space-y-2 mb-6">
-        <Separator />
-        <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
-        <p className="text-sm text-muted-foreground">
-          Ingresa tu contraseña actual para poder editar tu nombre y apellido.
-        </p>
-        <Label htmlFor="current-password-name">Contraseña Actual</Label>
-        <div className="flex items-center gap-2">
-          <FormField
-            control={control}
-            name="currentPassword"
-            render={({ field }) => (
-              <FormControl>
-                <Input
-                  id="current-password-name"
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                />
-              </FormControl>
-            )}
-          />
-          <Button onClick={handleVerifyPassword} type="button">
-            Verificar
-          </Button>
-        </div>
-        <Separator className="!mt-6" />
-      </div>
-
       <Form {...nameForm}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2 mb-6">
+            <Separator />
+            <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
+            <p className="text-sm text-muted-foreground">
+              Ingresa tu contraseña actual para poder editar tu nombre y apellido.
+            </p>
+            <FormField
+              control={control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="current-password-name">Contraseña Actual</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        id="current-password-name"
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <Button onClick={handleVerifyPassword} type="button">
+                      Verificar
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Separator className="!mt-6" />
+          </div>
           <FormField
             control={control}
             name="nombre"

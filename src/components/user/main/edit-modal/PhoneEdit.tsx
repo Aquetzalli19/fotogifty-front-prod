@@ -15,13 +15,13 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
 
 interface PhoneEditProps {
   prevPhone: string;
   userId?: number; // Agregamos el ID de usuario para la actualización
+  onSuccess?: () => void;
 }
 
 const ChangePhoneSchema = z.object({
@@ -38,7 +38,7 @@ const ChangePhoneSchema = z.object({
 
 import { actualizarCliente } from "@/services/usuarios";
 
-export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
+export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditProps) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
 
@@ -66,6 +66,10 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
         success('Teléfono actualizado correctamente.');
         phoneForm.reset();
         setIsVerified(false);
+        // Cerrar el modal si se proporcionó el callback
+        if (onSuccess) {
+          onSuccess();
+        }
       } else {
         showError(response.message || 'Error al actualizar el teléfono.');
       }
@@ -87,40 +91,42 @@ export default function PhoneEdit({ prevPhone, userId }: PhoneEditProps) {
     setIsVerified(true);
   };
 
-  const { control, handleSubmit, getValues } = phoneForm;
+  const { control, handleSubmit } = phoneForm;
   return (
     <div className="py-4">
-      <div className="space-y-2 mb-6">
-        <Separator />
-        <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
-        <p className="text-sm text-muted-foreground">
-          Ingresa tu contraseña actual para poder editar tu teléfono.
-        </p>
-        <Label htmlFor="current-password-phone">Contraseña Actual</Label>
-        <div className="flex items-center gap-2">
-          <FormField
-            control={control}
-            name="currentPassword"
-            render={({ field }) => (
-              <FormControl>
-                <Input
-                  id="current-password-phone"
-                  type="password"
-                  placeholder="••••••••"
-                  {...field}
-                />
-              </FormControl>
-            )}
-          />
-          <Button onClick={handleVerifyPassword} type="button">
-            Verificar
-          </Button>
-        </div>
-        <Separator className="!mt-6" />
-      </div>
-
       <Form {...phoneForm}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2 mb-6">
+            <Separator />
+            <h3 className="font-semibold pt-4">Verifica tu identidad</h3>
+            <p className="text-sm text-muted-foreground">
+              Ingresa tu contraseña actual para poder editar tu teléfono.
+            </p>
+            <FormField
+              control={control}
+              name="currentPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel htmlFor="current-password-phone">Contraseña Actual</FormLabel>
+                  <div className="flex items-center gap-2">
+                    <FormControl>
+                      <Input
+                        id="current-password-phone"
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <Button onClick={handleVerifyPassword} type="button">
+                      Verificar
+                    </Button>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <Separator className="!mt-6" />
+          </div>
           <FormField
             control={control}
             name="newPhoneNumber"
