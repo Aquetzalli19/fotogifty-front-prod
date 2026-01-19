@@ -12,7 +12,8 @@ import {
   Users,
   LogOut,
   ChevronDown,
-  BarChart3
+  BarChart3,
+  FileText
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -37,6 +38,7 @@ const AdmiNavbar = () => {
     { href: "/admin/categories", label: "Categorías", icon: Tags },
     { href: "/admin/users", label: "Usuarios", icon: Users },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+    { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
   ];
 
   const isActive = (href: string) => {

@@ -3,9 +3,11 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -37,6 +39,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "",
+      acceptTerms: false,
     },
     mode: "onSubmit",
   });
@@ -54,6 +57,7 @@ export default function RegisterPage() {
         telefono: values.phoneNumber,
         email: values.email,
         password: values.password,
+        acepto_terminos: values.acceptTerms,
       };
 
       const response = await apiClient.post<RegisterResponse>('/usuarios', userData);
@@ -223,6 +227,44 @@ export default function RegisterPage() {
                 )}
               />
             </div>
+
+            {/* Términos y Condiciones */}
+            <FormField
+              control={control}
+              name="acceptTerms"
+              render={({ field }) => (
+                <FormItem className="!flex !flex-row !items-start !gap-3 !space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      className="mt-0.5 shrink-0"
+                    />
+                  </FormControl>
+                  <div className="flex-1 space-y-2">
+                    <FormLabel className="text-sm font-normal leading-relaxed cursor-pointer">
+                      Acepto los{" "}
+                      <Link
+                        href="/terms"
+                        target="_blank"
+                        className="text-secondary underline hover:text-secondary/80 transition-colors"
+                      >
+                        términos y condiciones
+                      </Link>{" "}
+                      y el{" "}
+                      <Link
+                        href="/privacy"
+                        target="_blank"
+                        className="text-secondary underline hover:text-secondary/80 transition-colors"
+                      >
+                        aviso de privacidad
+                      </Link>
+                    </FormLabel>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
 
             <div className="flex flex-col items-center gap-4 pt-4">
               <Button

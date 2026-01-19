@@ -153,6 +153,16 @@ export default function LoginPage() {
               )}
             />
 
+            {/* Enlace de recuperación de contraseña */}
+            <div className="flex justify-end">
+              <a
+                href="/forgot-password"
+                className="text-sm text-secondary underline hover:text-secondary/80 transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </a>
+            </div>
+
             <div className="flex flex-col items-center gap-4 pt-4">
               <Button
                 type="submit"

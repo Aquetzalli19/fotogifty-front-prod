@@ -105,3 +105,38 @@ export async function obtenerUsuarioActual() {
 export async function registroAdmin(data: RegistroAdminDTO) {
   return apiClient.post<AdminUser>('/admin/registro', data);
 }
+
+/**
+ * Datos para verificación de identidad (recuperación de contraseña)
+ */
+export interface VerifyIdentityDTO {
+  email: string;
+  telefono: string;
+}
+
+/**
+ * Datos para cambio de contraseña
+ */
+export interface ResetPasswordDTO {
+  email: string;
+  telefono: string;
+  nueva_password: string;
+}
+
+/**
+ * Verificar identidad del usuario (email + teléfono)
+ * @param data - Email y teléfono del usuario
+ * @returns Confirmación de que los datos coinciden
+ */
+export async function verificarIdentidad(data: VerifyIdentityDTO) {
+  return apiClient.post<{ success: boolean; message: string }>('/auth/verificar-identidad', data);
+}
+
+/**
+ * Cambiar contraseña después de verificar identidad
+ * @param data - Email, teléfono y nueva contraseña
+ * @returns Confirmación del cambio
+ */
+export async function cambiarPasswordOlvidada(data: ResetPasswordDTO) {
+  return apiClient.post<{ success: boolean; message: string }>('/auth/recuperar-password', data);
+}
