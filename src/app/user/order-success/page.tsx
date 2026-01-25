@@ -209,34 +209,7 @@ export default function OrderSuccessPage() {
             console.log("📸 Generando imágenes renderizadas de polaroid...");
 
             for (const polaroid of data.polaroids) {
-              // Detectar si es polaroid doble
-              if (polaroid.isDouble && polaroid.imageSrc && polaroid.imageSrc2 && polaroid.transformations2) {
-                // ===== POLAROID DOBLE (SOLO ÁREAS RECORTADAS) =====
-                try {
-                  const { renderDoublePolaroidCropped } = await import('@/lib/polaroid-render-utils');
-
-                  // Generar solo las áreas de foto (sin marcos) para impresión
-                  const renderedImage = await renderDoublePolaroidCropped({
-                    imageSrc1: polaroid.imageSrc,
-                    transformations1: polaroid.transformations,
-                    imageSrc2: polaroid.imageSrc2,
-                    transformations2: polaroid.transformations2,
-                  });
-
-                  if (renderedImage) {
-                    imageURLs.push(renderedImage);
-                    console.log(`✅ Áreas recortadas polaroid doble ${polaroid.id} renderizadas`);
-                  } else {
-                    // Fallback: usar imagen original si falla el renderizado
-                    console.warn(`⚠️ Fallo al renderizar áreas recortadas polaroid doble ${polaroid.id}, usando original`);
-                    imageURLs.push(polaroid.imageSrc);
-                  }
-                } catch (error) {
-                  console.error(`Error renderizando áreas recortadas polaroid doble ${polaroid.id}:`, error);
-                  // Fallback: usar imagen original
-                  imageURLs.push(polaroid.imageSrc);
-                }
-              } else if (polaroid.imageSrc) {
+              if (polaroid.imageSrc) {
                 // ===== POLAROID SIMPLE (SOLO ÁREA RECORTADA) =====
                 try {
                   const { renderPolaroidCropped } = await import('@/lib/polaroid-render-utils');

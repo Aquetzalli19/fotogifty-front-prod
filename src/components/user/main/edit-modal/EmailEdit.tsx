@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { actualizarCliente } from "@/services/usuarios";
 import { useToast } from "@/hooks/useToast";
+import { useAuthStore } from "@/stores/auth-store";
 
 interface EmailEditParams {
   prevEmail: string;
@@ -41,6 +42,7 @@ const ChangeEmailSchema = z.object({
 export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditParams) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
+  const { updateUserData } = useAuthStore();
 
   const emailForm = useForm<z.infer<typeof ChangeEmailSchema>>({
     resolver: zodResolver(ChangeEmailSchema),
@@ -64,7 +66,10 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
         email: values.newEmail
       });
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Actualizar el store con los nuevos datos
+        updateUserData(response.data);
+
         success('Email actualizado correctamente.');
         emailForm.reset();
         setIsVerified(false);

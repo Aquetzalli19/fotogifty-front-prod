@@ -35,7 +35,13 @@ const PasswordEdit = ({ userId, onPasswordChangeSuccess, onSuccess }: PasswordEd
         .min(1, { message: "Por favor, ingresa tu contraseña actual." }),
       newPassword: z
         .string()
-        .min(8, { message: "La contraseña debe tener al menos 8 caracteres." }),
+        .min(8, { message: "La contraseña debe tener al menos 8 caracteres." })
+        .refine((value) => /[0-9]/.test(value), {
+          message: "La contraseña debe contener al menos un número",
+        })
+        .refine((value) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value), {
+          message: "La contraseña debe contener al menos un carácter especial",
+        }),
       confirmPassword: z
         .string()
         .min(1, { message: "Por favor, confirma tu contraseña." }),

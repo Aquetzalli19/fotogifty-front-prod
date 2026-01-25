@@ -18,18 +18,11 @@ import { useAuthStore } from "@/stores/auth-store";
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
   const { user: currentUser, updateUserData } = useAuthStore();
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // Toast notifications
-  const { toasts, removeToast, success, error: showError } = useToast();
+  const { toasts, removeToast, error: showError } = useToast();
 
-  // Forzar re-render cuando el usuario cambia
-  useEffect(() => {
-    if (currentUser) {
-      setRefreshKey(prev => prev + 1);
-    }
-  }, [currentUser?.nombre, currentUser?.apellido, currentUser?.email, currentUser?.telefono]);
-
+  // Cargar datos del usuario solo una vez (al montar el componente)
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -56,7 +49,8 @@ const ProfilePage = () => {
     };
 
     fetchUserData();
-  }, [currentUser, updateUserData, showError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Solo ejecutar una vez al montar
 
   if (loading) {
     return (
@@ -85,7 +79,7 @@ const ProfilePage = () => {
       <h1 className="text-3xl sm:text-4xl md:text-5xl text-center">
         Información de tu <span className="text-secondary">cuenta</span>
       </h1>
-      <div className="w-full max-w-2xl mx-auto" key={`profile-${refreshKey}`}>
+      <div className="w-full max-w-2xl mx-auto">
         {/* Sección de Nombre y Apellido con modal de edición */}
         <div className="mb-4 border border-border rounded-lg p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">

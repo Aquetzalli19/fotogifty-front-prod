@@ -35,7 +35,7 @@ interface SavedPolaroid {
   };
   thumbnailDataUrl?: string; // Preview pequeño para la galería
   renderedImageSrc?: string; // ✅ Canvas completo renderizado con todas las transformaciones (WYSIWYG)
-  // Campos para polaroid doble
+  // DEPRECADO: Campos para polaroid doble (funcionalidad removida, se mantiene para compatibilidad con datos existentes)
   isDouble?: boolean;
   imageSrc2?: string;
   transformations2?: {
@@ -77,20 +77,9 @@ export default function PolaroidEditor() {
   // Detectar si estamos en modo "carrito"
   const isCartMode = cartItemId !== null && instanceIndex !== null;
 
-  // Estado para modo doble
-  const [isDoubleMode, setIsDoubleMode] = useState(false);
-
-  // Estado para la foto actual en edición (PRIMERA IMAGEN)
+  // Estado para la foto actual en edición
   const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null);
   const [currentTransformations, setCurrentTransformations] = useState({
-    scale: 1,
-    posX: 0,
-    posY: 0,
-  });
-
-  // Estado para la SEGUNDA imagen (solo en modo doble)
-  const [currentImageSrc2, setCurrentImageSrc2] = useState<string | null>(null);
-  const [currentTransformations2, setCurrentTransformations2] = useState({
     scale: 1,
     posX: 0,
     posY: 0,
@@ -106,11 +95,8 @@ export default function PolaroidEditor() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const canvasRef2 = useRef<HTMLCanvasElement>(null); // Segundo canvas para modo doble
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef2 = useRef<HTMLInputElement>(null); // Segundo input para modo doble
   const currentImageRef = useRef<HTMLImageElement | null>(null);
-  const currentImageRef2 = useRef<HTMLImageElement | null>(null); // Segunda imagen para modo doble
 
   const { execute, undo, redo, canUndo, canRedo, reset } = useHistory();
 
@@ -120,227 +106,102 @@ export default function PolaroidEditor() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    // Si está en modo doble, cambiar tamaño del canvas
-    const canvasWidth = isDoubleMode ? POLAROID_WIDTH * 2 : POLAROID_WIDTH;
-    const canvasHeight = POLAROID_HEIGHT;
-
-    canvas.width = canvasWidth;
-    canvas.height = canvasHeight;
+    canvas.width = POLAROID_WIDTH;
+    canvas.height = POLAROID_HEIGHT;
 
     // Limpiar canvas
-    ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+    ctx.clearRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
-    if (isDoubleMode) {
-      // ==================== MODO DOBLE ====================
-      // Dibujar dos polaroids lado a lado
+    // Dibujar marco blanco del polaroid
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
-      // POLAROID IZQUIERDO (Foto 1)
+    // Dibujar área de la foto (fondo gris si no hay imagen)
+    if (!currentImageSrc) {
+      ctx.fillStyle = "#F3F4F6";
+      ctx.fillRect(
+        PHOTO_AREA.left,
+        PHOTO_AREA.top,
+        PHOTO_AREA.width,
+        PHOTO_AREA.height
+      );
+
+      // Dibujar borde punteado para indicar el área de foto
       ctx.save();
-      // Marco blanco
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-
-      // Área de foto 1
-      if (!currentImageSrc) {
-        ctx.fillStyle = "#F3F4F6";
-        ctx.fillRect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
-        );
-
-        ctx.strokeStyle = "#9CA3AF";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 5]);
-        ctx.strokeRect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
-        );
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = "#6B7280";
-        ctx.font = "20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("Foto 1", POLAROID_WIDTH / 2, PHOTO_AREA.top + PHOTO_AREA.height / 2);
-      } else {
-        const img = currentImageRef.current;
-        if (img) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-          ctx.clip();
-
-          const { scale, posX, posY } = currentTransformations;
-          const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
-          const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
-
-          ctx.translate(centerX + posX, centerY + posY);
-          ctx.scale(scale, scale);
-          ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
-          ctx.restore();
-        }
-      }
-
-      // Borde polaroid izquierdo
-      ctx.strokeStyle = "#E5E7EB";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+      ctx.strokeStyle = "#9CA3AF";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
+      ctx.strokeRect(
+        PHOTO_AREA.left,
+        PHOTO_AREA.top,
+        PHOTO_AREA.width,
+        PHOTO_AREA.height
+      );
       ctx.restore();
 
-      // POLAROID DERECHO (Foto 2)
+      // Texto indicativo
       ctx.save();
-      ctx.translate(POLAROID_WIDTH, 0); // Desplazar a la derecha
-
-      // Marco blanco
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-
-      // Área de foto 2
-      if (!currentImageSrc2) {
-        ctx.fillStyle = "#F3F4F6";
-        ctx.fillRect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
-        );
-
-        ctx.strokeStyle = "#9CA3AF";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 5]);
-        ctx.strokeRect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
-        );
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = "#6B7280";
-        ctx.font = "20px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText("Foto 2", POLAROID_WIDTH / 2, PHOTO_AREA.top + PHOTO_AREA.height / 2);
-      } else {
-        const img2 = currentImageRef2.current;
-        if (img2) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-          ctx.clip();
-
-          const { scale, posX, posY } = currentTransformations2;
-          const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
-          const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
-
-          ctx.translate(centerX + posX, centerY + posY);
-          ctx.scale(scale, scale);
-          ctx.drawImage(img2, -img2.width / 2, -img2.height / 2, img2.width, img2.height);
-          ctx.restore();
-        }
-      }
-
-      // Borde polaroid derecho
-      ctx.strokeStyle = "#E5E7EB";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+      ctx.fillStyle = "#6B7280";
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        "Sube una foto",
+        POLAROID_WIDTH / 2,
+        PHOTO_AREA.top + PHOTO_AREA.height / 2
+      );
       ctx.restore();
-
     } else {
-      // ==================== MODO SIMPLE ====================
-      // Dibujar marco blanco del polaroid
-      ctx.fillStyle = "#FFFFFF";
-      ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+      // Dibujar la foto con transformaciones
+      const img = currentImageRef.current;
+      if (img) {
+        ctx.save();
 
-      // Dibujar área de la foto (fondo gris si no hay imagen)
-      if (!currentImageSrc) {
-        ctx.fillStyle = "#F3F4F6";
-        ctx.fillRect(
+        // Crear clipping path para que la foto no se salga del área
+        ctx.beginPath();
+        ctx.rect(
           PHOTO_AREA.left,
           PHOTO_AREA.top,
           PHOTO_AREA.width,
           PHOTO_AREA.height
         );
+        ctx.clip();
 
-        // Dibujar borde punteado para indicar el área de foto
-        ctx.save();
-        ctx.strokeStyle = "#9CA3AF";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([10, 5]);
-        ctx.strokeRect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
+        // Aplicar transformaciones
+        const { scale, posX, posY } = currentTransformations;
+
+        // Calcular centro del área de foto
+        const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
+        const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
+
+        // Aplicar transformaciones
+        ctx.translate(centerX + posX, centerY + posY);
+        ctx.scale(scale, scale);
+
+        // Dibujar imagen centrada
+        ctx.drawImage(
+          img,
+          -img.width / 2,
+          -img.height / 2,
+          img.width,
+          img.height
         );
+
         ctx.restore();
-
-        // Texto indicativo
-        ctx.save();
-        ctx.fillStyle = "#6B7280";
-        ctx.font = "24px Arial";
-        ctx.textAlign = "center";
-        ctx.fillText(
-          "Sube una foto",
-          POLAROID_WIDTH / 2,
-          PHOTO_AREA.top + PHOTO_AREA.height / 2
-        );
-        ctx.restore();
-      } else {
-        // Dibujar la foto con transformaciones
-        const img = currentImageRef.current;
-        if (img) {
-          ctx.save();
-
-          // Crear clipping path para que la foto no se salga del área
-          ctx.beginPath();
-          ctx.rect(
-            PHOTO_AREA.left,
-            PHOTO_AREA.top,
-            PHOTO_AREA.width,
-            PHOTO_AREA.height
-          );
-          ctx.clip();
-
-          // Aplicar transformaciones
-          const { scale, posX, posY } = currentTransformations;
-
-          // Calcular centro del área de foto
-          const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
-          const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
-
-          // Aplicar transformaciones
-          ctx.translate(centerX + posX, centerY + posY);
-          ctx.scale(scale, scale);
-
-          // Dibujar imagen centrada
-          ctx.drawImage(
-            img,
-            -img.width / 2,
-            -img.height / 2,
-            img.width,
-            img.height
-          );
-
-          ctx.restore();
-        }
       }
-
-      // Dibujar sombra sutil para efecto 3D del polaroid
-      ctx.save();
-      ctx.strokeStyle = "#E5E7EB";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-      ctx.restore();
     }
+
+    // Dibujar sombra sutil para efecto 3D del polaroid
+    ctx.save();
+    ctx.strokeStyle = "#E5E7EB";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+    ctx.restore();
   };
 
-  // Re-renderizar cuando cambian las transformaciones, la imagen o el modo doble
+  // Re-renderizar cuando cambian las transformaciones o la imagen
   useEffect(() => {
     renderCanvas();
-  }, [currentImageSrc, currentTransformations, isDoubleMode, currentImageSrc2, currentTransformations2]);
+  }, [currentImageSrc, currentTransformations]);
 
   // Cargar personalización existente si estamos en modo carrito
   useEffect(() => {
@@ -485,12 +346,6 @@ export default function PolaroidEditor() {
   const handleSavePolaroid = () => {
     if (!currentImageSrc) return;
 
-    // Validar modo doble: si está activado, ambas imágenes deben estar presentes
-    if (isDoubleMode && !currentImageSrc2) {
-      alert("Para polaroid doble necesitas subir ambas imágenes");
-      return;
-    }
-
     // Generar thumbnail comprimido para la galería
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -500,7 +355,7 @@ export default function PolaroidEditor() {
 
     // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
     // La imagen renderizada se generará SOLO al subir al backend
-    console.log(`💾 Guardando polaroid ${isDoubleMode ? 'doble' : 'simple'} (solo original + transformaciones, sin renderizar)`);
+    console.log(`💾 Guardando polaroid (solo original + transformaciones, sin renderizar)`);
 
     if (editingPolaroidId !== null) {
       // Actualizar polaroid existente
@@ -512,10 +367,6 @@ export default function PolaroidEditor() {
                 imageSrc: currentImageSrc,
                 transformations: { ...currentTransformations },
                 thumbnailDataUrl,
-                // Campos para polaroid doble
-                isDouble: isDoubleMode,
-                imageSrc2: isDoubleMode ? (currentImageSrc2 || undefined) : undefined,
-                transformations2: isDoubleMode ? { ...currentTransformations2 } : undefined,
               }
             : p
         )
@@ -528,10 +379,6 @@ export default function PolaroidEditor() {
         imageSrc: currentImageSrc,
         transformations: { ...currentTransformations },
         thumbnailDataUrl,
-        // Campos para polaroid doble
-        isDouble: isDoubleMode,
-        imageSrc2: isDoubleMode ? (currentImageSrc2 || undefined) : undefined,
-        transformations2: isDoubleMode ? { ...currentTransformations2 } : undefined,
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
       setNextId((prev) => prev + 1);
@@ -541,10 +388,6 @@ export default function PolaroidEditor() {
     setCurrentImageSrc(null);
     setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
     currentImageRef.current = null;
-    // Limpiar segunda imagen si está en modo doble
-    setCurrentImageSrc2(null);
-    setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 });
-    currentImageRef2.current = null;
     reset();
   };
 
@@ -554,23 +397,7 @@ export default function PolaroidEditor() {
     setCurrentTransformations({ ...polaroid.transformations });
     setEditingPolaroidId(polaroid.id);
 
-    // Si es polaroid doble, cargar también la segunda imagen
-    if (polaroid.isDouble && polaroid.imageSrc2 && polaroid.transformations2) {
-      setIsDoubleMode(true);
-      setCurrentImageSrc2(polaroid.imageSrc2);
-      setCurrentTransformations2({ ...polaroid.transformations2 });
-
-      // Cargar la segunda imagen
-      const img2 = new Image();
-      img2.src = polaroid.imageSrc2;
-      img2.onload = () => {
-        currentImageRef2.current = img2;
-      };
-    } else {
-      setIsDoubleMode(false);
-    }
-
-    // Cargar la primera imagen
+    // Cargar la imagen
     const img = new Image();
     img.src = polaroid.imageSrc;
     img.onload = () => {
@@ -595,10 +422,6 @@ export default function PolaroidEditor() {
     setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
     setEditingPolaroidId(null);
     currentImageRef.current = null;
-    // Limpiar también segunda imagen si existe
-    setCurrentImageSrc2(null);
-    setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 });
-    currentImageRef2.current = null;
     reset();
   };
 
@@ -655,35 +478,9 @@ export default function PolaroidEditor() {
 
         <Separator />
 
-        {/* Checkbox para activar modo doble */}
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            id="doubleMode"
-            checked={isDoubleMode}
-            onChange={(e) => {
-              const isChecked = e.target.checked;
-              setIsDoubleMode(isChecked);
-
-              // Si se desactiva el modo doble, limpiar la segunda imagen
-              if (!isChecked) {
-                setCurrentImageSrc2(null);
-                setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 });
-                currentImageRef2.current = null;
-              }
-            }}
-            className="h-4 w-4"
-          />
-          <label htmlFor="doubleMode" className="text-sm font-medium cursor-pointer">
-            Polaroid doble (dos fotos lado a lado)
-          </label>
-        </div>
-
-        {/* Cargar primera imagen */}
+        {/* Cargar imagen */}
         <div className="space-y-2">
-          <label className="text-sm font-medium">
-            {isDoubleMode ? "Foto 1 (izquierda)" : "Foto"}
-          </label>
+          <label className="text-sm font-medium">Foto</label>
           <Input
             ref={fileInputRef}
             type="file"
@@ -697,47 +494,9 @@ export default function PolaroidEditor() {
             variant="secondary"
           >
             <Upload className="mr-2 h-4 w-4" />
-            {currentImageSrc ? "Cambiar foto 1" : "Cargar foto 1"}
+            {currentImageSrc ? "Cambiar foto" : "Cargar foto"}
           </Button>
         </div>
-
-        {/* Cargar segunda imagen (solo en modo doble) */}
-        {isDoubleMode && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Foto 2 (derecha)</label>
-            <Input
-              ref={fileInputRef2}
-              type="file"
-              accept="image/*"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  // Comprimir y redimensionar la imagen antes de cargarla
-                  compressAndResizeImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.9 }).then((imageSrc) => {
-                    setCurrentImageSrc2(imageSrc);
-                    setCurrentTransformations2({ scale: 1, posX: 0, posY: 0 }); // Reset transformations for new image
-
-                    const img = new Image();
-                    img.src = imageSrc;
-                    img.onload = () => {
-                      currentImageRef2.current = img;
-                      renderCanvas(); // Force re-render after image loads
-                    };
-                  });
-                }
-              }}
-              className="hidden"
-            />
-            <Button
-              onClick={() => fileInputRef2.current?.click()}
-              className="w-full"
-              variant="secondary"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              {currentImageSrc2 ? "Cambiar foto 2" : "Cargar foto 2"}
-            </Button>
-          </div>
-        )}
 
         {/* Controles de escala */}
         {currentImageSrc && (

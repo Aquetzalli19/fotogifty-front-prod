@@ -17,6 +17,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
+import { useAuthStore } from "@/stores/auth-store";
+import { actualizarCliente } from "@/services/usuarios";
 
 interface PhoneEditProps {
   prevPhone: string;
@@ -36,11 +38,10 @@ const ChangePhoneSchema = z.object({
     .min(1, { message: "Por favor, ingresa tu contraseña actual." }),
 });
 
-import { actualizarCliente } from "@/services/usuarios";
-
 export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditProps) {
   const [isVerified, setIsVerified] = useState(false);
   const { success, error: showError } = useToast();
+  const { updateUserData } = useAuthStore();
 
   const phoneForm = useForm<z.infer<typeof ChangePhoneSchema>>({
     resolver: zodResolver(ChangePhoneSchema),
@@ -62,7 +63,10 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
         telefono: values.newPhoneNumber
       });
 
-      if (response.success) {
+      if (response.success && response.data) {
+        // Actualizar el store con los nuevos datos
+        updateUserData(response.data);
+
         success('Teléfono actualizado correctamente.');
         phoneForm.reset();
         setIsVerified(false);

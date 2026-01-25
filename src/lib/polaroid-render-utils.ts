@@ -15,6 +15,8 @@ interface PolaroidData {
   };
 }
 
+// DEPRECADO: Funcionalidad de polaroid doble removida
+// Se mantiene la interfaz para compatibilidad con datos existentes
 interface DoublePolaroidData {
   imageSrc1: string;
   transformations1: {
@@ -178,7 +180,9 @@ export async function renderPolaroidCropped(
 }
 
 /**
- * Renderiza un polaroid doble (dos polaroids lado a lado)
+ * DEPRECADO: Renderiza un polaroid doble (dos polaroids lado a lado)
+ * Esta funcionalidad ha sido removida del editor.
+ * Se mantiene para compatibilidad con datos existentes.
  */
 export async function renderDoublePolaroid(
   doublePolaroidData: DoublePolaroidData
@@ -277,7 +281,9 @@ export async function renderDoublePolaroid(
 }
 
 /**
- * Renderiza SOLO las áreas de las fotos (sin marcos) para impresión de polaroid doble
+ * DEPRECADO: Renderiza SOLO las áreas de las fotos (sin marcos) para impresión de polaroid doble
+ * Esta funcionalidad ha sido removida del editor.
+ * Se mantiene para compatibilidad con datos existentes.
  */
 export async function renderDoublePolaroidCropped(
   doublePolaroidData: DoublePolaroidData

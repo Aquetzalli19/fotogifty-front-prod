@@ -151,17 +151,17 @@ export default function ForgotPasswordPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Correo electrónico</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
+                      <FormControl>
                         <Input
                           placeholder="usuario@ejemplo.com"
                           type="email"
                           className="h-11 md:h-12 pl-10"
                           {...field}
                         />
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -174,9 +174,9 @@ export default function ForgotPasswordPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Número de teléfono</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
+                      <FormControl>
                         <Input
                           placeholder="5512345678"
                           type="tel"
@@ -188,8 +188,8 @@ export default function ForgotPasswordPage() {
                             field.onChange(target.value);
                           }}
                         />
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -226,17 +226,19 @@ export default function ForgotPasswordPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Nueva contraseña</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
+                      <FormControl>
                         <Input
                           type="password"
                           placeholder="••••••••"
                           className="h-11 md:h-12 pl-10"
+                          autoComplete="new-password"
                           {...field}
+                          onChange={(e) => resetForm.setValue('newPassword', e.target.value, { shouldValidate: true, shouldDirty: true })}
                         />
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -249,17 +251,19 @@ export default function ForgotPasswordPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Confirmar contraseña</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
+                      <FormControl>
                         <Input
                           type="password"
                           placeholder="••••••••"
                           className="h-11 md:h-12 pl-10"
+                          autoComplete="new-password"
                           {...field}
+                          onChange={(e) => resetForm.setValue('confirmPassword', e.target.value, { shouldValidate: true, shouldDirty: true })}
                         />
-                      </div>
-                    </FormControl>
+                      </FormControl>
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
