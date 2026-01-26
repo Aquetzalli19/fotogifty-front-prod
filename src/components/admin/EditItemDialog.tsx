@@ -392,7 +392,7 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
                 name="photoResolution"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Resolución de fotos (px)</FormLabel>
+                    <FormLabel>Resolución de fotos (DPI)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -414,7 +414,7 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
                 name="photoWidth"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Ancho de foto (px)</FormLabel>
+                    <FormLabel>Ancho de foto (pulgadas)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -437,7 +437,7 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
                 name="photoHeight"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Alto de foto (px)</FormLabel>
+                    <FormLabel>Alto de foto (pulgadas)</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
