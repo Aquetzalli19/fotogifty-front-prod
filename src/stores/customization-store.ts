@@ -48,8 +48,21 @@ export interface CalendarCustomization {
     croppedPhotoSrc?: string; // SOLO ÁREA DE FOTO RECORTADA (sin template) - SE ENVÍA AL BACKEND (NO SE GUARDA, SE GENERA AL SUBIR)
     transformations: {
       scale: number;
+      rotation: number;
       posX: number;
       posY: number;
+    };
+    effects: {
+      brightness: number;
+      contrast: number;
+      saturation: number;
+      sepia: number;
+    };
+    selectedFilter: string;
+    canvasStyle: {
+      borderColor: string;
+      borderWidth: number;
+      backgroundColor: string;
     };
   }>;
 }
@@ -61,8 +74,21 @@ export interface PolaroidCustomization {
     renderedImageSrc?: string; // Imagen RENDERIZADA (canvas con marco polaroid y transformaciones) - SE ENVÍA AL BACKEND
     transformations: {
       scale: number;
+      rotation: number;
       posX: number;
       posY: number;
+    };
+    effects: {
+      brightness: number;
+      contrast: number;
+      saturation: number;
+      sepia: number;
+    };
+    selectedFilter: string;
+    canvasStyle: {
+      borderColor: string;
+      borderWidth: number;
+      backgroundColor: string;
     };
     thumbnailDataUrl?: string;
     // DEPRECADO: Campos para polaroid doble (funcionalidad removida, se mantiene para compatibilidad con datos existentes)

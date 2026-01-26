@@ -183,14 +183,18 @@ export default function OrderSuccessPage() {
 
             for (const month of data.months) {
               if (month.imageSrc) {
-                // IMPORTANTE: Solo generar área recortada para impresión
-                // (la versión con template solo se usa para preview en el editor)
-
                 try {
-                  // Importar dinámicamente la función de renderizado
-                  const { renderCroppedPhoto } = await import('@/lib/calendar-render-utils');
+                  // Importar dinámicamente las funciones de renderizado
+                  const { renderCalendarMonth, renderCroppedPhoto } = await import('@/lib/calendar-render-utils');
 
-                  // Área recortada (sin template) - PARA IMPRESIÓN
+                  // 1. Visualización completa (CON TEMPLATE) - Para referencia visual
+                  const fullCalendar = await renderCalendarMonth(month);
+                  if (fullCalendar) {
+                    imageURLs.push(fullCalendar);
+                    console.log(`📅 Visualización completa generada para mes ${month.month}`);
+                  }
+
+                  // 2. Área recortada (SIN TEMPLATE) - Para impresión
                   const croppedImage = await renderCroppedPhoto(month);
                   if (croppedImage) {
                     imageURLs.push(croppedImage);
@@ -210,23 +214,30 @@ export default function OrderSuccessPage() {
 
             for (const polaroid of data.polaroids) {
               if (polaroid.imageSrc) {
-                // ===== POLAROID SIMPLE (SOLO ÁREA RECORTADA) =====
                 try {
-                  const { renderPolaroidCropped } = await import('@/lib/polaroid-render-utils');
+                  const { renderPolaroid, renderPolaroidCropped } = await import('@/lib/polaroid-render-utils');
 
-                  // Generar solo el área de foto (sin marco) para impresión
-                  const renderedImage = await renderPolaroidCropped(polaroid);
+                  // 1. Visualización completa (CON MARCO BLANCO) - Para referencia visual
+                  const fullPolaroid = await renderPolaroid(polaroid);
+                  if (fullPolaroid) {
+                    imageURLs.push(fullPolaroid);
+                    console.log(`📸 Visualización completa polaroid ${polaroid.id} renderizada`);
+                  }
 
-                  if (renderedImage) {
-                    imageURLs.push(renderedImage);
-                    console.log(`✅ Área recortada polaroid ${polaroid.id} renderizada`);
-                  } else {
-                    // Fallback: usar imagen original si falla el renderizado
-                    console.warn(`⚠️ Fallo al renderizar área recortada polaroid ${polaroid.id}, usando original`);
+                  // 2. Área recortada (SIN MARCO) - Para impresión
+                  const croppedPolaroid = await renderPolaroidCropped(polaroid);
+                  if (croppedPolaroid) {
+                    imageURLs.push(croppedPolaroid);
+                    console.log(`✂️ Área recortada polaroid ${polaroid.id} renderizada`);
+                  }
+
+                  // Si ambos fallan, usar fallback
+                  if (!fullPolaroid && !croppedPolaroid) {
+                    console.warn(`⚠️ Fallo al renderizar polaroid ${polaroid.id}, usando original`);
                     imageURLs.push(polaroid.imageSrc);
                   }
                 } catch (error) {
-                  console.error(`Error renderizando área recortada polaroid ${polaroid.id}:`, error);
+                  console.error(`Error renderizando polaroid ${polaroid.id}:`, error);
                   // Fallback: usar imagen original
                   imageURLs.push(polaroid.imageSrc);
                 }

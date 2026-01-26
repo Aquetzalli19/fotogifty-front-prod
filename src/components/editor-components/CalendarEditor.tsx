@@ -1,9 +1,16 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { ColorResult } from "react-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Undo,
   Redo,
@@ -20,12 +27,18 @@ import {
   ImageIcon,
   Calendar,
   Loader2,
+  Settings2,
+  Paintbrush,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCustomizationStore, CalendarCustomization } from "@/stores/customization-store";
 import { getEditorType } from "@/lib/category-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import TransformTab from "@/components/editor-components/TransformTab";
+import AdjustTab from "@/components/editor-components/AdjustTab";
+import BackgroundTab from "@/components/editor-components/BackgroundTab";
+import EditorDisclaimer from "@/components/editor-components/EditorDisclaimer";
 
 // Interfaz para las fotos de cada mes
 interface MonthPhoto {
@@ -34,8 +47,21 @@ interface MonthPhoto {
   renderedImageSrc?: string; // Imagen RENDERIZADA (canvas con calendario y foto) - SE ENVÍA AL BACKEND
   transformations: {
     scale: number;
+    rotation: number;
     posX: number;
     posY: number;
+  };
+  effects: {
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    sepia: number;
+  };
+  selectedFilter: string;
+  canvasStyle: {
+    borderColor: string;
+    borderWidth: number;
+    backgroundColor: string;
   };
 }
 
@@ -94,10 +120,26 @@ export default function CalendarEditor() {
   // 📐 DIMENSIONES DEL CALENDARIO
   // Las dimensiones se obtienen del template cargado, NO del paquete
   // Los templates tienen dimensiones fijas (2400x3600)
-  const [calendarDimensions, setCalendarDimensions] = useState({
-    width: 2400,   // Valor por defecto
-    height: 3600   // Valor por defecto
+  const [baseDimensions, setBaseDimensions] = useState({
+    width: 2400,   // Dimensión base desde el template
+    height: 3600   // Dimensión base desde el template
   });
+
+  // Estado para orientación del canvas
+  const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">(
+    "portrait" // Los calendarios por defecto son verticales
+  );
+
+  // Calcular dimensiones finales según orientación
+  const calendarDimensions = React.useMemo(() => {
+    const originalOrientation = baseDimensions.width > baseDimensions.height ? "landscape" : "portrait";
+    const shouldSwap = canvasOrientation !== originalOrientation;
+
+    return {
+      width: shouldSwap ? baseDimensions.height : baseDimensions.width,
+      height: shouldSwap ? baseDimensions.width : baseDimensions.height,
+    };
+  }, [baseDimensions.width, baseDimensions.height, canvasOrientation]);
 
   // Calcular área de la foto dinámicamente usando los porcentajes configurados
   const PHOTO_AREA = {
@@ -107,6 +149,8 @@ export default function CalendarEditor() {
     height: Math.round(calendarDimensions.height * PHOTO_AREA_HEIGHT_PERCENT),
   };
 
+  const [activeTab, setActiveTab] = useState<string | null>("transform");
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState<number>(1);
   const [monthPhotos, setMonthPhotos] = useState<MonthPhoto[]>(
     Array.from({ length: 12 }, (_, i) => ({
@@ -114,8 +158,21 @@ export default function CalendarEditor() {
       imageSrc: null,
       transformations: {
         scale: 1,
+        rotation: 0,
         posX: 0,
         posY: 0,
+      },
+      effects: {
+        brightness: 0,
+        contrast: 0,
+        saturation: 0,
+        sepia: 0,
+      },
+      selectedFilter: "none",
+      canvasStyle: {
+        borderColor: "#000000",
+        borderWidth: 0,
+        backgroundColor: "#FFFFFF",
       },
     }))
   );
@@ -144,7 +201,7 @@ export default function CalendarEditor() {
       templateImageRef.current = img;
 
       // 📐 Detectar dimensiones reales del template
-      setCalendarDimensions({
+      setBaseDimensions({
         width: img.width,
         height: img.height
       });
@@ -187,7 +244,20 @@ export default function CalendarEditor() {
 
       if (existing && existing.editorType === "calendar") {
         const data = existing.data as CalendarCustomization;
-        setMonthPhotos(data.months);
+        // Agregar valores por defecto para nuevos campos si no existen
+        const normalizedMonths = data.months.map(month => ({
+          ...month,
+          transformations: {
+            scale: month.transformations?.scale || 1,
+            rotation: month.transformations?.rotation || 0,
+            posX: month.transformations?.posX || 0,
+            posY: month.transformations?.posY || 0,
+          },
+          effects: month.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
+          selectedFilter: month.selectedFilter || "none",
+          canvasStyle: month.canvasStyle || { borderColor: "#000000", borderWidth: 0, backgroundColor: "#FFFFFF" },
+        }));
+        setMonthPhotos(normalizedMonths);
 
         data.months.forEach((monthData) => {
           if (monthData.imageSrc) {
@@ -348,13 +418,36 @@ export default function CalendarEditor() {
         ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
         ctx.clip();
 
-        const { scale, posX, posY } = currentMonthPhoto.transformations;
+        const { scale, rotation, posX, posY } = currentMonthPhoto.transformations;
         // Centro del ÁREA de foto (no del canvas completo)
         const centerX = PHOTO_AREA.left + (PHOTO_AREA.width / 2);
         const centerY = PHOTO_AREA.top + (PHOTO_AREA.height / 2);
 
         ctx.translate(centerX + posX, centerY + posY);
+        ctx.rotate((rotation * Math.PI) / 180);
         ctx.scale(scale, scale);
+
+        // Aplicar filtros CSS
+        const { brightness, contrast, saturation, sepia } = currentMonthPhoto.effects;
+        const filters: string[] = [];
+
+        // Aplicar filtro seleccionado
+        if (currentMonthPhoto.selectedFilter === "blackwhite") {
+          filters.push("grayscale(100%)");
+        } else if (currentMonthPhoto.selectedFilter === "sepia") {
+          filters.push("sepia(100%)");
+        } else {
+          // Aplicar ajustes manuales
+          if (brightness !== 0) filters.push(`brightness(${1 + brightness / 100})`);
+          if (contrast !== 0) filters.push(`contrast(${1 + contrast / 100})`);
+          if (saturation !== 0) filters.push(`saturate(${1 + saturation / 100})`);
+          if (sepia !== 0) filters.push(`sepia(${sepia / 100})`);
+        }
+
+        if (filters.length > 0) {
+          ctx.filter = filters.join(" ");
+        }
+
         ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
         ctx.restore();
       }
@@ -388,7 +481,7 @@ export default function CalendarEditor() {
 
   useEffect(() => {
     renderCanvas();
-  }, [currentMonthPhoto, selectedMonth]);
+  }, [currentMonthPhoto, selectedMonth, calendarDimensions, canvasOrientation]);
 
   // Generar vista previa del calendario renderizado
   const generatePreview = async () => {
@@ -400,10 +493,10 @@ export default function CalendarEditor() {
     setIsGeneratingPreview(true);
 
     try {
-      // Crear canvas temporal para la vista previa
+      // Crear canvas temporal para la vista previa de alta calidad
       const previewCanvas = document.createElement('canvas');
-      const previewWidth = 300;
-      const previewHeight = 450;
+      const previewWidth = 600;  // Aumentado de 300
+      const previewHeight = 900; // Aumentado de 450
       previewCanvas.width = previewWidth;
       previewCanvas.height = previewHeight;
       const ctx = previewCanvas.getContext('2d');
@@ -481,8 +574,8 @@ export default function CalendarEditor() {
       // 3. Dibujar el template del calendario encima
       ctx.drawImage(templateImageRef.current, 0, 0, previewWidth, previewHeight);
 
-      // Convertir a data URL
-      const thumbnailDataUrl = previewCanvas.toDataURL('image/jpeg', 0.8);
+      // Convertir a data URL con alta calidad
+      const thumbnailDataUrl = previewCanvas.toDataURL('image/jpeg', 0.92);
       setPreviewThumbnail(thumbnailDataUrl);
     } catch (error) {
       console.error('Error generando vista previa:', error);
@@ -570,9 +663,9 @@ export default function CalendarEditor() {
   };
 
   // Manejar cambio de escala
+  // ===== HANDLERS DE TRANSFORMACIONES =====
   const handleScaleChange = (value: number) => {
     const oldTransformations = { ...currentMonthPhoto.transformations };
-
     execute({
       undo: () => {
         setMonthPhotos((prev) => {
@@ -606,6 +699,581 @@ export default function CalendarEditor() {
         transformations: {
           ...newPhotos[selectedMonth - 1].transformations,
           scale: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleRotationChange = (value: number) => {
+    const oldTransformations = { ...currentMonthPhoto.transformations };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: oldTransformations,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: {
+              ...newPhotos[selectedMonth - 1].transformations,
+              rotation: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          rotation: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handlePosXChange = (value: number) => {
+    const oldTransformations = { ...currentMonthPhoto.transformations };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: oldTransformations,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: {
+              ...newPhotos[selectedMonth - 1].transformations,
+              posX: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          posX: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handlePosYChange = (value: number) => {
+    const oldTransformations = { ...currentMonthPhoto.transformations };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: oldTransformations,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            transformations: {
+              ...newPhotos[selectedMonth - 1].transformations,
+              posY: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          posY: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  // Live updates (sin historial)
+  const handleScaleLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          scale: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleRotationLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          rotation: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handlePosXLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          posX: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handlePosYLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        transformations: {
+          ...newPhotos[selectedMonth - 1].transformations,
+          posY: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  // ===== HANDLERS DE EFECTOS =====
+  const handleBrightnessChange = (value: number) => {
+    const oldEffects = { ...currentMonthPhoto.effects };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: oldEffects,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: {
+              ...newPhotos[selectedMonth - 1].effects,
+              brightness: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          brightness: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleContrastChange = (value: number) => {
+    const oldEffects = { ...currentMonthPhoto.effects };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: oldEffects,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: {
+              ...newPhotos[selectedMonth - 1].effects,
+              contrast: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          contrast: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleSaturationChange = (value: number) => {
+    const oldEffects = { ...currentMonthPhoto.effects };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: oldEffects,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: {
+              ...newPhotos[selectedMonth - 1].effects,
+              saturation: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          saturation: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleSepiaChange = (value: number) => {
+    const oldEffects = { ...currentMonthPhoto.effects };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: oldEffects,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            effects: {
+              ...newPhotos[selectedMonth - 1].effects,
+              sepia: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          sepia: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  // Live updates para efectos
+  const handleBrightnessLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          brightness: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleContrastLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          contrast: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleSaturationLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          saturation: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleSepiaLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        effects: {
+          ...newPhotos[selectedMonth - 1].effects,
+          sepia: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleFilterSelect = (filter: string) => {
+    const oldFilter = currentMonthPhoto.selectedFilter;
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            selectedFilter: oldFilter,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            selectedFilter: filter,
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        selectedFilter: filter,
+      };
+      return newPhotos;
+    });
+  };
+
+  // ===== HANDLERS DE ESTILO DE CANVAS =====
+  const handleBorderWidthChange = (value: number) => {
+    const oldStyle = { ...currentMonthPhoto.canvasStyle };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: oldStyle,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: {
+              ...newPhotos[selectedMonth - 1].canvasStyle,
+              borderWidth: value,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        canvasStyle: {
+          ...newPhotos[selectedMonth - 1].canvasStyle,
+          borderWidth: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleBorderWidthLive = (value: number) => {
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        canvasStyle: {
+          ...newPhotos[selectedMonth - 1].canvasStyle,
+          borderWidth: value,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleBorderColorChange = (color: ColorResult) => {
+    const oldStyle = { ...currentMonthPhoto.canvasStyle };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: oldStyle,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: {
+              ...newPhotos[selectedMonth - 1].canvasStyle,
+              borderColor: color.hex,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        canvasStyle: {
+          ...newPhotos[selectedMonth - 1].canvasStyle,
+          borderColor: color.hex,
+        },
+      };
+      return newPhotos;
+    });
+  };
+
+  const handleBackgroundColorChange = (color: ColorResult) => {
+    const oldStyle = { ...currentMonthPhoto.canvasStyle };
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: oldStyle,
+          };
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            canvasStyle: {
+              ...newPhotos[selectedMonth - 1].canvasStyle,
+              backgroundColor: color.hex,
+            },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        canvasStyle: {
+          ...newPhotos[selectedMonth - 1].canvasStyle,
+          backgroundColor: color.hex,
         },
       };
       return newPhotos;
@@ -765,7 +1433,9 @@ export default function CalendarEditor() {
           newPhotos[selectedMonth - 1] = {
             ...newPhotos[selectedMonth - 1],
             imageSrc: null,
-            transformations: { scale: 1, posX: 0, posY: 0 },
+            transformations: { scale: 1, rotation: 0, posX: 0, posY: 0 },
+            effects: { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
+            selectedFilter: "none",
           };
           return newPhotos;
         });
@@ -777,7 +1447,9 @@ export default function CalendarEditor() {
       newPhotos[selectedMonth - 1] = {
         ...newPhotos[selectedMonth - 1],
         imageSrc: null,
-        transformations: { scale: 1, posX: 0, posY: 0 },
+        transformations: { scale: 1, rotation: 0, posX: 0, posY: 0 },
+        effects: { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
+        selectedFilter: "none",
       };
       return newPhotos;
     });
@@ -932,6 +1604,9 @@ export default function CalendarEditor() {
         month: monthData.month,
         imageSrc: monthData.imageSrc,
         transformations: monthData.transformations,
+        effects: monthData.effects,
+        selectedFilter: monthData.selectedFilter,
+        canvasStyle: monthData.canvasStyle,
         // NO guardamos renderedImageSrc ni croppedPhotoSrc aquí
       })),
     };
@@ -957,7 +1632,14 @@ export default function CalendarEditor() {
   };
 
   return (
-    <div className="w-full min-h-screen bg-muted/30 flex flex-col">
+    <>
+      {/* Disclaimer que debe aceptarse antes de usar el editor */}
+      {!disclaimerAccepted && (
+        <EditorDisclaimer onAccept={() => setDisclaimerAccepted(true)} />
+      )}
+
+      {/* Editor principal - solo visible después de aceptar disclaimer */}
+      <div className="w-full min-h-screen bg-muted/30 flex flex-col">
       {/* Header móvil con navegación de meses */}
       <div className="sticky top-0 z-20 bg-background border-b shadow-sm">
         <div className="flex items-center justify-between p-2 sm:p-3">
@@ -1076,27 +1758,96 @@ export default function CalendarEditor() {
               {currentMonthPhoto.imageSrc ? "Cambiar foto" : "Subir foto"}
             </Button>
 
-            {/* Escala */}
+            {/* Opciones de edición */}
             {currentMonthPhoto.imageSrc && (
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="text-sm font-medium">Tamaño</label>
-                  <span className="text-xs text-muted-foreground">
-                    {(currentMonthPhoto.transformations.scale * 100).toFixed(0)}%
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="0.1"
-                  max="3"
-                  step="0.05"
-                  value={currentMonthPhoto.transformations.scale}
-                  onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
-                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <p className="text-xs text-muted-foreground text-center">
-                  Arrastra la imagen para posicionarla
-                </p>
+              <div className="mt-4">
+                <Accordion
+                  type="single"
+                  collapsible
+                  value={activeTab || undefined}
+                  onValueChange={setActiveTab}
+                  className="w-full"
+                >
+                  <AccordionItem value="transform">
+                    <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="h-4 w-4" />
+                        Transformar
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <TransformTab
+                        scale={currentMonthPhoto.transformations.scale}
+                        rotation={currentMonthPhoto.transformations.rotation}
+                        posX={currentMonthPhoto.transformations.posX}
+                        posY={currentMonthPhoto.transformations.posY}
+                        onScaleChange={handleScaleChange}
+                        onRotationChange={handleRotationChange}
+                        onPosXChange={handlePosXChange}
+                        onPosYChange={handlePosYChange}
+                        onScaleLive={handleScaleLive}
+                        onRotationLive={handleRotationLive}
+                        onPosXLive={handlePosXLive}
+                        onPosYLive={handlePosYLive}
+                        canvasWidth={PHOTO_AREA.width}
+                        canvasHeight={PHOTO_AREA.height}
+                        canvasOrientation={canvasOrientation}
+                        onCanvasOrientationChange={setCanvasOrientation}
+                      />
+                      <p className="text-xs text-muted-foreground text-center mt-2">
+                        Arrastra la imagen para posicionarla
+                      </p>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="adjust">
+                    <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Settings2 className="h-4 w-4" />
+                        Ajustar
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <AdjustTab
+                        imageSrc={currentMonthPhoto.imageSrc}
+                        brightness={currentMonthPhoto.effects.brightness}
+                        contrast={currentMonthPhoto.effects.contrast}
+                        saturation={currentMonthPhoto.effects.saturation}
+                        sepia={currentMonthPhoto.effects.sepia}
+                        selectedFilter={currentMonthPhoto.selectedFilter}
+                        onBrightnessChange={handleBrightnessChange}
+                        onContrastChange={handleContrastChange}
+                        onSaturationChange={handleSaturationChange}
+                        onSepiaChange={handleSepiaChange}
+                        onFilterSelect={handleFilterSelect}
+                        onBrightnessLive={handleBrightnessLive}
+                        onContrastLive={handleContrastLive}
+                        onSaturationLive={handleSaturationLive}
+                        onSepiaLive={handleSepiaLive}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  <AccordionItem value="colorize">
+                    <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-2 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Paintbrush className="h-4 w-4" />
+                        Personalizar
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <BackgroundTab
+                        borderColor={currentMonthPhoto.canvasStyle.borderColor}
+                        borderWidth={currentMonthPhoto.canvasStyle.borderWidth}
+                        backgroundColor={currentMonthPhoto.canvasStyle.backgroundColor}
+                        borderUpdate={handleBorderWidthChange}
+                        borderColorUpdate={handleBorderColorChange}
+                        backgroundColorUpdate={handleBackgroundColorChange}
+                        borderWidthLive={handleBorderWidthLive}
+                      />
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </div>
             )}
 
@@ -1277,5 +2028,6 @@ export default function CalendarEditor() {
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -35,6 +35,7 @@ import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
 import BackgroundTab from "@/components/editor-components/BackgroundTab";
 import DownloadPreview from "@/components/editor-components/DownloadPreview";
+import EditorDisclaimer from "@/components/editor-components/EditorDisclaimer";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useCanvasState } from "@/hooks/useCanvasState";
 import { useCanvasOperations } from "@/hooks/useCanvasState";
@@ -66,20 +67,35 @@ export default function StandardEditor() {
 
   const [activeTab, setActiveTab] = useState<string | null>("transform");
 
+  // Estado para el disclaimer
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
   // Estados para galería de imágenes (similar a PolaroidEditor)
   const [savedImages, setSavedImages] = useState<SavedStandardImage[]>([]);
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [nextId, setNextId] = useState(1);
 
+  // Estado para orientación del canvas (portrait/landscape)
+  const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">(
+    widthInches > heightInches ? "landscape" : "portrait"
+  );
+
   // IMPORTANTE: El canvas SIEMPRE usa las dimensiones REALES de impresión (300 DPI)
   // Esto asegura que lo que ves es EXACTAMENTE lo que se imprimirá (WYSIWYG)
-  const canvasDimensions = React.useMemo(
-    () => ({
-      width: Math.round(widthInches * exportResolution),
-      height: Math.round(heightInches * exportResolution),
-    }),
-    [widthInches, heightInches, exportResolution]
-  );
+  // La orientación del canvas intercambia width y height
+  const canvasDimensions = React.useMemo(() => {
+    const baseWidth = Math.round(widthInches * exportResolution);
+    const baseHeight = Math.round(heightInches * exportResolution);
+
+    // Si la orientación original era portrait y cambiamos a landscape (o viceversa), intercambiamos
+    const originalOrientation = widthInches > heightInches ? "landscape" : "portrait";
+    const shouldSwap = canvasOrientation !== originalOrientation;
+
+    return {
+      width: shouldSwap ? baseHeight : baseWidth,
+      height: shouldSwap ? baseWidth : baseHeight,
+    };
+  }, [widthInches, heightInches, exportResolution, canvasOrientation]);
 
   // Las dimensiones de exportación son las mismas que las del canvas
   const exportDimensions = canvasDimensions;
@@ -188,6 +204,18 @@ export default function StandardEditor() {
     selectedFilter,
     exportDimensions // Validar contra dimensiones de export
   );
+
+  // Forzar re-renderizado cuando cambia la orientación del canvas
+  React.useEffect(() => {
+    if (canvasRef.current && imageSrc) {
+      // Pequeño delay para asegurar que las dimensiones se hayan actualizado
+      const timer = setTimeout(() => {
+        // Disparar un cambio mínimo en las transformaciones para forzar re-render
+        setTransformations(prev => ({ ...prev }));
+      }, 10);
+      return () => clearTimeout(timer);
+    }
+  }, [canvasOrientation, imageSrc]);
 
   // Cargar personalización existente si estamos en modo carrito
   React.useEffect(() => {
@@ -310,8 +338,8 @@ export default function StandardEditor() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Generar thumbnail comprimido para la galería (del canvas de preview)
-    const thumbnailDataUrl = compressCanvas(canvas, 150, 150, 0.5);
+    // Generar thumbnail de alta calidad para la galería y el carrito
+    const thumbnailDataUrl = compressCanvas(canvas, 500, 500, 0.92);
 
     // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
     // La imagen renderizada se generará SOLO al subir al backend
@@ -415,7 +443,14 @@ export default function StandardEditor() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen gap-2 p-4">
+    <>
+      {/* Disclaimer que debe aceptarse antes de usar el editor */}
+      {!disclaimerAccepted && (
+        <EditorDisclaimer onAccept={() => setDisclaimerAccepted(true)} />
+      )}
+
+      {/* Editor principal - solo visible después de aceptar disclaimer */}
+      <div className="flex flex-col md:flex-row h-screen gap-2 p-4">
       <div className="w-full h-fit md:w-72 md:h-full bg-dark rounded-md px-4 text-primary-foreground py-4 md:order-first order-last overflow-y-auto flex flex-col">
         {/* Controles */}
         <div className="flex-1">
@@ -463,6 +498,9 @@ export default function StandardEditor() {
                   }
                   canvasWidth={canvasDimensions.width}
                   canvasHeight={canvasDimensions.height}
+                  // Control de orientación del canvas
+                  canvasOrientation={canvasOrientation}
+                  onCanvasOrientationChange={setCanvasOrientation}
                 />
               </AccordionContent>
             </AccordionItem>
@@ -1042,5 +1080,6 @@ export default function StandardEditor() {
         )}
       </div>
     </div>
+    </>
   );
 }

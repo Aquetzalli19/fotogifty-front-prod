@@ -1,9 +1,16 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { ColorResult } from "react-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Undo,
   Redo,
@@ -16,6 +23,8 @@ import {
   Edit,
   Check,
   X,
+  Settings2,
+  Paintbrush,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -23,6 +32,10 @@ import { useCustomizationStore, PolaroidCustomization } from "@/stores/customiza
 import { getEditorType } from "@/lib/category-utils";
 import { compressCanvas } from "@/lib/canvas-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import TransformTab from "@/components/editor-components/TransformTab";
+import AdjustTab from "@/components/editor-components/AdjustTab";
+import BackgroundTab from "@/components/editor-components/BackgroundTab";
+import EditorDisclaimer from "@/components/editor-components/EditorDisclaimer";
 
 // Interfaz para cada polaroid guardada
 interface SavedPolaroid {
@@ -30,8 +43,21 @@ interface SavedPolaroid {
   imageSrc: string;
   transformations: {
     scale: number;
+    rotation: number;
     posX: number;
     posY: number;
+  };
+  effects: {
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    sepia: number;
+  };
+  selectedFilter: string;
+  canvasStyle: {
+    borderColor: string;
+    borderWidth: number;
+    backgroundColor: string;
   };
   thumbnailDataUrl?: string; // Preview pequeño para la galería
   renderedImageSrc?: string; // ✅ Canvas completo renderizado con todas las transformaciones (WYSIWYG)
@@ -45,24 +71,9 @@ interface SavedPolaroid {
   };
 }
 
-// Dimensiones del canvas polaroid
-const POLAROID_WIDTH = 800;
-const POLAROID_HEIGHT = 1000;
-
-// Área de la foto dentro del polaroid (dejando espacio para el marco blanco)
-const PHOTO_AREA = {
-  top: 50,
-  left: 50,
-  width: 700,
-  height: 700, // Área cuadrada para la foto
-};
-
-// Dimensiones del marco blanco
-const FRAME = {
-  top: 50,
-  side: 50,
-  bottom: 250, // Marco más grande abajo (característico de polaroid)
-};
+// Dimensiones base del canvas polaroid (portrait)
+const BASE_POLAROID_WIDTH = 800;
+const BASE_POLAROID_HEIGHT = 1000;
 
 export default function PolaroidEditor() {
   const searchParams = useSearchParams();
@@ -77,12 +88,73 @@ export default function PolaroidEditor() {
   // Detectar si estamos en modo "carrito"
   const isCartMode = cartItemId !== null && instanceIndex !== null;
 
+  const [activeTab, setActiveTab] = useState<string | null>("transform");
+  const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+
+  // Estado para orientación del canvas
+  const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">("portrait");
+
+  // Calcular dimensiones según orientación
+  const POLAROID_WIDTH = canvasOrientation === "portrait" ? BASE_POLAROID_WIDTH : BASE_POLAROID_HEIGHT;
+  const POLAROID_HEIGHT = canvasOrientation === "portrait" ? BASE_POLAROID_HEIGHT : BASE_POLAROID_WIDTH;
+
+  // Área de la foto dentro del polaroid (se ajusta según orientación)
+  const PHOTO_AREA = React.useMemo(() => {
+    if (canvasOrientation === "portrait") {
+      return {
+        top: 50,
+        left: 50,
+        width: 700,
+        height: 700, // Área cuadrada para la foto
+      };
+    } else {
+      // Landscape: intercambiamos y ajustamos
+      return {
+        top: 50,
+        left: 250, // Más espacio a la izquierda (equivalente al bottom en portrait)
+        width: 700,
+        height: 700,
+      };
+    }
+  }, [canvasOrientation]);
+
+  // Dimensiones del marco blanco
+  const FRAME = React.useMemo(() => {
+    if (canvasOrientation === "portrait") {
+      return {
+        top: 50,
+        side: 50,
+        bottom: 250, // Marco más grande abajo (característico de polaroid)
+      };
+    } else {
+      // Landscape: el marco grande va a la derecha
+      return {
+        top: 50,
+        side: 250, // Marco grande a la derecha
+        bottom: 50,
+      };
+    }
+  }, [canvasOrientation]);
+
   // Estado para la foto actual en edición
   const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null);
   const [currentTransformations, setCurrentTransformations] = useState({
     scale: 1,
+    rotation: 0,
     posX: 0,
     posY: 0,
+  });
+  const [currentEffects, setCurrentEffects] = useState({
+    brightness: 0,
+    contrast: 0,
+    saturation: 0,
+    sepia: 0,
+  });
+  const [selectedFilter, setSelectedFilter] = useState<string>("none");
+  const [canvasStyle, setCanvasStyle] = useState({
+    borderColor: "#FFFFFF",
+    borderWidth: 50,
+    backgroundColor: "#FFFFFF",
   });
 
   // Colección de polaroids guardadas
@@ -112,8 +184,8 @@ export default function PolaroidEditor() {
     // Limpiar canvas
     ctx.clearRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
-    // Dibujar marco blanco del polaroid
-    ctx.fillStyle = "#FFFFFF";
+    // Dibujar marco del polaroid con el color de fondo personalizado
+    ctx.fillStyle = canvasStyle.backgroundColor;
     ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
     // Dibujar área de la foto (fondo gris si no hay imagen)
@@ -151,7 +223,7 @@ export default function PolaroidEditor() {
       );
       ctx.restore();
     } else {
-      // Dibujar la foto con transformaciones
+      // Dibujar la foto con transformaciones y efectos
       const img = currentImageRef.current;
       if (img) {
         ctx.save();
@@ -167,7 +239,7 @@ export default function PolaroidEditor() {
         ctx.clip();
 
         // Aplicar transformaciones
-        const { scale, posX, posY } = currentTransformations;
+        const { scale, rotation, posX, posY } = currentTransformations;
 
         // Calcular centro del área de foto
         const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
@@ -175,7 +247,29 @@ export default function PolaroidEditor() {
 
         // Aplicar transformaciones
         ctx.translate(centerX + posX, centerY + posY);
+        ctx.rotate((rotation * Math.PI) / 180);
         ctx.scale(scale, scale);
+
+        // Aplicar filtros CSS
+        const { brightness, contrast, saturation, sepia } = currentEffects;
+        const filters: string[] = [];
+
+        // Aplicar filtro seleccionado
+        if (selectedFilter === "blackwhite") {
+          filters.push("grayscale(100%)");
+        } else if (selectedFilter === "sepia") {
+          filters.push("sepia(100%)");
+        } else {
+          // Aplicar ajustes manuales
+          if (brightness !== 0) filters.push(`brightness(${1 + brightness / 100})`);
+          if (contrast !== 0) filters.push(`contrast(${1 + contrast / 100})`);
+          if (saturation !== 0) filters.push(`saturate(${1 + saturation / 100})`);
+          if (sepia !== 0) filters.push(`sepia(${sepia / 100})`);
+        }
+
+        if (filters.length > 0) {
+          ctx.filter = filters.join(" ");
+        }
 
         // Dibujar imagen centrada
         ctx.drawImage(
@@ -190,18 +284,25 @@ export default function PolaroidEditor() {
       }
     }
 
-    // Dibujar sombra sutil para efecto 3D del polaroid
-    ctx.save();
-    ctx.strokeStyle = "#E5E7EB";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-    ctx.restore();
+    // Dibujar borde personalizado del polaroid
+    if (canvasStyle.borderWidth > 0) {
+      ctx.save();
+      ctx.strokeStyle = canvasStyle.borderColor;
+      ctx.lineWidth = canvasStyle.borderWidth;
+      ctx.strokeRect(
+        canvasStyle.borderWidth / 2,
+        canvasStyle.borderWidth / 2,
+        POLAROID_WIDTH - canvasStyle.borderWidth,
+        POLAROID_HEIGHT - canvasStyle.borderWidth
+      );
+      ctx.restore();
+    }
   };
 
-  // Re-renderizar cuando cambian las transformaciones o la imagen
+  // Re-renderizar cuando cambian las transformaciones, efectos o la imagen
   useEffect(() => {
     renderCanvas();
-  }, [currentImageSrc, currentTransformations]);
+  }, [currentImageSrc, currentTransformations, currentEffects, selectedFilter, canvasStyle, canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT, PHOTO_AREA]);
 
   // Cargar personalización existente si estamos en modo carrito
   useEffect(() => {
@@ -213,7 +314,20 @@ export default function PolaroidEditor() {
 
       if (existing && existing.editorType === "polaroid") {
         const data = existing.data as PolaroidCustomization;
-        setSavedPolaroids(data.polaroids);
+        // Agregar valores por defecto para nuevos campos si no existen
+        const normalizedPolaroids = data.polaroids.map(polaroid => ({
+          ...polaroid,
+          transformations: {
+            scale: polaroid.transformations?.scale || 1,
+            rotation: polaroid.transformations?.rotation || 0,
+            posX: polaroid.transformations?.posX || 0,
+            posY: polaroid.transformations?.posY || 0,
+          },
+          effects: polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
+          selectedFilter: polaroid.selectedFilter || "none",
+          canvasStyle: polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" },
+        }));
+        setSavedPolaroids(normalizedPolaroids);
 
         // Actualizar nextId para evitar IDs duplicados
         if (data.polaroids.length > 0) {
@@ -252,7 +366,9 @@ export default function PolaroidEditor() {
       img.onload = () => {
         currentImageRef.current = img;
         setCurrentImageSrc(compressedSrc);
-        setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+        setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
+        setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+        setSelectedFilter("none");
         reset();
       };
     } catch (error) {
@@ -266,7 +382,9 @@ export default function PolaroidEditor() {
         img.onload = () => {
           currentImageRef.current = img;
           setCurrentImageSrc(originalSrc);
-          setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+          setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
+          setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+          setSelectedFilter("none");
           reset();
         };
       };
@@ -274,23 +392,153 @@ export default function PolaroidEditor() {
     }
   };
 
-  // Manejar cambio de escala
+  // ===== HANDLERS DE TRANSFORMACIONES =====
   const handleScaleChange = (value: number) => {
     const oldTransformations = { ...currentTransformations };
-
     execute({
       undo: () => setCurrentTransformations(oldTransformations),
-      redo: () =>
-        setCurrentTransformations({
-          ...currentTransformations,
-          scale: value,
-        }),
+      redo: () => setCurrentTransformations({ ...currentTransformations, scale: value }),
     });
+    setCurrentTransformations({ ...currentTransformations, scale: value });
+  };
 
-    setCurrentTransformations({
-      ...currentTransformations,
-      scale: value,
+  const handleRotationChange = (value: number) => {
+    const oldTransformations = { ...currentTransformations };
+    execute({
+      undo: () => setCurrentTransformations(oldTransformations),
+      redo: () => setCurrentTransformations({ ...currentTransformations, rotation: value }),
     });
+    setCurrentTransformations({ ...currentTransformations, rotation: value });
+  };
+
+  const handlePosXChange = (value: number) => {
+    const oldTransformations = { ...currentTransformations };
+    execute({
+      undo: () => setCurrentTransformations(oldTransformations),
+      redo: () => setCurrentTransformations({ ...currentTransformations, posX: value }),
+    });
+    setCurrentTransformations({ ...currentTransformations, posX: value });
+  };
+
+  const handlePosYChange = (value: number) => {
+    const oldTransformations = { ...currentTransformations };
+    execute({
+      undo: () => setCurrentTransformations(oldTransformations),
+      redo: () => setCurrentTransformations({ ...currentTransformations, posY: value }),
+    });
+    setCurrentTransformations({ ...currentTransformations, posY: value });
+  };
+
+  // Live updates (sin historial)
+  const handleScaleLive = (value: number) => {
+    setCurrentTransformations({ ...currentTransformations, scale: value });
+  };
+
+  const handleRotationLive = (value: number) => {
+    setCurrentTransformations({ ...currentTransformations, rotation: value });
+  };
+
+  const handlePosXLive = (value: number) => {
+    setCurrentTransformations({ ...currentTransformations, posX: value });
+  };
+
+  const handlePosYLive = (value: number) => {
+    setCurrentTransformations({ ...currentTransformations, posY: value });
+  };
+
+  // ===== HANDLERS DE EFECTOS =====
+  const handleBrightnessChange = (value: number) => {
+    const oldEffects = { ...currentEffects };
+    execute({
+      undo: () => setCurrentEffects(oldEffects),
+      redo: () => setCurrentEffects({ ...currentEffects, brightness: value }),
+    });
+    setCurrentEffects({ ...currentEffects, brightness: value });
+  };
+
+  const handleContrastChange = (value: number) => {
+    const oldEffects = { ...currentEffects };
+    execute({
+      undo: () => setCurrentEffects(oldEffects),
+      redo: () => setCurrentEffects({ ...currentEffects, contrast: value }),
+    });
+    setCurrentEffects({ ...currentEffects, contrast: value });
+  };
+
+  const handleSaturationChange = (value: number) => {
+    const oldEffects = { ...currentEffects };
+    execute({
+      undo: () => setCurrentEffects(oldEffects),
+      redo: () => setCurrentEffects({ ...currentEffects, saturation: value }),
+    });
+    setCurrentEffects({ ...currentEffects, saturation: value });
+  };
+
+  const handleSepiaChange = (value: number) => {
+    const oldEffects = { ...currentEffects };
+    execute({
+      undo: () => setCurrentEffects(oldEffects),
+      redo: () => setCurrentEffects({ ...currentEffects, sepia: value }),
+    });
+    setCurrentEffects({ ...currentEffects, sepia: value });
+  };
+
+  // Live updates para efectos
+  const handleBrightnessLive = (value: number) => {
+    setCurrentEffects({ ...currentEffects, brightness: value });
+  };
+
+  const handleContrastLive = (value: number) => {
+    setCurrentEffects({ ...currentEffects, contrast: value });
+  };
+
+  const handleSaturationLive = (value: number) => {
+    setCurrentEffects({ ...currentEffects, saturation: value });
+  };
+
+  const handleSepiaLive = (value: number) => {
+    setCurrentEffects({ ...currentEffects, sepia: value });
+  };
+
+  const handleFilterSelect = (filter: string) => {
+    const oldFilter = selectedFilter;
+    execute({
+      undo: () => setSelectedFilter(oldFilter),
+      redo: () => setSelectedFilter(filter),
+    });
+    setSelectedFilter(filter);
+  };
+
+  // ===== HANDLERS DE ESTILO DE CANVAS =====
+  const handleBorderWidthChange = (value: number) => {
+    const oldStyle = { ...canvasStyle };
+    execute({
+      undo: () => setCanvasStyle(oldStyle),
+      redo: () => setCanvasStyle({ ...canvasStyle, borderWidth: value }),
+    });
+    setCanvasStyle({ ...canvasStyle, borderWidth: value });
+  };
+
+  const handleBorderWidthLive = (value: number) => {
+    setCanvasStyle({ ...canvasStyle, borderWidth: value });
+  };
+
+  const handleBorderColorChange = (color: ColorResult) => {
+    const oldStyle = { ...canvasStyle };
+    execute({
+      undo: () => setCanvasStyle(oldStyle),
+      redo: () => setCanvasStyle({ ...canvasStyle, borderColor: color.hex }),
+    });
+    setCanvasStyle({ ...canvasStyle, borderColor: color.hex });
+  };
+
+  const handleBackgroundColorChange = (color: ColorResult) => {
+    const oldStyle = { ...canvasStyle };
+    execute({
+      undo: () => setCanvasStyle(oldStyle),
+      redo: () => setCanvasStyle({ ...canvasStyle, backgroundColor: color.hex }),
+    });
+    setCanvasStyle({ ...canvasStyle, backgroundColor: color.hex });
   };
 
   // Manejar drag de la imagen
@@ -351,7 +599,7 @@ export default function PolaroidEditor() {
     if (!canvas) return;
 
     // Comprimir el thumbnail a un tamaño muy pequeño para la galería
-    const thumbnailDataUrl = compressCanvas(canvas, 120, 150, 0.4);
+    const thumbnailDataUrl = compressCanvas(canvas, 500, 500, 0.92);
 
     // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
     // La imagen renderizada se generará SOLO al subir al backend
@@ -366,6 +614,9 @@ export default function PolaroidEditor() {
                 ...p,
                 imageSrc: currentImageSrc,
                 transformations: { ...currentTransformations },
+                effects: { ...currentEffects },
+                selectedFilter,
+                canvasStyle: { ...canvasStyle },
                 thumbnailDataUrl,
               }
             : p
@@ -378,6 +629,9 @@ export default function PolaroidEditor() {
         id: nextId,
         imageSrc: currentImageSrc,
         transformations: { ...currentTransformations },
+        effects: { ...currentEffects },
+        selectedFilter,
+        canvasStyle: { ...canvasStyle },
         thumbnailDataUrl,
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
@@ -386,7 +640,9 @@ export default function PolaroidEditor() {
 
     // Limpiar el editor
     setCurrentImageSrc(null);
-    setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+    setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
+    setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+    setSelectedFilter("none");
     currentImageRef.current = null;
     reset();
   };
@@ -395,6 +651,9 @@ export default function PolaroidEditor() {
   const handleEditPolaroid = (polaroid: SavedPolaroid) => {
     setCurrentImageSrc(polaroid.imageSrc);
     setCurrentTransformations({ ...polaroid.transformations });
+    setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+    setSelectedFilter(polaroid.selectedFilter || "none");
+    setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
     setEditingPolaroidId(polaroid.id);
 
     // Cargar la imagen
@@ -410,7 +669,7 @@ export default function PolaroidEditor() {
     setSavedPolaroids((prev) => prev.filter((p) => p.id !== id));
     if (editingPolaroidId === id) {
       setCurrentImageSrc(null);
-      setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+      setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
       setEditingPolaroidId(null);
       currentImageRef.current = null;
     }
@@ -419,7 +678,9 @@ export default function PolaroidEditor() {
   // Limpiar editor actual
   const handleClearCurrent = () => {
     setCurrentImageSrc(null);
-    setCurrentTransformations({ scale: 1, posX: 0, posY: 0 });
+    setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
+    setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+    setSelectedFilter("none");
     setEditingPolaroidId(null);
     currentImageRef.current = null;
     reset();
@@ -467,7 +728,14 @@ export default function PolaroidEditor() {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col md:flex-row gap-4 p-4">
+    <>
+      {/* Disclaimer que debe aceptarse antes de usar el editor */}
+      {!disclaimerAccepted && (
+        <EditorDisclaimer onAccept={() => setDisclaimerAccepted(true)} />
+      )}
+
+      {/* Editor principal - solo visible después de aceptar disclaimer */}
+      <div className="w-full h-screen flex flex-col md:flex-row gap-4 p-4">
       {/* Panel lateral */}
       <div className="w-full md:w-80 flex flex-col gap-4 bg-background rounded-lg p-4 shadow-lg overflow-y-auto">
         <h1 className="text-2xl font-bold text-primary">Editor de Polaroids</h1>
@@ -498,25 +766,98 @@ export default function PolaroidEditor() {
           </Button>
         </div>
 
-        {/* Controles de escala */}
+        {/* Opciones de edición */}
         {currentImageSrc && (
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Escala: {currentTransformations.scale.toFixed(2)}
-            </label>
-            <input
-              type="range"
-              min="0.1"
-              max="3"
-              step="0.1"
-              value={currentTransformations.scale}
-              onChange={(e) => handleScaleChange(parseFloat(e.target.value))}
+          <>
+            <Separator />
+            <Accordion
+              type="single"
+              collapsible
+              value={activeTab || undefined}
+              onValueChange={setActiveTab}
               className="w-full"
-            />
-          </div>
+            >
+              <AccordionItem value="transform">
+                <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    Transformar
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <TransformTab
+                    scale={currentTransformations.scale}
+                    rotation={currentTransformations.rotation}
+                    posX={currentTransformations.posX}
+                    posY={currentTransformations.posY}
+                    onScaleChange={handleScaleChange}
+                    onRotationChange={handleRotationChange}
+                    onPosXChange={handlePosXChange}
+                    onPosYChange={handlePosYChange}
+                    onScaleLive={handleScaleLive}
+                    onRotationLive={handleRotationLive}
+                    onPosXLive={handlePosXLive}
+                    onPosYLive={handlePosYLive}
+                    canvasWidth={PHOTO_AREA.width}
+                    canvasHeight={PHOTO_AREA.height}
+                    canvasOrientation={canvasOrientation}
+                    onCanvasOrientationChange={setCanvasOrientation}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="adjust">
+                <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+                  <div className="flex items-center gap-2">
+                    <Settings2 className="h-4 w-4" />
+                    Ajustar
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <AdjustTab
+                    imageSrc={currentImageSrc}
+                    brightness={currentEffects.brightness}
+                    contrast={currentEffects.contrast}
+                    saturation={currentEffects.saturation}
+                    sepia={currentEffects.sepia}
+                    selectedFilter={selectedFilter}
+                    onBrightnessChange={handleBrightnessChange}
+                    onContrastChange={handleContrastChange}
+                    onSaturationChange={handleSaturationChange}
+                    onSepiaChange={handleSepiaChange}
+                    onFilterSelect={handleFilterSelect}
+                    onBrightnessLive={handleBrightnessLive}
+                    onContrastLive={handleContrastLive}
+                    onSaturationLive={handleSaturationLive}
+                    onSepiaLive={handleSepiaLive}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="colorize">
+                <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+                  <div className="flex items-center gap-2">
+                    <Paintbrush className="h-4 w-4" />
+                    Personalizar marco
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                  <BackgroundTab
+                    borderColor={canvasStyle.borderColor}
+                    borderWidth={canvasStyle.borderWidth}
+                    backgroundColor={canvasStyle.backgroundColor}
+                    borderUpdate={handleBorderWidthChange}
+                    borderColorUpdate={handleBorderColorChange}
+                    backgroundColorUpdate={handleBackgroundColorChange}
+                    borderWidthLive={handleBorderWidthLive}
+                  />
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <Separator />
+          </>
         )}
 
-        <Separator />
 
         {/* Botones de acción para la foto actual */}
         <div className="space-y-2">
@@ -713,5 +1054,6 @@ export default function PolaroidEditor() {
         )}
       </div>
     </div>
+    </>
   );
 }

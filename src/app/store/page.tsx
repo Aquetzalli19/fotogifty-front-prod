@@ -1,7 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import OrderCard from "@/components/admin/OrderCard";
 import { obtenerTodosPedidos } from "@/services/pedidos";
 import { AdmiOrder } from "@/interfaces/order-summary";
@@ -11,12 +18,8 @@ import { Loader2, PackageX } from "lucide-react";
 
 const StorePage = () => {
   const [allOrders, setAllOrders] = useState<AdmiOrder[]>([]);
-  const [pendingOrders, setPendingOrders] = useState<AdmiOrder[]>([]);
-  const [inProgressOrders, setInProgressOrders] = useState<AdmiOrder[]>([]);
-  const [sentOrders, setSentOrders] = useState<AdmiOrder[]>([]);
-  const [deliveredOrders, setDeliveredOrders] = useState<AdmiOrder[]>([]);
-  const [cancelledOrders, setCancelledOrders] = useState<AdmiOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
   const loadOrders = async () => {
     setIsLoading(true);
@@ -40,14 +43,30 @@ const StorePage = () => {
     loadOrders();
   }, []);
 
-  useEffect(() => {
-    const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
-    setPendingOrders(allOrders.filter((order) => getStatus(order) === "Pendiente"));
-    setInProgressOrders(allOrders.filter((order) => getStatus(order) === "En Proceso"));
-    setSentOrders(allOrders.filter((order) => getStatus(order) === "Enviado"));
-    setDeliveredOrders(allOrders.filter((order) => getStatus(order) === "Entregado"));
-    setCancelledOrders(allOrders.filter((order) => getStatus(order) === "Cancelado"));
-  }, [allOrders]);
+  // Helper para obtener estado de pedido
+  const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
+
+  // COMPUTAR DATOS DERIVADOS DURANTE RENDER usando useMemo
+  // Reemplaza múltiples estados + useEffect (anti-patrón)
+  const { sortedAllOrders, pendingOrders, inProgressOrders, sentOrders, deliveredOrders, cancelledOrders } = useMemo(() => {
+    const sortFn = (orders: AdmiOrder[]): AdmiOrder[] => {
+      return [...orders].sort((a, b) => {
+        const dateA = new Date(a.fecha_pedido).getTime();
+        const dateB = new Date(b.fecha_pedido).getTime();
+        // Más recientes = fechas más cercanas a hoy = timestamps mayores primero
+        return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+      });
+    };
+
+    return {
+      sortedAllOrders: sortFn(allOrders),
+      pendingOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Pendiente")),
+      inProgressOrders: sortFn(allOrders.filter((order) => getStatus(order) === "En Proceso")),
+      sentOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Enviado")),
+      deliveredOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Entregado")),
+      cancelledOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Cancelado")),
+    };
+  }, [allOrders, sortOrder]);
 
   const renderOrderList = (orders: AdmiOrder[], emptyMessage: string) => {
     if (orders.length === 0) {
@@ -72,6 +91,21 @@ const StorePage = () => {
       <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 sm:mb-6 text-center text-primary">
         Control de Pedidos
       </h1>
+
+      {/* Filtro de ordenamiento */}
+      <div className="mb-4 flex justify-end max-w-7xl mx-auto px-2">
+        <div className="w-full sm:w-auto">
+          <Select value={sortOrder} onValueChange={(value: "newest" | "oldest") => setSortOrder(value)}>
+            <SelectTrigger className="w-full sm:w-[200px] bg-background">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Más recientes</SelectItem>
+              <SelectItem value="oldest">Más antiguos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <Tabs defaultValue="all" className="w-full max-w-7xl mx-auto">
         <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 gap-1 mb-4">
@@ -104,7 +138,7 @@ const StorePage = () => {
           ) : (
             <>
               <TabsContent value="all" className="m-0">
-                {renderOrderList(allOrders, "No hay pedidos registrados")}
+                {renderOrderList(sortedAllOrders, "No hay pedidos registrados")}
               </TabsContent>
 
               <TabsContent value="pending" className="m-0">

@@ -230,6 +230,6 @@ export const compressCanvas = (
   // Dibujar canvas redimensionado
   ctx.drawImage(canvas, 0, 0, width, height);
 
-  // Exportar como JPEG con buena calidad
-  return tempCanvas.toDataURL("image/jpeg", 0.85);
+  // Exportar como JPEG con alta calidad (para previsualizaciones en carrito)
+  return tempCanvas.toDataURL("image/jpeg", 0.92);
 };

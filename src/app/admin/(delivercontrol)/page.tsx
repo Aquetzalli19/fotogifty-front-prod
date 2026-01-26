@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -18,12 +18,9 @@ import { Loader2, PackageX } from "lucide-react";
 
 const Page = () => {
   const [allOrders, setAllOrders] = useState<AdmiOrder[]>([]);
-  const [pendingOrders, setPendingOrders] = useState<AdmiOrder[]>([]);
-  const [inProgressOrders, setInProgressOrders] = useState<AdmiOrder[]>([]);
-  const [sentOrders, setSentOrders] = useState<AdmiOrder[]>([]);
-  const [deliveredOrders, setDeliveredOrders] = useState<AdmiOrder[]>([]);
-  const [cancelledOrders, setCancelledOrders] = useState<AdmiOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [activeTab, setActiveTab] = useState("all");
 
   // Función para cargar pedidos (extraída para poder llamarla desde callbacks)
   const loadOrders = async () => {
@@ -52,24 +49,51 @@ const Page = () => {
     loadOrders();
   }, []);
 
-  // Filtrar pedidos por estado cada vez que cambian
-  // Estados válidos: Pendiente, En Proceso, Enviado, Entregado, Cancelado
-  useEffect(() => {
-    const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
-    setPendingOrders(allOrders.filter((order) => getStatus(order) === "Pendiente"));
-    setInProgressOrders(allOrders.filter((order) => getStatus(order) === "En Proceso"));
-    setSentOrders(allOrders.filter((order) => getStatus(order) === "Enviado"));
-    setDeliveredOrders(allOrders.filter((order) => getStatus(order) === "Entregado"));
-    setCancelledOrders(allOrders.filter((order) => getStatus(order) === "Cancelado"));
-  }, [allOrders]);
+  // Helper para obtener estado de pedido
+  const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
 
-  const [activeTab, setActiveTab] = useState("all");
+  // COMPUTAR DATOS DERIVADOS DURANTE RENDER usando useMemo
+  // Reemplaza múltiples estados + useEffect (anti-patrón)
+  const { sortedAllOrders, pendingOrders, inProgressOrders, sentOrders, deliveredOrders, cancelledOrders } = useMemo(() => {
+    const sortFn = (orders: AdmiOrder[]): AdmiOrder[] => {
+      return [...orders].sort((a, b) => {
+        const dateA = new Date(a.fecha_pedido).getTime();
+        const dateB = new Date(b.fecha_pedido).getTime();
+        // Más recientes = fechas más cercanas a hoy = timestamps mayores primero
+        return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+      });
+    };
+
+    return {
+      sortedAllOrders: sortFn(allOrders),
+      pendingOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Pendiente")),
+      inProgressOrders: sortFn(allOrders.filter((order) => getStatus(order) === "En Proceso")),
+      sentOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Enviado")),
+      deliveredOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Entregado")),
+      cancelledOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Cancelado")),
+    };
+  }, [allOrders, sortOrder]);
 
   return (
     <div className="p-2 md:p-4">
       <h1 className="text-2xl sm:text-3xl md:text-4xl text-primary text-center mb-4 md:mb-6">
         Control de pedidos
       </h1>
+
+      {/* Filtro de ordenamiento */}
+      <div className="mb-4 flex justify-end px-2">
+        <div className="w-full md:w-auto">
+          <Select value={sortOrder} onValueChange={(value: "newest" | "oldest") => setSortOrder(value)}>
+            <SelectTrigger className="w-full md:w-[200px] bg-background">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Más recientes</SelectItem>
+              <SelectItem value="oldest">Más antiguos</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       <Tabs
         value={activeTab}
@@ -127,14 +151,14 @@ const Page = () => {
             ) : (
               <>
                 <TabsContent value="all" className="m-0">
-                  {allOrders.length === 0 ? (
+                  {sortedAllOrders.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
                       <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
                       <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos registrados</p>
                     </div>
                   ) : (
                     <div className="space-y-2 sm:space-y-4">
-                      {allOrders.map((order, index) => (
+                      {sortedAllOrders.map((order, index) => (
                         <OrderCard key={order.orderId ?? `order-${index}`} order={order} onOrderUpdated={loadOrders} />
                       ))}
                     </div>
