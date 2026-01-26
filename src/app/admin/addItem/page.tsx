@@ -414,7 +414,7 @@ const AddItemPage = () => {
               name="photoResolution"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Resolución de fotos (px)</FormLabel>
+                  <FormLabel>Resolución de fotos (DPI)</FormLabel>
                   <FormControl>
                     <Input
                       type="number"

@@ -71,10 +71,6 @@ interface SavedPolaroid {
   };
 }
 
-// Dimensiones base del canvas polaroid (portrait)
-const BASE_POLAROID_WIDTH = 800;
-const BASE_POLAROID_HEIGHT = 1000;
-
 export default function PolaroidEditor() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -84,6 +80,15 @@ export default function PolaroidEditor() {
   const cartItemId = searchParams.get("cartItemId");
   const instanceIndex = searchParams.get("instanceIndex");
   const maxPolaroids = parseInt(searchParams.get("quantity") || "10");
+
+  // Obtener dimensiones del paquete desde los parámetros (en pulgadas)
+  const widthInches = parseFloat(searchParams.get("width") || "4");
+  const heightInches = parseFloat(searchParams.get("height") || "5");
+  const exportResolution = parseInt(searchParams.get("resolution") || "300"); // DPI
+
+  // Calcular dimensiones base del canvas polaroid en pixels
+  const BASE_POLAROID_WIDTH = Math.round(widthInches * exportResolution);
+  const BASE_POLAROID_HEIGHT = Math.round(heightInches * exportResolution);
 
   // Detectar si estamos en modo "carrito"
   const isCartMode = cartItemId !== null && instanceIndex !== null;
@@ -99,42 +104,57 @@ export default function PolaroidEditor() {
   const POLAROID_HEIGHT = canvasOrientation === "portrait" ? BASE_POLAROID_HEIGHT : BASE_POLAROID_WIDTH;
 
   // Área de la foto dentro del polaroid (se ajusta según orientación)
+  // Calculamos proporcionalmente basado en las dimensiones del canvas
   const PHOTO_AREA = React.useMemo(() => {
+    // Marco proporcional: 6.25% del ancho/alto como borde
+    const borderSize = Math.round(Math.min(POLAROID_WIDTH, POLAROID_HEIGHT) * 0.0625);
+
     if (canvasOrientation === "portrait") {
+      // En portrait: marco superior y laterales iguales, marco inferior más grande
+      const bottomMargin = Math.round(POLAROID_HEIGHT * 0.25); // 25% del alto para el marco inferior
+      const photoWidth = POLAROID_WIDTH - (borderSize * 2);
+      const photoHeight = POLAROID_HEIGHT - borderSize - bottomMargin;
+
       return {
-        top: 50,
-        left: 50,
-        width: 700,
-        height: 700, // Área cuadrada para la foto
+        top: borderSize,
+        left: borderSize,
+        width: photoWidth,
+        height: photoHeight,
       };
     } else {
-      // Landscape: intercambiamos y ajustamos
+      // Landscape: marco superior, inferior e izquierdo iguales, marco derecho más grande
+      const rightMargin = Math.round(POLAROID_WIDTH * 0.25); // 25% del ancho para el marco derecho
+      const photoWidth = POLAROID_WIDTH - borderSize - rightMargin;
+      const photoHeight = POLAROID_HEIGHT - (borderSize * 2);
+
       return {
-        top: 50,
-        left: 250, // Más espacio a la izquierda (equivalente al bottom en portrait)
-        width: 700,
-        height: 700,
+        top: borderSize,
+        left: borderSize,
+        width: photoWidth,
+        height: photoHeight,
       };
     }
-  }, [canvasOrientation]);
+  }, [canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT]);
 
-  // Dimensiones del marco blanco
+  // Dimensiones del marco blanco (calculadas proporcionalmente)
   const FRAME = React.useMemo(() => {
+    const borderSize = Math.round(Math.min(POLAROID_WIDTH, POLAROID_HEIGHT) * 0.0625);
+
     if (canvasOrientation === "portrait") {
       return {
-        top: 50,
-        side: 50,
-        bottom: 250, // Marco más grande abajo (característico de polaroid)
+        top: borderSize,
+        side: borderSize,
+        bottom: Math.round(POLAROID_HEIGHT * 0.25), // Marco más grande abajo (característico de polaroid)
       };
     } else {
       // Landscape: el marco grande va a la derecha
       return {
-        top: 50,
-        side: 250, // Marco grande a la derecha
-        bottom: 50,
+        top: borderSize,
+        side: Math.round(POLAROID_WIDTH * 0.25), // Marco grande a la derecha
+        bottom: borderSize,
       };
     }
-  }, [canvasOrientation]);
+  }, [canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT]);
 
   // Estado para la foto actual en edición
   const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null);
@@ -151,9 +171,12 @@ export default function PolaroidEditor() {
     sepia: 0,
   });
   const [selectedFilter, setSelectedFilter] = useState<string>("none");
+  // Border width proporcional al tamaño del canvas
+  const defaultBorderWidth = Math.round(Math.min(BASE_POLAROID_WIDTH, BASE_POLAROID_HEIGHT) * 0.0625);
+
   const [canvasStyle, setCanvasStyle] = useState({
     borderColor: "#FFFFFF",
-    borderWidth: 50,
+    borderWidth: defaultBorderWidth,
     backgroundColor: "#FFFFFF",
   });
 
