@@ -14,7 +14,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/stores/auth-store";
@@ -27,9 +28,11 @@ interface PhoneEditProps {
 }
 
 const ChangePhoneSchema = z.object({
+  countryCode: z.string().min(1, { message: "Selecciona un código de país" }),
   newPhoneNumber: z
     .string()
-    .min(10, { message: "El número debe tener al menos 10 dígitos." })
+    .min(9, { message: "El número debe tener al menos 9 dígitos." })
+    .max(11, { message: "El número no puede tener más de 11 dígitos" })
     .refine((value) => /^[0-9]+$/.test(value), {
       message: "El número de teléfono solo debe contener dígitos.",
     }),
@@ -43,10 +46,23 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
   const { success, error: showError } = useToast();
   const { updateUserData } = useAuthStore();
 
+  // Separar el código de país del número si viene en formato +52XXXXXXXXXX
+  const parsePhoneNumber = (fullPhone: string) => {
+    const match = fullPhone.match(/^(\+\d{1,3})(\d+)$/);
+    if (match) {
+      return { countryCode: match[1], phoneNumber: match[2] };
+    }
+    // Si no tiene código de país, asumir México
+    return { countryCode: "+52", phoneNumber: fullPhone };
+  };
+
+  const { countryCode: initialCountryCode, phoneNumber: initialPhoneNumber } = parsePhoneNumber(prevPhone);
+
   const phoneForm = useForm<z.infer<typeof ChangePhoneSchema>>({
     resolver: zodResolver(ChangePhoneSchema),
     defaultValues: {
-      newPhoneNumber: prevPhone,
+      countryCode: initialCountryCode,
+      newPhoneNumber: initialPhoneNumber,
       currentPassword: "",
     },
     mode: "onSubmit",
@@ -60,7 +76,7 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
 
     try {
       const response = await actualizarCliente(userId, {
-        telefono: values.newPhoneNumber
+        telefono: `${values.countryCode}${values.newPhoneNumber}`
       });
 
       if (response.success && response.data) {
@@ -114,9 +130,8 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
                   <FormLabel htmlFor="current-password-phone">Contraseña Actual</FormLabel>
                   <div className="flex items-center gap-2">
                     <FormControl>
-                      <Input
+                      <PasswordInput
                         id="current-password-phone"
-                        type="password"
                         placeholder="••••••••"
                         {...field}
                       />
@@ -138,22 +153,13 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
               <FormItem>
                 <FormLabel>Nuevo Número de Teléfono:</FormLabel>
                 <FormControl>
-                  <Input
-                    type="tel"
-                    placeholder="4421234567"
-                    {...field}
+                  <PhoneInput
+                    value={field.value}
+                    countryCode={phoneForm.watch("countryCode")}
+                    onValueChange={field.onChange}
+                    onCountryChange={(code) => phoneForm.setValue("countryCode", code)}
+                    placeholder="5512345678"
                     disabled={!isVerified}
-                    onInput={(e) => {
-                      // Solo permitir números
-                      const target = e.target as HTMLInputElement;
-                      target.value = target.value.replace(/[^0-9]/g, '');
-                      field.onChange(target.value);
-                    }}
-                    className={`${
-                      !isVerified
-                        ? "bg-zinc-200 text-zinc-700 opacity-50 cursor-not-allowed"
-                        : ""
-                    }`}
                   />
                 </FormControl>
                 <FormMessage />

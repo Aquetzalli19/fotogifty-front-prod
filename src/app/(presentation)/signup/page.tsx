@@ -7,6 +7,8 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
@@ -35,6 +37,7 @@ export default function RegisterPage() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      countryCode: "+52",
       phoneNumber: "",
       email: "",
       password: "",
@@ -54,7 +57,7 @@ export default function RegisterPage() {
       const userData = {
         nombre: values.firstName,
         apellido: values.lastName,
-        telefono: values.phoneNumber,
+        telefono: `${values.countryCode}${values.phoneNumber}`,
         email: values.email,
         password: values.password,
         acepto_terminos: values.acceptTerms,
@@ -141,7 +144,7 @@ export default function RegisterPage() {
             </div>
 
             {/* Teléfono y Email */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 control={control}
                 name="phoneNumber"
@@ -149,17 +152,12 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Teléfono</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Tu número"
-                        type="tel"
-                        className="h-11 md:h-12"
-                        {...field}
-                        onInput={(e) => {
-                          // Solo permitir números
-                          const target = e.target as HTMLInputElement;
-                          target.value = target.value.replace(/[^0-9]/g, '');
-                          field.onChange(target.value);
-                        }}
+                      <PhoneInput
+                        value={field.value}
+                        countryCode={registerForm.watch("countryCode")}
+                        onValueChange={field.onChange}
+                        onCountryChange={(code) => registerForm.setValue("countryCode", code)}
+                        placeholder="5512345678"
                       />
                     </FormControl>
                     <FormMessage />
@@ -196,8 +194,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Contraseña</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="••••••••"
                         className="h-11 md:h-12"
                         {...field}
@@ -215,8 +212,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Confirmar contraseña</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
+                      <PasswordInput
                         placeholder="••••••••"
                         className="h-11 md:h-12"
                         {...field}

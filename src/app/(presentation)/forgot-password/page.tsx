@@ -9,6 +9,8 @@ import { ArrowLeft, Mail, Phone, Lock, CheckCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
   Form,
   FormControl,
@@ -30,7 +32,7 @@ import { Toast, ToastContainer } from "@/components/ui/toast";
 export default function ForgotPasswordPage() {
   const router = useRouter();
   const [step, setStep] = useState<1 | 2>(1);
-  const [verifiedData, setVerifiedData] = useState<{ email: string; phoneNumber: string } | null>(null);
+  const [verifiedData, setVerifiedData] = useState<{ email: string; countryCode: string; phoneNumber: string } | null>(null);
   const { toasts, removeToast, success, error: showError } = useToast();
 
   // Formulario paso 1: Verificar identidad
@@ -38,6 +40,7 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(VerifyIdentitySchema),
     defaultValues: {
       email: "",
+      countryCode: "+52",
       phoneNumber: "",
     },
   });
@@ -56,7 +59,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await verificarIdentidad({
         email: values.email,
-        telefono: values.phoneNumber,
+        telefono: `${values.countryCode}${values.phoneNumber}`,
       });
 
       if (response.success) {
@@ -82,7 +85,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await cambiarPasswordOlvidada({
         email: verifiedData.email,
-        telefono: verifiedData.phoneNumber,
+        telefono: `${verifiedData.countryCode}${verifiedData.phoneNumber}`,
         nueva_password: values.newPassword,
       });
 
@@ -174,22 +177,15 @@ export default function ForgotPasswordPage() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel className="text-sm md:text-base">Número de teléfono</FormLabel>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
-                      <FormControl>
-                        <Input
-                          placeholder="5512345678"
-                          type="tel"
-                          className="h-11 md:h-12 pl-10"
-                          {...field}
-                          onInput={(e) => {
-                            const target = e.target as HTMLInputElement;
-                            target.value = target.value.replace(/[^0-9]/g, "");
-                            field.onChange(target.value);
-                          }}
-                        />
-                      </FormControl>
-                    </div>
+                    <FormControl>
+                      <PhoneInput
+                        value={field.value}
+                        countryCode={verifyForm.watch("countryCode")}
+                        onValueChange={field.onChange}
+                        onCountryChange={(code) => verifyForm.setValue("countryCode", code)}
+                        placeholder="5512345678"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -215,7 +211,9 @@ export default function ForgotPasswordPage() {
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   <Phone className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">{verifiedData?.phoneNumber}</span>
+                  <span className="text-muted-foreground">
+                    {verifiedData?.countryCode} {verifiedData?.phoneNumber}
+                  </span>
                 </div>
               </div>
 
@@ -229,8 +227,7 @@ export default function ForgotPasswordPage() {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="••••••••"
                           className="h-11 md:h-12 pl-10"
                           autoComplete="new-password"
@@ -254,8 +251,7 @@ export default function ForgotPasswordPage() {
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none z-10" />
                       <FormControl>
-                        <Input
-                          type="password"
+                        <PasswordInput
                           placeholder="••••••••"
                           className="h-11 md:h-12 pl-10"
                           autoComplete="new-password"

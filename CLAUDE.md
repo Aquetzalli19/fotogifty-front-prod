@@ -482,6 +482,10 @@ Para hacer deploy en Vercel:
 - **Mobile Support**: Touch events supported for canvas manipulation in all editors
 - **Notificaciones**: Via `useToast` hook - usa `success()`, `error()`, `warning()`, `info()`
 - **Batch Downloads**: 500-800ms delay between downloads to avoid browser saturation
+- **Cart Preview Quality**: High-quality thumbnails for better visual fidelity
+  - Standard/Polaroid: 500x500px at JPEG 0.92 quality
+  - Calendar: 600x900px at JPEG 0.92 quality
+  - Stored in localStorage as base64 data URLs
 - **React Patterns**:
   - Use `useMemo` for derived state (filtering, sorting) - NOT separate `useState` + `useEffect`
   - Live updates in editors use direct state setters (no history)

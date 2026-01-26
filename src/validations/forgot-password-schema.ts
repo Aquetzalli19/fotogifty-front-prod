@@ -11,9 +11,11 @@ export const VerifyIdentitySchema = z.object({
     .refine((email) => email.trim() === email, {
       message: "El correo no debe contener espacios al inicio o final",
     }),
+  countryCode: z.string().min(1, { message: "Selecciona un código de país" }),
   phoneNumber: z
     .string()
-    .min(10, { message: "El número debe tener al menos 10 dígitos" })
+    .min(9, { message: "El número debe tener al menos 9 dígitos" })
+    .max(11, { message: "El número no puede tener más de 11 dígitos" })
     .refine((value) => /^[0-9]+$/.test(value), {
       message: "El número de teléfono solo debe contener dígitos",
     }),
