@@ -25,6 +25,7 @@ import {
   X,
   Settings2,
   Paintbrush,
+  AlertCircle,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -61,6 +62,7 @@ interface SavedPolaroid {
   };
   thumbnailDataUrl?: string; // Preview pequeño para la galería
   renderedImageSrc?: string; // ✅ Canvas completo renderizado con todas las transformaciones (WYSIWYG)
+  copies: number; // NUEVO: Cantidad de copias de este polaroid
   // DEPRECADO: Campos para polaroid doble (funcionalidad removida, se mantiene para compatibilidad con datos existentes)
   isDouble?: boolean;
   imageSrc2?: string;
@@ -185,6 +187,9 @@ export default function PolaroidEditor() {
   const [editingPolaroidId, setEditingPolaroidId] = useState<number | null>(null);
   const [nextId, setNextId] = useState(1);
 
+  // NUEVO: Estado para cantidad de copias
+  const [copiesToSave, setCopiesToSave] = useState(1);
+
   const [canvasZoom, setCanvasZoom] = useState(0.5);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -194,6 +199,52 @@ export default function PolaroidEditor() {
   const currentImageRef = useRef<HTMLImageElement | null>(null);
 
   const { execute, undo, redo, canUndo, canRedo, reset } = useHistory();
+
+  // NUEVO: Calcular copias usadas SIEMPRE desde el estado local (savedPolaroids)
+  // No usar getTotalCopiesUsed() porque solo se actualiza al guardar, causando que la UI muestre datos viejos
+  const copiesUsed = React.useMemo(() => {
+    return savedPolaroids.reduce((sum, p) => sum + (p.copies || 1), 0);
+  }, [savedPolaroids]);
+
+  // Copias del polaroid que se está editando (si aplica)
+  const currentCopiesWhenEditing = React.useMemo(() => {
+    if (editingPolaroidId === null) return 0;
+    return savedPolaroids.find(p => p.id === editingPolaroidId)?.copies || 1;
+  }, [editingPolaroidId, savedPolaroids]);
+
+  // LEGACY: mantener copiesAvailable para retrocompatibilidad
+  const copiesAvailable = maxPolaroids - copiesUsed;
+
+  // Máximo de copias permitidas para el INPUT (sin incluir copiesToSave para evitar círculo vicioso)
+  const maxCopiesAllowed = React.useMemo(() => {
+    if (editingPolaroidId !== null) {
+      // Modo edición: Las copias actuales de este polaroid + las disponibles
+      const disponibles = maxPolaroids - (copiesUsed - currentCopiesWhenEditing);
+      return Math.max(1, disponibles);
+    } else {
+      // Modo nuevo polaroid: Todas las copias disponibles (sin restar copiesToSave aún)
+      const disponibles = maxPolaroids - copiesUsed;
+      return Math.max(1, disponibles);
+    }
+  }, [editingPolaroidId, maxPolaroids, copiesUsed, currentCopiesWhenEditing]);
+
+  // NUEVO: Copias proyectadas (incluye el polaroid actual con copiesToSave)
+  // Esto es SOLO para mostrar el progreso y validar al guardar
+  const copiesProjected = React.useMemo(() => {
+    let total = copiesUsed;
+
+    if (currentImageSrc) {
+      if (editingPolaroidId === null) {
+        // Nuevo polaroid: sumar copiesToSave
+        total += copiesToSave;
+      } else {
+        // Editando: restar las copias viejas y sumar las nuevas
+        total = total - currentCopiesWhenEditing + copiesToSave;
+      }
+    }
+
+    return total;
+  }, [copiesUsed, currentImageSrc, editingPolaroidId, copiesToSave, currentCopiesWhenEditing]);
 
   // Renderizar el canvas con el polaroid
   const renderCanvas = () => {
@@ -337,6 +388,13 @@ export default function PolaroidEditor() {
 
       if (existing && existing.editorType === "polaroid") {
         const data = existing.data as PolaroidCustomization;
+
+        // BACKWARD COMPATIBILITY: Si no existen las dimensiones, usar las del paquete actual
+        // Esto permite que customizaciones viejas sigan funcionando
+        if (!data.canvasWidth || !data.canvasHeight) {
+          console.log("⚠️ Customización sin dimensiones, usando valores del paquete actual");
+        }
+
         // Agregar valores por defecto para nuevos campos si no existen
         const normalizedPolaroids = data.polaroids.map(polaroid => ({
           ...polaroid,
@@ -349,6 +407,7 @@ export default function PolaroidEditor() {
           effects: polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
           selectedFilter: polaroid.selectedFilter || "none",
           canvasStyle: polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" },
+          copies: polaroid.copies || 1, // NUEVO: Backward compatibility para copias
         }));
         setSavedPolaroids(normalizedPolaroids);
 
@@ -617,6 +676,18 @@ export default function PolaroidEditor() {
   const handleSavePolaroid = () => {
     if (!currentImageSrc) return;
 
+    // NUEVO: Validar cantidad de copias
+    if (copiesToSave < 1) {
+      alert("La cantidad mínima de copias es 1");
+      return;
+    }
+
+    // NUEVO: Validar que no se exceda el límite del paquete
+    if (copiesToSave > maxCopiesAllowed) {
+      alert(`Solo puedes asignar hasta ${maxCopiesAllowed} ${maxCopiesAllowed === 1 ? 'copia' : 'copias'} a este polaroid`);
+      return;
+    }
+
     // Generar thumbnail comprimido para la galería
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -641,6 +712,7 @@ export default function PolaroidEditor() {
                 selectedFilter,
                 canvasStyle: { ...canvasStyle },
                 thumbnailDataUrl,
+                copies: copiesToSave, // NUEVO
               }
             : p
         )
@@ -656,6 +728,7 @@ export default function PolaroidEditor() {
         selectedFilter,
         canvasStyle: { ...canvasStyle },
         thumbnailDataUrl,
+        copies: copiesToSave, // NUEVO
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
       setNextId((prev) => prev + 1);
@@ -666,24 +739,43 @@ export default function PolaroidEditor() {
     setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
     setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
     setSelectedFilter("none");
+    setCopiesToSave(1); // NUEVO: Reset copias a 1
     currentImageRef.current = null;
     reset();
   };
 
   // Editar un polaroid guardado
   const handleEditPolaroid = (polaroid: SavedPolaroid) => {
-    setCurrentImageSrc(polaroid.imageSrc);
-    setCurrentTransformations({ ...polaroid.transformations });
-    setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
-    setSelectedFilter(polaroid.selectedFilter || "none");
-    setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
-    setEditingPolaroidId(polaroid.id);
-
-    // Cargar la imagen
+    // Cargar la imagen primero
     const img = new Image();
     img.src = polaroid.imageSrc;
+
     img.onload = () => {
+      // Una vez cargada la imagen, actualizar todos los estados
       currentImageRef.current = img;
+      setCurrentImageSrc(polaroid.imageSrc);
+      setCurrentTransformations({ ...polaroid.transformations });
+      setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+      setSelectedFilter(polaroid.selectedFilter || "none");
+      setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
+      setCopiesToSave(polaroid.copies || 1);
+      setEditingPolaroidId(polaroid.id);
+
+      // Forzar re-render del canvas después de un pequeño delay
+      setTimeout(() => {
+        setCurrentTransformations(prev => ({ ...prev }));
+      }, 50);
+    };
+
+    // Si hay error al cargar, establecer estados de todas formas
+    img.onerror = () => {
+      setCurrentImageSrc(polaroid.imageSrc);
+      setCurrentTransformations({ ...polaroid.transformations });
+      setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
+      setSelectedFilter(polaroid.selectedFilter || "none");
+      setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
+      setCopiesToSave(polaroid.copies || 1);
+      setEditingPolaroidId(polaroid.id);
     };
   };
 
@@ -726,6 +818,13 @@ export default function PolaroidEditor() {
     if (!isCartMode || !cartItemId || !instanceIndex) return;
 
     const customizationData: PolaroidCustomization = {
+      // Guardar dimensiones del canvas y área de foto para renderizar correctamente
+      canvasWidth: POLAROID_WIDTH,
+      canvasHeight: POLAROID_HEIGHT,
+      widthInches,
+      heightInches,
+      exportResolution,
+      photoArea: PHOTO_AREA,
       polaroids: savedPolaroids,
       maxPolaroids,
     };
@@ -737,7 +836,7 @@ export default function PolaroidEditor() {
       instanceIndex: parseInt(instanceIndex),
       editorType,
       data: customizationData,
-      completed: savedPolaroids.length >= maxPolaroids,
+      completed: copiesUsed >= maxPolaroids,
     });
 
     // Volver al carrito
@@ -763,8 +862,15 @@ export default function PolaroidEditor() {
       <div className="w-full md:w-80 flex flex-col gap-4 bg-background rounded-lg p-4 shadow-lg overflow-y-auto">
         <h1 className="text-2xl font-bold text-primary">Editor de Polaroids</h1>
 
-        <div className="text-sm text-muted-foreground">
-          {savedPolaroids.length} / {maxPolaroids} polaroids
+        <div className="space-y-1">
+          <div className="text-sm text-muted-foreground">
+            {copiesProjected} / {maxPolaroids} copias
+          </div>
+          {copiesProjected > maxPolaroids && (
+            <p className="text-xs text-red-500 font-medium">
+              ⚠️ Excede el límite del paquete
+            </p>
+          )}
         </div>
 
         <Separator />
@@ -783,10 +889,21 @@ export default function PolaroidEditor() {
             onClick={() => fileInputRef.current?.click()}
             className="w-full"
             variant="secondary"
+            disabled={!currentImageSrc && copiesProjected >= maxPolaroids}
           >
             <Upload className="mr-2 h-4 w-4" />
-            {currentImageSrc ? "Cambiar foto" : "Cargar foto"}
+            {!currentImageSrc && copiesProjected >= maxPolaroids
+              ? "Paquete completo"
+              : currentImageSrc
+              ? "Cambiar foto"
+              : "Cargar foto"
+            }
           </Button>
+          {!currentImageSrc && copiesProjected >= maxPolaroids && (
+            <p className="text-xs text-red-500 text-center">
+              Reduce copias o elimina polaroids para agregar más
+            </p>
+          )}
         </div>
 
         {/* Opciones de edición */}
@@ -905,20 +1022,72 @@ export default function PolaroidEditor() {
 
           {currentImageSrc && (
             <>
+              {/* NUEVO: Contador de copias usadas */}
+              <div className="bg-primary/10 p-3 rounded-lg space-y-2">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-medium">Polaroids usados:</span>
+                  <span className="font-bold text-primary">
+                    {copiesProjected}/{maxPolaroids}
+                  </span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-primary h-full transition-all"
+                    style={{ width: `${(copiesProjected / maxPolaroids) * 100}%` }}
+                  />
+                </div>
+                {copiesProjected > maxPolaroids && (
+                  <p className="text-xs text-red-500 font-medium">
+                    ⚠️ Excede el límite del paquete
+                  </p>
+                )}
+              </div>
+
+              {/* NUEVO: Campo para cantidad de copias */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  ¿Cuántas veces quieres imprimir este polaroid?
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={maxCopiesAllowed}
+                    value={copiesToSave}
+                    onChange={(e) => {
+                      const newValue = Math.max(1, parseInt(e.target.value) || 1);
+                      setCopiesToSave(Math.min(newValue, maxCopiesAllowed));
+                    }}
+                    className="w-24 text-center"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    (Disponibles: {maxCopiesAllowed})
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Total de impresiones: {copiesToSave} {copiesToSave === 1 ? 'polaroid' : 'polaroids'}
+                </p>
+              </div>
+
               <Button
                 onClick={handleSavePolaroid}
                 className="w-full"
-                disabled={savedPolaroids.length >= maxPolaroids && editingPolaroidId === null}
+                disabled={copiesProjected > maxPolaroids}
               >
                 {editingPolaroidId !== null ? (
                   <>
                     <Check className="mr-2 h-4 w-4" />
                     Actualizar
                   </>
+                ) : copiesProjected > maxPolaroids ? (
+                  <>
+                    <AlertCircle className="mr-2 h-4 w-4" />
+                    Límite excedido
+                  </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Guardar Polaroid
+                    Guardar ({copiesToSave} {copiesToSave === 1 ? 'copia' : 'copias'})
                   </>
                 )}
               </Button>
@@ -951,6 +1120,14 @@ export default function PolaroidEditor() {
                   alt={`Polaroid ${index + 1}`}
                   className="w-full h-auto"
                 />
+
+                {/* Badge de cantidad de copias */}
+                {polaroid.copies && polaroid.copies > 1 && (
+                  <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                    ×{polaroid.copies}
+                  </div>
+                )}
+
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                   <Button
                     size="icon"
@@ -1012,16 +1189,21 @@ export default function PolaroidEditor() {
         )}
 
         {/* Progreso */}
-        <div className="mt-4 p-3 bg-secondary/20 rounded-lg">
-          <p className="text-sm font-medium mb-2">Progreso</p>
+        <div className="mt-4 p-3 bg-secondary/20 rounded-lg space-y-1">
+          <p className="text-sm font-medium">Progreso: {copiesProjected}/{maxPolaroids} copias</p>
           <div className="w-full bg-secondary/30 rounded-full h-2">
             <div
               className="bg-primary h-2 rounded-full transition-all"
               style={{
-                width: `${(savedPolaroids.length / maxPolaroids) * 100}%`,
+                width: `${Math.min(100, (copiesProjected / maxPolaroids) * 100)}%`,
               }}
             />
           </div>
+          {copiesProjected >= maxPolaroids && (
+            <p className="text-xs text-green-500 font-medium">
+              ✓ Paquete completo
+            </p>
+          )}
         </div>
       </div>
 

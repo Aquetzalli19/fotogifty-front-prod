@@ -61,6 +61,7 @@ export interface PedidoCreado {
   total: number;
   items_pedido: ItemPedidoCreado[];
   creado_en: string;
+  fotos?: Array<{ id: number; url: string; item_pedido_id: number }>; // Fotos ya subidas (para evitar resubidas)
 }
 
 /**
@@ -172,6 +173,70 @@ export async function subirImagenesPedido(
 
   const result = await response.json() as { success: boolean; data: SubirImagenesResponse };
   console.log('✅ Imágenes subidas exitosamente:', result);
+  return result;
+}
+
+/**
+ * NUEVO: Sube una foto individual con cantidad de copias al backend
+ * Compatible con el endpoint /api/fotos/upload del backend
+ */
+export async function subirFotoConCopias(
+  usuarioId: number,
+  itemPedidoId: number,
+  pedidoId: number,
+  foto: Blob,
+  cantidadCopias: number = 1
+) {
+  console.log(`📤 Subiendo foto individual:`);
+  console.log(`   - Usuario ID: ${usuarioId}`);
+  console.log(`   - Item Pedido ID: ${itemPedidoId}`);
+  console.log(`   - Pedido ID: ${pedidoId}`);
+  console.log(`   - Cantidad Copias: ${cantidadCopias}`);
+  console.log(`   - Tamaño: ${(foto.size / 1024 / 1024).toFixed(2)} MB`);
+
+  const formData = new FormData();
+  formData.append('foto', foto, 'foto.jpg');
+  formData.append('usuarioId', usuarioId.toString());
+  formData.append('itemPedidoId', itemPedidoId.toString());
+  formData.append('pedidoId', pedidoId.toString());
+  formData.append('cantidad_copias', cantidadCopias.toString());
+
+  const token = typeof window !== 'undefined'
+    ? localStorage.getItem('auth_token')
+    : null;
+
+  const url = `/api/fotos/upload`; // Endpoint del backend
+  console.log(`🌐 Subiendo a: ${url}`);
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+    body: formData,
+  });
+
+  console.log(`📥 Respuesta: ${response.status} ${response.statusText}`);
+
+  if (!response.ok) {
+    let errorMessage = 'Error al subir foto';
+    try {
+      const error = await response.json();
+      errorMessage = error.error || error.message || errorMessage;
+      console.error('❌ Error del backend:', error);
+
+      // Manejar error de límite excedido
+      if (response.status === 400 && error.data) {
+        console.error(`   - Copias disponibles: ${error.data.copias_disponibles}`);
+        console.error(`   - Copias usadas: ${error.data.copias_usadas_total}`);
+        console.error(`   - Límite paquete: ${error.data.limite_paquete}`);
+      }
+    } catch (e) {
+      console.error('❌ No se pudo parsear el error del backend');
+    }
+    throw new Error(errorMessage);
+  }
+
+  const result = await response.json();
+  console.log('✅ Foto subida exitosamente:', result);
   return result;
 }
 

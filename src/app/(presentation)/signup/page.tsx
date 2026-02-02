@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useState, useEffect } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,15 +23,28 @@ import { UserSchema, UserSchemaType } from "@/validations/user-schema";
 import { apiClient } from "@/lib/api-client";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
+import { obtenerDocumentoLegalActivo } from "@/services/legal-documents";
+import { LegalDocument } from "@/interfaces/legal-documents";
 
 interface RegisterResponse {
   success: boolean;
   message?: string;
   error?: string;
+  data?: {
+    usuario?: {
+      id: number;
+      nombre: string;
+      email: string;
+    };
+  };
 }
 
 export default function RegisterPage() {
   const router = useRouter();
+
+  // Estado para términos activos
+  const [activeTerms, setActiveTerms] = useState<LegalDocument | null>(null);
+  const [isLoadingTerms, setIsLoadingTerms] = useState(true);
 
   const registerForm = useForm<UserSchemaType>({
     resolver: zodResolver(UserSchema),
@@ -52,6 +66,29 @@ export default function RegisterPage() {
 
   const { control, handleSubmit, setError } = registerForm;
 
+  // Cargar términos activos al montar el componente
+  useEffect(() => {
+    async function loadActiveTerms() {
+      try {
+        setIsLoadingTerms(true);
+        const response = await obtenerDocumentoLegalActivo('terms');
+
+        if (response.success && response.data) {
+          setActiveTerms(response.data);
+          console.log('📋 Términos activos cargados:', response.data.version);
+        } else {
+          console.warn('No se encontraron términos activos');
+        }
+      } catch (error) {
+        console.error('Error cargando términos:', error);
+      } finally {
+        setIsLoadingTerms(false);
+      }
+    }
+
+    loadActiveTerms();
+  }, []);
+
   const onSubmit = async (values: UserSchemaType) => {
     try {
       const userData = {
@@ -66,6 +103,16 @@ export default function RegisterPage() {
       const response = await apiClient.post<RegisterResponse>('/usuarios', userData);
 
       if (response.success) {
+        // ===== REGISTRAR ACEPTACIÓN DE TÉRMINOS (NUEVO) =====
+        // NOTA: El backend ya registra automáticamente la aceptación de términos cuando
+        // acepto_terminos es true en el POST /api/usuarios, por lo que NO necesitamos
+        // hacer una llamada adicional aquí. Solo mostramos log para confirmar.
+
+        if (values.acceptTerms && activeTerms) {
+          console.log(`✅ Términos v${activeTerms.version} registrados automáticamente por el backend`);
+        }
+        // ===== FIN REGISTRO DE TÉRMINOS =====
+
         success('¡Registro exitoso! Bienvenido a FotoGifty.');
         // Redirigir al usuario a la página de inicio de sesión
         router.push('/login');
@@ -255,6 +302,11 @@ export default function RegisterPage() {
                       >
                         aviso de privacidad
                       </Link>
+                      {activeTerms && (
+                        <span className="text-xs text-muted-foreground ml-1 block mt-1">
+                          (Versión de términos: {activeTerms.version})
+                        </span>
+                      )}
                     </FormLabel>
                     <FormMessage />
                   </div>

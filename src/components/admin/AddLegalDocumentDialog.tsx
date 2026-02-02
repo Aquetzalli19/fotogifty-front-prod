@@ -73,6 +73,7 @@ export function AddLegalDocumentDialog({
   });
 
   const onSubmit = async (data: DocumentFormData) => {
+    console.log('📝 Datos del formulario:', data);
     setIsLoading(true);
     try {
       const response = await crearDocumentoLegal(data);

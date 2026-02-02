@@ -13,7 +13,8 @@ import {
   LogOut,
   ChevronDown,
   BarChart3,
-  FileText
+  FileText,
+  MapPin
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -39,6 +40,7 @@ const AdmiNavbar = () => {
     { href: "/admin/users", label: "Usuarios", icon: Users },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
+    { href: "/admin/store-settings", label: "Configuración Tienda", icon: MapPin },
   ];
 
   const isActive = (href: string) => {

@@ -75,6 +75,9 @@ export default function StandardEditor() {
   const [editingImageId, setEditingImageId] = useState<number | null>(null);
   const [nextId, setNextId] = useState(1);
 
+  // NUEVO: Estado para cantidad de copias
+  const [copiesToSave, setCopiesToSave] = useState(1);
+
   // Estado para orientación del canvas (portrait/landscape)
   const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">(
     widthInches > heightInches ? "landscape" : "portrait"
@@ -169,6 +172,53 @@ export default function StandardEditor() {
     handleZoomOut,
     handleResetZoom,
   } = useCanvasZoom(initialZoom);
+
+  // NUEVO: Calcular copias usadas SIEMPRE desde el estado local (savedImages)
+  // No usar getTotalCopiesUsed() porque solo se actualiza al guardar, causando que la UI muestre datos viejos
+  const copiesUsed = React.useMemo(() => {
+    return savedImages.reduce((sum, img) => sum + (img.copies || 1), 0);
+  }, [savedImages]);
+
+  // Copias de la imagen que se está editando (si aplica)
+  const currentCopiesWhenEditing = React.useMemo(() => {
+    if (editingImageId === null) return 0;
+    return savedImages.find(img => img.id === editingImageId)?.copies || 1;
+  }, [editingImageId, savedImages]);
+
+  // LEGACY: mantener copiesAvailable para retrocompatibilidad
+  const copiesAvailable = maxImages - copiesUsed;
+
+  // Máximo de copias permitidas para el INPUT (sin incluir copiesToSave para evitar círculo vicioso)
+  const maxCopiesAllowed = React.useMemo(() => {
+    if (editingImageId !== null) {
+      // Modo edición: Las copias actuales de esta foto + las disponibles
+      // (las copias actuales ya están en copiesUsed, las restamos para calcular disponibles)
+      const disponibles = maxImages - (copiesUsed - currentCopiesWhenEditing);
+      return Math.max(1, disponibles);
+    } else {
+      // Modo nueva foto: Todas las copias disponibles (sin restar copiesToSave aún)
+      const disponibles = maxImages - copiesUsed;
+      return Math.max(1, disponibles);
+    }
+  }, [editingImageId, maxImages, copiesUsed, currentCopiesWhenEditing]);
+
+  // NUEVO: Copias proyectadas (incluye la foto actual con copiesToSave)
+  // Esto es SOLO para mostrar el progreso y validar al guardar
+  const copiesProjected = React.useMemo(() => {
+    let total = copiesUsed;
+
+    if (imageSrc) {
+      if (editingImageId === null) {
+        // Nueva imagen: sumar copiesToSave
+        total += copiesToSave;
+      } else {
+        // Editando: restar las copias viejas y sumar las nuevas
+        total = total - currentCopiesWhenEditing + copiesToSave;
+      }
+    }
+
+    return total;
+  }, [copiesUsed, imageSrc, editingImageId, copiesToSave, currentCopiesWhenEditing]);
 
   const { handleClearImage } = useImageOperations(
     canvasRef,
@@ -338,6 +388,18 @@ export default function StandardEditor() {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // NUEVO: Validar cantidad de copias
+    if (copiesToSave < 1) {
+      alert("La cantidad mínima de copias es 1");
+      return;
+    }
+
+    // NUEVO: Validar que no se exceda el límite del paquete
+    if (copiesToSave > maxCopiesAllowed) {
+      alert(`Solo puedes asignar hasta ${maxCopiesAllowed} ${maxCopiesAllowed === 1 ? 'copia' : 'copias'} a esta foto`);
+      return;
+    }
+
     // Generar thumbnail de alta calidad para la galería y el carrito
     const thumbnailDataUrl = compressCanvas(canvas, 500, 500, 0.92);
 
@@ -359,6 +421,7 @@ export default function StandardEditor() {
                 canvasStyle: { ...canvasStyle },
                 selectedFilter,
                 thumbnailDataUrl, // Pequeño, solo para preview en galería
+                copies: copiesToSave, // NUEVO: Cantidad de copias
                 printDimensions: {
                   widthInches,
                   heightInches,
@@ -380,6 +443,7 @@ export default function StandardEditor() {
         canvasStyle: { ...canvasStyle },
         selectedFilter,
         thumbnailDataUrl,
+        copies: copiesToSave, // NUEVO: Cantidad de copias
         printDimensions: {
           widthInches,
           heightInches,
@@ -390,18 +454,45 @@ export default function StandardEditor() {
       setNextId((prev) => prev + 1);
     }
 
+    // Resetear copias a 1 para la siguiente imagen
+    setCopiesToSave(1);
+
     // Limpiar el editor para la siguiente imagen
     handleClearImage();
   };
 
   // Editar una imagen guardada
   const handleEditSavedImage = (image: SavedStandardImage) => {
-    setImageSrc(image.imageSrc);
-    setTransformations(image.transformations);
-    setEffects(image.effects);
-    setCanvasStyle(image.canvasStyle);
-    setSelectedFilter(image.selectedFilter);
-    setEditingImageId(image.id);
+    // Crear un objeto Image para pre-cargar la imagen
+    const img = new Image();
+    img.src = image.imageSrc;
+
+    img.onload = () => {
+      // Una vez cargada la imagen, actualizar todos los estados
+      setImageSrc(image.imageSrc);
+      setTransformations(image.transformations);
+      setEffects(image.effects);
+      setCanvasStyle(image.canvasStyle);
+      setSelectedFilter(image.selectedFilter);
+      setCopiesToSave(image.copies || 1);
+      setEditingImageId(image.id);
+
+      // Forzar re-render del canvas después de un pequeño delay
+      setTimeout(() => {
+        setTransformations(prev => ({ ...prev }));
+      }, 50);
+    };
+
+    // Si hay error al cargar, establecer estados de todas formas
+    img.onerror = () => {
+      setImageSrc(image.imageSrc);
+      setTransformations(image.transformations);
+      setEffects(image.effects);
+      setCanvasStyle(image.canvasStyle);
+      setSelectedFilter(image.selectedFilter);
+      setCopiesToSave(image.copies || 1);
+      setEditingImageId(image.id);
+    };
   };
 
   // Eliminar una imagen guardada
@@ -435,7 +526,7 @@ export default function StandardEditor() {
       instanceIndex: parseInt(instanceIndex),
       editorType,
       data: customizationData,
-      completed: savedImages.length >= maxImages,
+      completed: copiesUsed >= maxImages,
     });
 
     // Volver al carrito
@@ -588,14 +679,19 @@ export default function StandardEditor() {
             <>
               {/* Indicador de progreso */}
               <div className="text-sm text-center text-muted-foreground">
-                {savedImages.length} / {maxImages} imágenes
+                {copiesProjected} / {maxImages} copias
               </div>
               <div className="w-full bg-gray-700 rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (savedImages.length / maxImages) * 100)}%` }}
+                  style={{ width: `${Math.min(100, (copiesProjected / maxImages) * 100)}%` }}
                 />
               </div>
+              {copiesProjected > maxImages && (
+                <p className="text-xs text-red-500 font-medium text-center">
+                  ⚠️ Excede el límite del paquete
+                </p>
+              )}
 
               {/* Galería de imágenes guardadas */}
               {savedImages.length > 0 && (
@@ -614,6 +710,14 @@ export default function StandardEditor() {
                           alt={`Imagen ${index + 1}`}
                           className="w-full aspect-square object-cover"
                         />
+
+                        {/* Badge de cantidad de copias */}
+                        {img.copies && img.copies > 1 && (
+                          <div className="absolute top-1 left-1 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                            ×{img.copies}
+                          </div>
+                        )}
+
                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
                           <Button
                             size="icon"
@@ -643,13 +747,65 @@ export default function StandardEditor() {
                 </div>
               )}
 
+              {/* NUEVO: Contador de copias usadas */}
+              {imageSrc && (
+                <div className="bg-primary/10 p-3 rounded-lg space-y-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-medium">Fotos usadas:</span>
+                    <span className="font-bold text-primary">
+                      {copiesProjected}/{maxImages}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-primary h-full transition-all"
+                      style={{ width: `${(copiesProjected / maxImages) * 100}%` }}
+                    />
+                  </div>
+                  {copiesProjected > maxImages && (
+                    <p className="text-xs text-red-500 font-medium">
+                      ⚠️ Excede el límite del paquete
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* NUEVO: Campo para cantidad de copias */}
+              {imageSrc && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    ¿Cuántas veces quieres imprimir esta foto?
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={maxCopiesAllowed}
+                      value={copiesToSave}
+                      onChange={(e) => {
+                        const newValue = Math.max(1, parseInt(e.target.value) || 1);
+                        const finalValue = Math.min(newValue, maxCopiesAllowed);
+                        setCopiesToSave(finalValue);
+                      }}
+                      className="w-24 text-center"
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      (Disponibles: {maxCopiesAllowed})
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total de impresiones: {copiesToSave} {copiesToSave === 1 ? 'foto' : 'fotos'}
+                  </p>
+                </div>
+              )}
+
               {/* Mensaje cuando se alcanza el límite */}
-              {savedImages.length >= maxImages && editingImageId === null && (
+              {copiesProjected >= maxImages && editingImageId === null && (
                 <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 text-center">
                   <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mb-1" />
-                  <p className="text-sm text-green-400">¡Todas las imágenes agregadas!</p>
+                  <p className="text-sm text-green-400">¡Paquete completo!</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Puedes editar o eliminar imágenes existentes
+                    Alcanzaste {copiesProjected} {copiesProjected === 1 ? 'copia' : 'copias'} de {maxImages}
                   </p>
                 </div>
               )}
@@ -659,22 +815,22 @@ export default function StandardEditor() {
                 <Button
                   onClick={handleSaveCurrentImage}
                   className="w-full h-10"
-                  disabled={savedImages.length >= maxImages && editingImageId === null}
+                  disabled={copiesProjected > maxImages}
                 >
                   {editingImageId !== null ? (
                     <>
                       <Check className="mr-2 h-4 w-4" />
                       Actualizar imagen
                     </>
-                  ) : savedImages.length >= maxImages ? (
+                  ) : copiesProjected > maxImages ? (
                     <>
                       <AlertCircle className="mr-2 h-4 w-4" />
-                      Límite alcanzado
+                      Límite excedido
                     </>
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Guardar imagen ({savedImages.length + 1}/{maxImages})
+                      Guardar ({copiesToSave} {copiesToSave === 1 ? 'copia' : 'copias'})
                     </>
                   )}
                 </Button>
@@ -777,13 +933,18 @@ export default function StandardEditor() {
         {imageSrc ? (
           ""
         ) : (
-          <div className="absolute w-60 h-40 border-2 border-dashed border-gray-500 rounded-2xl flex items-center justify-center hover:bg-gray-400/20 z-10 transition-colors duration-200">
+          <div className={`absolute w-60 h-40 border-2 border-dashed rounded-2xl flex items-center justify-center z-10 transition-colors duration-200 ${
+            copiesProjected >= maxImages
+              ? 'border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed'
+              : 'border-gray-500 hover:bg-gray-400/20 cursor-pointer'
+          }`}>
             {" "}
             <Input
               id="upload-button"
               type="file"
               accept="image/*"
               className="absolute opacity-0 w-60 h-40"
+              disabled={copiesProjected >= maxImages}
               onChange={async (e) => {
                 if (e.target.files?.[0]) {
                   const file = e.target.files[0];
@@ -820,7 +981,13 @@ export default function StandardEditor() {
             />{" "}
             <div className="w-full flex flex-col gap-4 items-center">
               {" "}
-              <Upload /> <p>Sube una foto</p>{" "}
+              <Upload />
+              <p className="text-center px-4">
+                {copiesProjected >= maxImages
+                  ? 'Paquete completo - Reduce copias o elimina fotos para agregar más'
+                  : 'Sube una foto'
+                }
+              </p>{" "}
             </div>{" "}
           </div>
         )}
@@ -925,16 +1092,23 @@ export default function StandardEditor() {
         {isCartMode ? (
           <>
             {/* Indicador de progreso - móvil */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                {savedImages.length}/{maxImages}
-              </span>
-              <div className="flex-1 bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (savedImages.length / maxImages) * 100)}%` }}
-                />
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  {copiesProjected}/{maxImages}
+                </span>
+                <div className="flex-1 bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-primary h-2 rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (copiesProjected / maxImages) * 100)}%` }}
+                  />
+                </div>
               </div>
+              {copiesProjected > maxImages && (
+                <p className="text-xs text-red-500 font-medium">
+                  ⚠️ Excede el límite
+                </p>
+              )}
             </div>
 
             {/* Galería móvil compacta con botón de eliminar */}
@@ -953,6 +1127,14 @@ export default function StandardEditor() {
                       className="w-full h-full object-cover"
                       onClick={() => handleEditSavedImage(img)}
                     />
+
+                    {/* Badge de cantidad de copias */}
+                    {img.copies && img.copies > 1 && (
+                      <div className="absolute top-0.5 left-0.5 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-lg">
+                        ×{img.copies}
+                      </div>
+                    )}
+
                     {/* Botón eliminar visible en móvil */}
                     <button
                       className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-md"
@@ -975,11 +1157,11 @@ export default function StandardEditor() {
             )}
 
             {/* Mensaje límite alcanzado - móvil */}
-            {savedImages.length >= maxImages && editingImageId === null && (
+            {copiesProjected >= maxImages && editingImageId === null && (
               <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-2 text-center">
                 <p className="text-xs text-green-400 flex items-center justify-center gap-1">
                   <CheckCircle2 className="h-3 w-3" />
-                  ¡Completo! Toca una imagen para editar
+                  ¡Paquete completo!
                 </p>
               </div>
             )}
@@ -989,22 +1171,22 @@ export default function StandardEditor() {
               <Button
                 onClick={handleSaveCurrentImage}
                 className="w-full h-11"
-                disabled={savedImages.length >= maxImages && editingImageId === null}
+                disabled={copiesProjected > maxImages}
               >
                 {editingImageId !== null ? (
                   <>
                     <Check className="mr-2 h-4 w-4" />
                     Actualizar
                   </>
-                ) : savedImages.length >= maxImages ? (
+                ) : copiesProjected > maxImages ? (
                   <>
                     <AlertCircle className="mr-2 h-4 w-4" />
-                    Límite alcanzado
+                    Límite excedido
                   </>
                 ) : (
                   <>
                     <Save className="mr-2 h-4 w-4" />
-                    Guardar ({savedImages.length + 1}/{maxImages})
+                    Guardar ({copiesToSave} {copiesToSave === 1 ? 'copia' : 'copias'})
                   </>
                 )}
               </Button>

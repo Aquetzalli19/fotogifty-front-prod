@@ -26,6 +26,7 @@ export interface SavedStandardImage {
   };
   selectedFilter: string;
   thumbnailDataUrl?: string; // Preview pequeño para la galería (NO SE GUARDA, SE GENERA AL MOSTRAR)
+  copies: number; // NUEVO: Cantidad de copias físicas de esta foto (mínimo 1)
   // Dimensiones físicas y resolución para impresión correcta
   // OPCIONAL para compatibilidad con imágenes guardadas anteriormente (fallback: 4×6" a 300 DPI)
   printDimensions?: {
@@ -64,10 +65,23 @@ export interface CalendarCustomization {
       borderWidth: number;
       backgroundColor: string;
     };
+    copies?: number; // OBSOLETO: Ya no se usa para calendarios (cada calendario es único)
   }>;
 }
 
 export interface PolaroidCustomization {
+  // Dimensiones del canvas del paquete (para renderizar con las dimensiones correctas)
+  canvasWidth: number; // En pixels a exportResolution DPI
+  canvasHeight: number; // En pixels a exportResolution DPI
+  widthInches: number; // Ancho en pulgadas del paquete
+  heightInches: number; // Alto en pulgadas del paquete
+  exportResolution: number; // DPI para exportar (300)
+  photoArea: {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  };
   polaroids: Array<{
     id: number;
     imageSrc: string; // Imagen ORIGINAL para permitir edición posterior
@@ -91,6 +105,7 @@ export interface PolaroidCustomization {
       backgroundColor: string;
     };
     thumbnailDataUrl?: string;
+    copies: number; // NUEVO: Cantidad de copias físicas de este polaroid (mínimo 1)
     // DEPRECADO: Campos para polaroid doble (funcionalidad removida, se mantiene para compatibilidad con datos existentes)
     isDouble?: boolean; // Si es polaroid doble (dos imágenes lado a lado)
     imageSrc2?: string; // Segunda imagen ORIGINAL (solo si isDouble === true)
@@ -134,6 +149,16 @@ export interface CustomizationState {
 
   // Obtener progreso de una instancia (imágenes agregadas / requeridas)
   getInstanceProgress: (cartItemId: number, instanceIndex: number) => { current: number; total: number };
+
+  // NUEVOS MÉTODOS PARA SISTEMA DE COPIAS
+  // Actualizar cantidad de copias de una foto específica
+  updateCopies: (cartItemId: number, instanceIndex: number, imageId: number, copies: number) => void;
+
+  // Obtener total de copias usadas en una instancia del carrito
+  getTotalCopiesUsed: (cartItemId: number, instanceIndex: number) => number;
+
+  // Obtener copias disponibles restantes
+  getRemainingCopies: (cartItemId: number, instanceIndex: number, packageQuantity: number) => number;
 
   // Limpiar todo
   clearAll: () => void;
@@ -224,6 +249,87 @@ export const useCustomizationStore = create<CustomizationState>()(
         }
 
         return { current, total: 0 }; // total se determina por el producto
+      },
+
+      // NUEVOS MÉTODOS PARA SISTEMA DE COPIAS
+      updateCopies: (cartItemId, instanceIndex, imageId, copies) => {
+        const customization = get().getCustomization(cartItemId, instanceIndex);
+        if (!customization) return;
+
+        const updatedData = { ...customization.data };
+
+        switch (customization.editorType) {
+          case 'standard':
+            const standardData = updatedData as StandardCustomization;
+            const imageIndex = standardData.images.findIndex((img) => img.id === imageId);
+            if (imageIndex >= 0) {
+              standardData.images[imageIndex] = {
+                ...standardData.images[imageIndex],
+                copies: Math.max(1, copies), // Mínimo 1 copia
+              };
+            }
+            break;
+
+          case 'calendar':
+            const calendarData = updatedData as CalendarCustomization;
+            const monthIndex = calendarData.months.findIndex((m) => m.month === imageId);
+            if (monthIndex >= 0) {
+              calendarData.months[monthIndex] = {
+                ...calendarData.months[monthIndex],
+                copies: Math.max(1, copies),
+              };
+            }
+            break;
+
+          case 'polaroid':
+            const polaroidData = updatedData as PolaroidCustomization;
+            const polaroidIndex = polaroidData.polaroids.findIndex((p) => p.id === imageId);
+            if (polaroidIndex >= 0) {
+              polaroidData.polaroids[polaroidIndex] = {
+                ...polaroidData.polaroids[polaroidIndex],
+                copies: Math.max(1, copies),
+              };
+            }
+            break;
+        }
+
+        get().saveCustomization({
+          ...customization,
+          data: updatedData,
+        });
+      },
+
+      getTotalCopiesUsed: (cartItemId, instanceIndex) => {
+        const customization = get().getCustomization(cartItemId, instanceIndex);
+        if (!customization) return 0;
+
+        let total = 0;
+
+        switch (customization.editorType) {
+          case 'standard':
+            const standardData = customization.data as StandardCustomization;
+            total = standardData.images.reduce((sum, img) => sum + (img.copies || 1), 0);
+            break;
+
+          case 'calendar':
+            const calendarData = customization.data as CalendarCustomization;
+            total = calendarData.months
+              .filter((m) => m.imageSrc !== null)
+              .reduce((sum, month) => sum + (month.copies || 1), 0);
+            break;
+
+          case 'polaroid':
+            const polaroidData = customization.data as PolaroidCustomization;
+            total = polaroidData.polaroids.reduce((sum, p) => sum + (p.copies || 1), 0);
+            break;
+        }
+
+        return total;
+      },
+
+      getRemainingCopies: (cartItemId, instanceIndex, packageQuantity) => {
+        const used = get().getTotalCopiesUsed(cartItemId, instanceIndex);
+        return Math.max(0, packageQuantity - used);
       },
 
       clearAll: () => {

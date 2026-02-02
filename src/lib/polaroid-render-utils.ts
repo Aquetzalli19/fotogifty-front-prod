@@ -4,14 +4,27 @@
  * IMPORTANTE: Exporta PNG con 300 DPI embebido para impresión de calidad
  */
 
-import { canvasToBlobWithDPI } from "@/lib/png-dpi";
+import { canvasToBlobWithDPI, addPrintMetadataToPNG } from "@/lib/png-dpi";
 
 interface PolaroidData {
   imageSrc: string;
   transformations: {
     scale: number;
+    rotation?: number; // NUEVO: Soporte para rotación
     posX: number;
     posY: number;
+  };
+  effects?: { // NUEVO: Soporte para efectos
+    brightness: number;
+    contrast: number;
+    saturation: number;
+    sepia: number;
+  };
+  selectedFilter?: string; // NUEVO: Soporte para filtros
+  canvasStyle?: { // NUEVO: Soporte para estilos de canvas
+    borderColor: string;
+    borderWidth: number;
+    backgroundColor: string;
   };
 }
 
@@ -32,17 +45,32 @@ interface DoublePolaroidData {
   };
 }
 
-// Dimensiones del polaroid
+// DEPRECADO: Dimensiones hardcodeadas (se mantienen solo para compatibilidad con llamadas antiguas)
 const POLAROID_WIDTH = 800;
 const POLAROID_HEIGHT = 1000;
 
-// Área de la foto dentro del polaroid
+// Área de la foto dentro del polaroid (se mantiene solo para compatibilidad con llamadas antiguas)
 const PHOTO_AREA = {
   top: 50,
   left: 50,
   width: 700,
   height: 700,
 };
+
+// Interfaz para parámetros de renderizado (usada en las nuevas funciones)
+export interface RenderOptions {
+  canvasWidth: number; // Ancho del canvas en pixels (a exportResolution DPI)
+  canvasHeight: number; // Alto del canvas en pixels (a exportResolution DPI)
+  widthInches: number; // Ancho en pulgadas (para metadatos de impresión)
+  heightInches: number; // Alto en pulgadas (para metadatos de impresión)
+  exportResolution: number; // DPI (300)
+  photoArea: {
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  };
+}
 
 /**
  * Carga una imagen desde una URL
@@ -70,24 +98,36 @@ async function blobToDataURL(blob: Blob): Promise<string> {
 
 /**
  * Renderiza un polaroid completo con marco blanco
+ * @param polaroidData - Datos del polaroid (imagen, transformaciones, efectos)
+ * @param options - Opciones de renderizado (dimensiones, DPI). Si no se proporciona, usa dimensiones hardcodeadas (800×1000)
  */
 export async function renderPolaroid(
-  polaroidData: PolaroidData
+  polaroidData: PolaroidData,
+  options?: RenderOptions
 ): Promise<string | undefined> {
   if (!polaroidData.imageSrc) return undefined;
 
+  // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
+  const canvasWidth = options?.canvasWidth ?? POLAROID_WIDTH;
+  const canvasHeight = options?.canvasHeight ?? POLAROID_HEIGHT;
+  const photoArea = options?.photoArea ?? PHOTO_AREA;
+  const exportResolution = options?.exportResolution ?? 300;
+  const widthInches = options?.widthInches ?? (canvasWidth / exportResolution);
+  const heightInches = options?.heightInches ?? (canvasHeight / exportResolution);
+
   const canvas = document.createElement("canvas");
-  canvas.width = POLAROID_WIDTH;
-  canvas.height = POLAROID_HEIGHT;
+  canvas.width = canvasWidth;
+  canvas.height = canvasHeight;
   const ctx = canvas.getContext("2d");
   if (!ctx) return undefined;
 
   try {
     const img = await loadImage(polaroidData.imageSrc);
 
-    // 1. Dibujar marco blanco del polaroid
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+    // 1. Dibujar marco del polaroid con color de fondo personalizado
+    const backgroundColor = polaroidData.canvasStyle?.backgroundColor ?? "#FFFFFF";
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // 2. Dibujar la foto con transformaciones
     ctx.save();
@@ -95,31 +135,70 @@ export async function renderPolaroid(
     // Crear clipping path para que la foto no se salga del área
     ctx.beginPath();
     ctx.rect(
-      PHOTO_AREA.left,
-      PHOTO_AREA.top,
-      PHOTO_AREA.width,
-      PHOTO_AREA.height
+      photoArea.left,
+      photoArea.top,
+      photoArea.width,
+      photoArea.height
     );
     ctx.clip();
 
-    const { scale, posX, posY } = polaroidData.transformations;
-    const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
-    const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
+    const { scale, rotation = 0, posX, posY } = polaroidData.transformations;
+    const centerX = photoArea.left + photoArea.width / 2;
+    const centerY = photoArea.top + photoArea.height / 2;
 
     // Aplicar transformaciones
     ctx.translate(centerX + posX, centerY + posY);
+    ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(scale, scale);
+
+    // Aplicar filtros CSS
+    const effects = polaroidData.effects ?? { brightness: 0, contrast: 0, saturation: 0, sepia: 0 };
+    const selectedFilter = polaroidData.selectedFilter ?? "none";
+    const filters: string[] = [];
+
+    // Aplicar filtro seleccionado
+    if (selectedFilter === "blackwhite") {
+      filters.push("grayscale(100%)");
+    } else if (selectedFilter === "sepia") {
+      filters.push("sepia(100%)");
+    } else {
+      // Aplicar ajustes manuales
+      if (effects.brightness !== 0) filters.push(`brightness(${1 + effects.brightness / 100})`);
+      if (effects.contrast !== 0) filters.push(`contrast(${1 + effects.contrast / 100})`);
+      if (effects.saturation !== 0) filters.push(`saturate(${1 + effects.saturation / 100})`);
+      if (effects.sepia !== 0) filters.push(`sepia(${effects.sepia / 100})`);
+    }
+
+    if (filters.length > 0) {
+      ctx.filter = filters.join(" ");
+    }
 
     // Dibujar imagen
     ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
 
     ctx.restore();
 
-    // 3. Convertir a PNG con 300 DPI para impresión de calidad
-    const blob = await canvasToBlobWithDPI(canvas, 300, 0.95);
-    const dataURL = await blobToDataURL(blob);
+    // 3. Dibujar borde personalizado del polaroid
+    const canvasStyle = polaroidData.canvasStyle;
+    if (canvasStyle && canvasStyle.borderWidth > 0) {
+      ctx.save();
+      ctx.strokeStyle = canvasStyle.borderColor;
+      ctx.lineWidth = canvasStyle.borderWidth;
+      ctx.strokeRect(
+        canvasStyle.borderWidth / 2,
+        canvasStyle.borderWidth / 2,
+        canvasWidth - canvasStyle.borderWidth,
+        canvasHeight - canvasStyle.borderWidth
+      );
+      ctx.restore();
+    }
 
-    console.log(`✅ Polaroid renderizado como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+    // 4. Convertir a PNG con DPI y metadatos de impresión
+    const blob = await canvasToBlobWithDPI(canvas, exportResolution, 0.95);
+    const blobWithMetadata = await addPrintMetadataToPNG(blob, widthInches, heightInches, exportResolution);
+    const dataURL = await blobToDataURL(blobWithMetadata);
+
+    console.log(`✅ Polaroid renderizado como PNG con ${exportResolution} DPI (${(blobWithMetadata.size / 1024 / 1024).toFixed(2)} MB) - ${widthInches}"×${heightInches}"`);
 
     return dataURL;
   } catch (error) {
@@ -130,15 +209,24 @@ export async function renderPolaroid(
 
 /**
  * Renderiza SOLO el área de la foto (sin marco) para impresión
+ * @param polaroidData - Datos del polaroid (imagen, transformaciones, efectos)
+ * @param options - Opciones de renderizado (dimensiones, DPI). Si no se proporciona, usa dimensiones hardcodeadas
  */
 export async function renderPolaroidCropped(
-  polaroidData: PolaroidData
+  polaroidData: PolaroidData,
+  options?: RenderOptions
 ): Promise<string | undefined> {
   if (!polaroidData.imageSrc) return undefined;
 
+  // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
+  const photoArea = options?.photoArea ?? PHOTO_AREA;
+  const exportResolution = options?.exportResolution ?? 300;
+  const widthInches = options?.widthInches ?? (photoArea.width / exportResolution);
+  const heightInches = options?.heightInches ?? (photoArea.height / exportResolution);
+
   const canvas = document.createElement("canvas");
-  canvas.width = PHOTO_AREA.width;
-  canvas.height = PHOTO_AREA.height;
+  canvas.width = photoArea.width;
+  canvas.height = photoArea.height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return undefined;
 
@@ -150,27 +238,51 @@ export async function renderPolaroidCropped(
 
     // Crear clipping path para que la foto no se salga del área
     ctx.beginPath();
-    ctx.rect(0, 0, PHOTO_AREA.width, PHOTO_AREA.height);
+    ctx.rect(0, 0, photoArea.width, photoArea.height);
     ctx.clip();
 
-    const { scale, posX, posY } = polaroidData.transformations;
-    const centerX = PHOTO_AREA.width / 2;
-    const centerY = PHOTO_AREA.height / 2;
+    const { scale, rotation = 0, posX, posY } = polaroidData.transformations;
+    const centerX = photoArea.width / 2;
+    const centerY = photoArea.height / 2;
 
     // Aplicar transformaciones
     ctx.translate(centerX + posX, centerY + posY);
+    ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(scale, scale);
+
+    // Aplicar filtros CSS
+    const effects = polaroidData.effects ?? { brightness: 0, contrast: 0, saturation: 0, sepia: 0 };
+    const selectedFilter = polaroidData.selectedFilter ?? "none";
+    const filters: string[] = [];
+
+    // Aplicar filtro seleccionado
+    if (selectedFilter === "blackwhite") {
+      filters.push("grayscale(100%)");
+    } else if (selectedFilter === "sepia") {
+      filters.push("sepia(100%)");
+    } else {
+      // Aplicar ajustes manuales
+      if (effects.brightness !== 0) filters.push(`brightness(${1 + effects.brightness / 100})`);
+      if (effects.contrast !== 0) filters.push(`contrast(${1 + effects.contrast / 100})`);
+      if (effects.saturation !== 0) filters.push(`saturate(${1 + effects.saturation / 100})`);
+      if (effects.sepia !== 0) filters.push(`sepia(${effects.sepia / 100})`);
+    }
+
+    if (filters.length > 0) {
+      ctx.filter = filters.join(" ");
+    }
 
     // Dibujar imagen
     ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
 
     ctx.restore();
 
-    // Convertir a PNG con 300 DPI para impresión de calidad
-    const blob = await canvasToBlobWithDPI(canvas, 300, 0.95);
-    const dataURL = await blobToDataURL(blob);
+    // Convertir a PNG con DPI y metadatos de impresión
+    const blob = await canvasToBlobWithDPI(canvas, exportResolution, 0.95);
+    const blobWithMetadata = await addPrintMetadataToPNG(blob, widthInches, heightInches, exportResolution);
+    const dataURL = await blobToDataURL(blobWithMetadata);
 
-    console.log(`✅ Área recortada polaroid renderizada como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`✅ Área recortada polaroid renderizada como PNG con ${exportResolution} DPI (${(blobWithMetadata.size / 1024 / 1024).toFixed(2)} MB) - ${widthInches}"×${heightInches}"`);
 
     return dataURL;
   } catch (error) {

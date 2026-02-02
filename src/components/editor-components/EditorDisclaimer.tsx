@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -54,7 +53,8 @@ export default function EditorDisclaimer({ onAccept }: EditorDisclaimerProps) {
             </div>
             <DialogTitle className="text-xl">Aviso Importante</DialogTitle>
           </div>
-          <DialogDescription className="text-left space-y-4 pt-4">
+          {/* Usar div en lugar de DialogDescription para evitar errores de HTML anidado */}
+          <div className="text-muted-foreground text-sm text-left space-y-4 pt-4">
             <p className="text-base leading-relaxed">
               Antes de comenzar a editar tus fotos, por favor lee la siguiente información:
             </p>
@@ -85,7 +85,7 @@ export default function EditorDisclaimer({ onAccept }: EditorDisclaimerProps) {
             <p className="text-sm text-muted-foreground italic">
               Al continuar, aceptas que has leído y comprendido esta información.
             </p>
-          </DialogDescription>
+          </div>
         </DialogHeader>
 
         <DialogFooter className="sm:justify-center">

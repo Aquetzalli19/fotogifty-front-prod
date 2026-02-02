@@ -14,10 +14,11 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
-import { Download, ImageIcon, Loader2, MapPin, User, Phone, Mail, Calendar, CreditCard } from "lucide-react";
+import { Download, ImageIcon, Loader2, MapPin, User, Phone, Mail, Calendar, CreditCard, PackageOpen } from "lucide-react";
 import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
-import { useState } from "react";
+import React, { useState } from "react";
 import { actualizarEstadoPedido } from "@/services/pedidos";
+import { descargarPedidoZip } from "@/services/fotos";
 import { Separator } from "../ui/separator";
 import { config } from "@/lib/config";
 
@@ -32,6 +33,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
   const status = order.estado ?? order.status ?? "Pendiente";
   const [selectedStatus, setSelectedStatus] = useState(status);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
   // Usar los campos del backend (items_pedido) con fallback a orderItems para compatibilidad
   const items = order.items_pedido || order.orderItems || [];
@@ -59,6 +61,51 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
 
   // ⚠️ Fallback: Solo URLs (para pedidos antiguos)
   const images = order.imagenes || order.images || fotos.map(f => f.url) || [];
+
+  // NUEVO: Agrupar fotos por URL para mostrar badges de cantidad en lugar de repetir thumbnails
+  interface GroupedPhoto {
+    url: string;
+    cantidad: number;
+    fotoObj?: typeof fotos[0]; // Objeto completo si está disponible
+  }
+
+  const groupedPhotos = React.useMemo<GroupedPhoto[]>(() => {
+    if (hasFotosWithIds) {
+      // Si tenemos objetos con cantidad_copias, agruparlos
+      const photoMap = new Map<string, GroupedPhoto>();
+
+      fotos.forEach((foto) => {
+        const url = foto.url;
+        const cantidad = foto.cantidad_copias || 1;
+
+        if (photoMap.has(url)) {
+          // Sumar cantidades si la misma URL aparece múltiples veces
+          const existing = photoMap.get(url)!;
+          existing.cantidad += cantidad;
+        } else {
+          photoMap.set(url, {
+            url,
+            cantidad,
+            fotoObj: foto
+          });
+        }
+      });
+
+      return Array.from(photoMap.values());
+    } else {
+      // Fallback: agrupar por URL (pedidos antiguos sin cantidad_copias)
+      const photoMap = new Map<string, number>();
+
+      images.forEach((url) => {
+        photoMap.set(url, (photoMap.get(url) || 0) + 1);
+      });
+
+      return Array.from(photoMap.entries()).map(([url, cantidad]) => ({
+        url,
+        cantidad
+      }));
+    }
+  }, [fotos, images, hasFotosWithIds]);
 
   // Estado para imagen seleccionada en vista ampliada
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -152,6 +199,28 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
       setIsUpdating(false);
     }
   };
+
+  // Descargar todas las fotos del pedido en ZIP
+  const handleDownloadZip = async () => {
+    if (!orderId) {
+      alert('ID de pedido no válido');
+      return;
+    }
+
+    setIsDownloadingZip(true);
+    try {
+      console.log('📦 Iniciando descarga de ZIP para pedido:', orderId);
+      await descargarPedidoZip(orderId);
+      console.log('✅ ZIP descargado exitosamente');
+    } catch (error) {
+      console.error('❌ Error al descargar ZIP:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al descargar ZIP';
+      alert(`Error al descargar el ZIP: ${errorMessage}`);
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
   return (
     <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
       <DialogHeader>
@@ -337,10 +406,33 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
 
         {/* Galería de imágenes */}
         <div className="mt-3 sm:mt-4">
-          <Label className="text-left flex items-center gap-2 text-xs sm:text-sm">
-            <ImageIcon className="h-4 w-4" />
-            Imágenes del pedido ({images.length})
-          </Label>
+          <div className="flex items-center justify-between mb-2">
+            <Label className="text-left flex items-center gap-2 text-xs sm:text-sm">
+              <ImageIcon className="h-4 w-4" />
+              Imágenes del pedido ({groupedPhotos.reduce((sum, p) => sum + p.cantidad, 0)} copias, {groupedPhotos.length} únicas)
+            </Label>
+            {images.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleDownloadZip}
+                disabled={isDownloadingZip}
+                className="flex items-center gap-2"
+              >
+                {isDownloadingZip ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="text-xs">Generando ZIP...</span>
+                  </>
+                ) : (
+                  <>
+                    <PackageOpen className="h-3 w-3" />
+                    <span className="text-xs">Descargar todas en ZIP</span>
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
           {images.length > 0 ? (
             <div className="mt-2 border rounded-md p-4">
               {/* Vista ampliada de imagen seleccionada */}
@@ -367,29 +459,36 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
 
               {/* Grid de miniaturas */}
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-                {images.map((imageUrl, index) => (
+                {groupedPhotos.map((photo, index) => (
                   <div
                     key={index}
                     className={`relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 transition-all ${
-                      selectedImage === imageUrl ? "border-primary" : "border-transparent"
+                      selectedImage === photo.url ? "border-primary" : "border-transparent"
                     }`}
                   >
                     {/* Imagen - clickeable para ver ampliada */}
                     <button
-                      onClick={() => setSelectedImage(imageUrl)}
+                      onClick={() => setSelectedImage(photo.url)}
                       className="w-full h-full hover:opacity-90 transition-opacity"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={imageUrl}
+                        src={photo.url}
                         alt={`Imagen ${index + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          console.error("Error cargando imagen:", imageUrl);
+                          console.error("Error cargando imagen:", photo.url);
                           e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Crect fill='%23f3f4f6' width='100' height='100'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' fill='%239ca3af' font-size='12'%3EError%3C/text%3E%3C/svg%3E";
                         }}
                       />
                     </button>
+
+                    {/* Badge de cantidad de copias */}
+                    {photo.cantidad > 1 && (
+                      <div className="absolute top-1 right-1 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg z-10">
+                        ×{photo.cantidad}
+                      </div>
+                    )}
 
                     {/* Botón de descarga flotante */}
                     <Button
@@ -398,7 +497,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
                       className="absolute bottom-1 right-1 h-7 w-7 shadow-md hover:shadow-lg"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDownloadSingle(imageUrl, index);
+                        handleDownloadSingle(photo.url, index);
                       }}
                       disabled={downloadingImageIndex === index}
                     >

@@ -16,9 +16,10 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-import { verificarSesion, subirImagenesPedido, imageURLtoBlob, ItemPedidoCreado } from "@/services/checkout";
+import { verificarSesion, subirImagenesPedido, subirFotoConCopias, imageURLtoBlob, ItemPedidoCreado } from "@/services/checkout";
 import { useCartStore } from "@/stores/cart-store";
 import { useCartStepStore } from "@/stores/cart-step-store";
+import { useAuthStore } from "@/stores/auth-store"; // NUEVO: Para obtener usuarioId
 import {
   useCustomizationStore,
   CalendarCustomization,
@@ -46,6 +47,7 @@ export default function OrderSuccessPage() {
   const { items, clearCart } = useCartStore();
   const { resetStep } = useCartStepStore();
   const { customizations, clearAll: clearCustomizations } = useCustomizationStore();
+  const { user } = useAuthStore(); // NUEVO: Para obtener usuarioId
 
   const [status, setStatus] = useState<PageStatus>("loading");
   const [error, setError] = useState<string | null>(null);
@@ -111,12 +113,32 @@ export default function OrderSuccessPage() {
       console.log("Items del pedido:", JSON.stringify(itemsPedido, null, 2));
       console.log("Customizations guardadas:", customizations);
 
+      // 🔍 VERIFICAR SI EL PEDIDO YA TIENE FOTOS (esto pasa cuando se recarga la página)
+      if (response.data.pedido.fotos && response.data.pedido.fotos.length > 0) {
+        console.log("⚠️ El pedido ya tiene fotos subidas. Saltando proceso de subida...");
+        console.log(`📸 Fotos existentes: ${response.data.pedido.fotos.length}`);
+
+        // Limpiar carrito y personalizaciones
+        clearCart();
+        clearCustomizations();
+        resetStep();
+
+        setStatus("success");
+        return; // Salir sin intentar subir de nuevo
+      }
+
       // 2. Agrupar imágenes por item del pedido
-      // Estructura: { itemPedidoId: { cartItemId, imageURLs[] } }
+      // NUEVO: Incluir metadata con cantidad de copias
+      interface ImageMetadata {
+        url: string;
+        copias: number; // NUEVO: Cantidad de copias de esta imagen
+        tipo?: string; // Tipo de imagen: "standard", "calendar_full", "calendar_cropped", "polaroid_full", "polaroid_cropped"
+      }
+
       interface ImageGroup {
         itemPedidoId: number;
         cartItemId: number;
-        imageURLs: string[];
+        images: ImageMetadata[]; // NUEVO: Array de imágenes con metadata
       }
 
       const imageGroups: ImageGroup[] = [];
@@ -137,7 +159,7 @@ export default function OrderSuccessPage() {
 
         console.log(`Item ${itemPedido.id} (paquete ${itemPedido.id_paquete}): ${relatedCustomizations.length} customizations encontradas`);
 
-        const imageURLs: string[] = [];
+        const images: ImageMetadata[] = []; // NUEVO: Array con metadata
 
         for (const customization of relatedCustomizations) {
           if (customization.editorType === "standard") {
@@ -162,17 +184,30 @@ export default function OrderSuccessPage() {
                   const renderedImage = await renderStandardImage(img);
 
                   if (renderedImage) {
-                    imageURLs.push(renderedImage);
-                    console.log(`✅ Imagen estándar ${img.id} renderizada`);
+                    // NUEVO: Agregar con metadata de copias
+                    images.push({
+                      url: renderedImage,
+                      copias: img.copies || 1,
+                      tipo: "standard",
+                    });
+                    console.log(`✅ Imagen estándar ${img.id} renderizada (${img.copies || 1} copias)`);
                   } else {
                     // Fallback: usar imagen original si falla el renderizado
                     console.warn(`⚠️ Fallo al renderizar imagen ${img.id}, usando original`);
-                    imageURLs.push(img.imageSrc);
+                    images.push({
+                      url: img.imageSrc,
+                      copias: img.copies || 1,
+                      tipo: "standard",
+                    });
                   }
                 } catch (error) {
                   console.error(`Error renderizando imagen ${img.id}:`, error);
                   // Fallback: usar imagen original
-                  imageURLs.push(img.imageSrc);
+                  images.push({
+                    url: img.imageSrc,
+                    copias: img.copies || 1,
+                    tipo: "standard",
+                  });
                 }
               }
             }
@@ -181,29 +216,41 @@ export default function OrderSuccessPage() {
 
             console.log("📅 Generando imágenes renderizadas de calendario...");
 
+            // NUEVO: Obtener cantidad de copias del calendario (todos los meses tienen el mismo valor)
+            const calendarCopies = data.months.find(m => m.imageSrc)?.copies || 1;
+
             for (const month of data.months) {
               if (month.imageSrc) {
                 try {
                   // Importar dinámicamente las funciones de renderizado
-                  const { renderCalendarMonth, renderCroppedPhoto } = await import('@/lib/calendar-render-utils');
+                  const { renderCalendarMonth } = await import('@/lib/calendar-render-utils');
 
-                  // 1. Visualización completa (CON TEMPLATE) - Para referencia visual
+                  // Solo subir visualización completa (CON TEMPLATE) - Para impresión
                   const fullCalendar = await renderCalendarMonth(month);
                   if (fullCalendar) {
-                    imageURLs.push(fullCalendar);
-                    console.log(`📅 Visualización completa generada para mes ${month.month}`);
-                  }
-
-                  // 2. Área recortada (SIN TEMPLATE) - Para impresión
-                  const croppedImage = await renderCroppedPhoto(month);
-                  if (croppedImage) {
-                    imageURLs.push(croppedImage);
-                    console.log(`✂️ Área recortada generada para mes ${month.month}`);
+                    images.push({
+                      url: fullCalendar,
+                      copias: calendarCopies,
+                      tipo: "calendar_full",
+                    });
+                    console.log(`📅 Visualización completa generada para mes ${month.month} (${calendarCopies} copias)`);
+                  } else {
+                    // Fallback: subir imagen original si falla el renderizado
+                    console.warn(`⚠️ Fallo al renderizar mes ${month.month}, usando imagen original`);
+                    images.push({
+                      url: month.imageSrc,
+                      copias: calendarCopies,
+                      tipo: "calendar_full",
+                    });
                   }
                 } catch (error) {
                   console.error(`Error generando imagen del mes ${month.month}:`, error);
                   // Fallback: subir imagen original si falla el renderizado
-                  imageURLs.push(month.imageSrc);
+                  images.push({
+                    url: month.imageSrc,
+                    copias: calendarCopies,
+                    tipo: "calendar_full",
+                  });
                 }
               }
             }
@@ -212,95 +259,122 @@ export default function OrderSuccessPage() {
 
             console.log("📸 Generando imágenes renderizadas de polaroid...");
 
+            // Preparar opciones de renderizado desde la personalización
+            const renderOptions = {
+              canvasWidth: data.canvasWidth,
+              canvasHeight: data.canvasHeight,
+              widthInches: data.widthInches,
+              heightInches: data.heightInches,
+              exportResolution: data.exportResolution,
+              photoArea: data.photoArea,
+            };
+
+            // Validar que tenemos las dimensiones (compatibilidad con customizaciones viejas)
+            if (!data.canvasWidth || !data.canvasHeight) {
+              console.warn("⚠️ Customización de polaroid sin dimensiones, usando valores por defecto (800×1000 px, 72 DPI)");
+            }
+
             for (const polaroid of data.polaroids) {
               if (polaroid.imageSrc) {
                 try {
-                  const { renderPolaroid, renderPolaroidCropped } = await import('@/lib/polaroid-render-utils');
+                  const { renderPolaroid } = await import('@/lib/polaroid-render-utils');
 
-                  // 1. Visualización completa (CON MARCO BLANCO) - Para referencia visual
-                  const fullPolaroid = await renderPolaroid(polaroid);
+                  // Solo subir visualización completa (CON MARCO) - Para impresión
+                  // Pasar opciones de renderizado SOLO si existen las dimensiones
+                  const fullPolaroid = await renderPolaroid(
+                    polaroid,
+                    data.canvasWidth ? renderOptions : undefined
+                  );
+
                   if (fullPolaroid) {
-                    imageURLs.push(fullPolaroid);
-                    console.log(`📸 Visualización completa polaroid ${polaroid.id} renderizada`);
-                  }
-
-                  // 2. Área recortada (SIN MARCO) - Para impresión
-                  const croppedPolaroid = await renderPolaroidCropped(polaroid);
-                  if (croppedPolaroid) {
-                    imageURLs.push(croppedPolaroid);
-                    console.log(`✂️ Área recortada polaroid ${polaroid.id} renderizada`);
-                  }
-
-                  // Si ambos fallan, usar fallback
-                  if (!fullPolaroid && !croppedPolaroid) {
+                    images.push({
+                      url: fullPolaroid,
+                      copias: polaroid.copies || 1,
+                      tipo: "polaroid_full",
+                    });
+                    console.log(`📸 Visualización completa polaroid ${polaroid.id} renderizada (${polaroid.copies || 1} copias) - ${data.exportResolution || 72} DPI`);
+                  } else {
+                    // Fallback: usar imagen original
                     console.warn(`⚠️ Fallo al renderizar polaroid ${polaroid.id}, usando original`);
-                    imageURLs.push(polaroid.imageSrc);
+                    images.push({
+                      url: polaroid.imageSrc,
+                      copias: polaroid.copies || 1,
+                      tipo: "polaroid_full",
+                    });
                   }
                 } catch (error) {
                   console.error(`Error renderizando polaroid ${polaroid.id}:`, error);
                   // Fallback: usar imagen original
-                  imageURLs.push(polaroid.imageSrc);
+                  images.push({
+                    url: polaroid.imageSrc,
+                    copias: polaroid.copies || 1,
+                    tipo: "polaroid_full",
+                  });
                 }
               }
             }
           }
         }
 
-        if (imageURLs.length > 0) {
+        if (images.length > 0) {
           imageGroups.push({
             itemPedidoId: itemPedido.id,
             cartItemId: itemPedido.id_paquete,
-            imageURLs,
+            images, // NUEVO: Array con metadata
           });
-          totalImageCount += imageURLs.length;
+          totalImageCount += images.length;
         }
       }
 
       setTotalImages(totalImageCount);
-      console.log(`Total de imágenes a subir: ${totalImageCount}`);
+      console.log(`📊 RESUMEN DE SUBIDA:`);
+      console.log(`   - Total grupos: ${imageGroups.length}`);
+      console.log(`   - Total imágenes: ${totalImageCount}`);
+      imageGroups.forEach((group, idx) => {
+        console.log(`   - Grupo ${idx + 1} (Item ${group.itemPedidoId}): ${group.images.length} imágenes`);
+        group.images.forEach((img, imgIdx) => {
+          console.log(`     * Imagen ${imgIdx + 1}: tipo=${img.tipo}, copias=${img.copias}`);
+        });
+      });
 
       // 3. Subir imágenes por cada item del pedido
       if (imageGroups.length > 0) {
+        // NUEVO: Validar que tengamos usuarioId
+        if (!user || !user.id) {
+          throw new Error("No se pudo obtener el ID del usuario. Por favor, inicia sesión nuevamente.");
+        }
+
         setStatus("uploading");
         let uploadedSoFar = 0;
 
         for (const group of imageGroups) {
-          console.log(`Procesando item ${group.itemPedidoId}: ${group.imageURLs.length} imágenes`);
+          console.log(`🔄 Procesando item ${group.itemPedidoId}: ${group.images.length} imágenes`);
 
-          // Convertir URLs a Blobs
-          const blobs: Blob[] = [];
-          for (const url of group.imageURLs) {
+          // NUEVO: Subir cada imagen individualmente con su cantidad de copias
+          for (const imgData of group.images) {
             try {
-              console.log(`🔄 Convirtiendo imagen a blob (tamaño data URL: ${(url.length / 1024).toFixed(2)} KB)...`);
-              const blob = await imageURLtoBlob(url);
+              console.log(`🔄 Convirtiendo imagen a blob (tamaño data URL: ${(imgData.url.length / 1024).toFixed(2)} KB)...`);
+              const blob = await imageURLtoBlob(imgData.url);
               console.log(`✅ Blob creado: ${(blob.size / 1024 / 1024).toFixed(2)} MB, tipo: ${blob.type}`);
-              blobs.push(blob);
-            } catch (err) {
-              console.error("❌ Error converting image:", err);
-            }
-          }
 
-          if (blobs.length > 0) {
-            try {
-              // Subir en lotes de 3
-              const batchSize = 3;
-              for (let i = 0; i < blobs.length; i += batchSize) {
-                const batch = blobs.slice(i, i + batchSize);
-                console.log(`Subiendo lote para item ${group.itemPedidoId}: ${batch.length} imágenes`);
+              // NUEVO: Subir foto individual con cantidad de copias
+              console.log(`📤 Subiendo foto con ${imgData.copias} copias (tipo: ${imgData.tipo})...`);
+              await subirFotoConCopias(
+                user.id,                  // usuarioId
+                group.itemPedidoId,       // itemPedidoId
+                response.data.pedido.id,  // pedidoId
+                blob,                     // foto (Blob)
+                imgData.copias            // cantidad_copias
+              );
 
-                await subirImagenesPedido(
-                  response.data.pedido.id,
-                  group.itemPedidoId,
-                  batch
-                );
+              uploadedSoFar += 1;
+              setUploadedCount(uploadedSoFar);
+              setUploadProgress(Math.round((uploadedSoFar / totalImageCount) * 100));
 
-                uploadedSoFar += batch.length;
-                setUploadedCount(uploadedSoFar);
-                setUploadProgress(Math.round((uploadedSoFar / totalImageCount) * 100));
-              }
+              console.log(`✅ Foto subida: ${uploadedSoFar}/${totalImageCount}`);
             } catch (uploadErr) {
-              console.error(`Error subiendo imágenes del item ${group.itemPedidoId}:`, uploadErr);
-              throw new Error(`Error al subir imágenes: ${uploadErr instanceof Error ? uploadErr.message : 'Error desconocido'}`);
+              console.error(`❌ Error subiendo imagen:`, uploadErr);
+              throw new Error(`Error al subir imagen: ${uploadErr instanceof Error ? uploadErr.message : 'Error desconocido'}`);
             }
           }
         }

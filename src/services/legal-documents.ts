@@ -96,12 +96,16 @@ export async function obtenerDocumentoLegalPorId(id: number): Promise<MappedApiR
  */
 export async function crearDocumentoLegal(data: LegalDocumentDTO): Promise<MappedApiResponse<LegalDocument>> {
   const backendData = mapLegalDocumentDTOToBackend(data);
+  console.log('📤 Enviando documento legal al backend:', backendData);
   const response = await apiClient.post<ApiResponse<unknown>>('/legal-documents', backendData);
 
   if (response.success && response.data) {
+    console.log('📥 Documento creado - Respuesta del backend:', response.data);
+    const mappedData = mapBackendToLegalDocument(response.data as never);
+    console.log('✅ Documento mapeado:', mappedData);
     return {
       success: response.success,
-      data: mapBackendToLegalDocument(response.data as never),
+      data: mappedData,
       message: response.message,
       error: response.error,
     };

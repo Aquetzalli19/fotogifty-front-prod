@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -183,6 +190,7 @@ export default function CalendarEditor() {
   const [showMonthGrid, setShowMonthGrid] = useState(false);
   const [previewThumbnail, setPreviewThumbnail] = useState<string | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [copyFromMonth, setCopyFromMonth] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1455,6 +1463,67 @@ export default function CalendarEditor() {
     });
   };
 
+  // Copiar foto y edición desde otro mes
+  const handleCopyFromMonth = () => {
+    if (!copyFromMonth) {
+      alert("Por favor selecciona un mes para copiar");
+      return;
+    }
+
+    const sourceMonthIndex = parseInt(copyFromMonth) - 1;
+    const sourceMonth = monthPhotos[sourceMonthIndex];
+
+    if (!sourceMonth.imageSrc) {
+      alert("El mes seleccionado no tiene foto");
+      return;
+    }
+
+    execute({
+      undo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = currentMonthPhoto;
+          return newPhotos;
+        });
+      },
+      redo: () => {
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            imageSrc: sourceMonth.imageSrc,
+            transformations: { ...sourceMonth.transformations },
+            effects: { ...sourceMonth.effects },
+            selectedFilter: sourceMonth.selectedFilter,
+            canvasStyle: { ...sourceMonth.canvasStyle },
+          };
+          return newPhotos;
+        });
+      },
+    });
+
+    setMonthPhotos((prev) => {
+      const newPhotos = [...prev];
+      newPhotos[selectedMonth - 1] = {
+        ...newPhotos[selectedMonth - 1],
+        imageSrc: sourceMonth.imageSrc,
+        transformations: { ...sourceMonth.transformations },
+        effects: { ...sourceMonth.effects },
+        selectedFilter: sourceMonth.selectedFilter,
+        canvasStyle: { ...sourceMonth.canvasStyle },
+      };
+      return newPhotos;
+    });
+
+    // Copiar la imagen al ref para renderizado
+    const sourceImage = photoImageRefs.current.get(sourceMonthIndex + 1);
+    if (sourceImage) {
+      photoImageRefs.current.set(selectedMonth, sourceImage);
+    }
+
+    setCopyFromMonth(""); // Reset selection
+  };
+
   // Descargar calendario
   const handleDownload = () => {
     const canvas = canvasRef.current;
@@ -1851,6 +1920,41 @@ export default function CalendarEditor() {
               </div>
             )}
 
+            {/* Copiar desde otro mes */}
+            <div className="bg-primary/5 rounded-xl p-3 sm:p-4 border-2 border-primary/20 space-y-3 mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <ImageIcon className="h-4 w-4 text-primary" />
+                <label className="text-sm font-medium">Reutilizar foto de otro mes</label>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                Copia la foto y toda su edición desde otro mes a este mes
+              </p>
+              <Select value={copyFromMonth} onValueChange={setCopyFromMonth}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Seleccionar mes..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {monthPhotos
+                    .filter((m) => m.imageSrc && m.month !== selectedMonth)
+                    .map((m) => (
+                      <SelectItem key={m.month} value={m.month.toString()}>
+                        {MONTHS[m.month - 1]}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={handleCopyFromMonth}
+                disabled={!copyFromMonth}
+                variant="secondary"
+                className="w-full"
+                size="sm"
+              >
+                <ImageIcon className="mr-2 h-4 w-4" />
+                Copiar foto seleccionada
+              </Button>
+            </div>
+
             {/* Eliminar foto */}
             {currentMonthPhoto.imageSrc && (
               <Button
@@ -1955,11 +2059,12 @@ export default function CalendarEditor() {
 
           {/* Botones de acción del carrito */}
           {isCartMode ? (
-            <div className="bg-primary/5 rounded-xl p-3 sm:p-4 border-2 border-primary/20">
+            <div className="bg-primary/5 rounded-xl p-3 sm:p-4 border-2 border-primary/20 space-y-3">
               <div className="flex gap-2">
                 <Button
                   onClick={handleSaveToCart}
                   className="flex-1 h-12 text-base font-semibold"
+                  disabled={completedMonths < 12}
                 >
                   <Save className="mr-2 h-5 w-5" />
                   Guardar
@@ -1973,7 +2078,7 @@ export default function CalendarEditor() {
                   Cancelar
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground text-center mt-2">
+              <p className="text-xs text-muted-foreground text-center">
                 {completedMonths < 12
                   ? `Faltan ${12 - completedMonths} meses por completar`
                   : "¡Calendario completo!"}

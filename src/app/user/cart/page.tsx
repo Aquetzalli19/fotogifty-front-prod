@@ -31,6 +31,11 @@ import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/pa
 import { addressService } from "@/services/addressService";
 import { crearSesionCheckout, CheckoutItem } from "@/services/checkout";
 import { config } from "@/lib/config";
+import { useTermsAcceptance } from "@/hooks/useTermsAcceptance";
+import TermsAcceptanceModal from "@/components/legal/TermsAcceptanceModal";
+import { obtenerDocumentoLegalActivo } from "@/services/legal-documents";
+import { LegalDocument } from "@/interfaces/legal-documents";
+import StoreLocationInfo from "@/components/common/StoreLocationInfo";
 
 const CartPage = () => {
   const router = useRouter();
@@ -53,7 +58,22 @@ const CartPage = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<'envio_domicilio' | 'recogida_tienda'>('envio_domicilio');
 
   const { items, getTotals, clearCart, removeItem } = useCartStore();
-  const { getCustomization, getInstanceProgress, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
+  const { getCustomization, getInstanceProgress, getTotalCopiesUsed, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
+
+  // Hook para verificar términos y condiciones
+  const {
+    needsAcceptance,
+    termsStatus,
+    showModal,
+    setShowModal,
+    acceptTerms,
+    checkTermsStatus,
+    isChecking: isCheckingTerms,
+    isAccepting: isAcceptingTerms,
+  } = useTermsAcceptance();
+
+  // Estado local para documento de términos (fallback si el hook no lo provee)
+  const [localTermsDocument, setLocalTermsDocument] = useState<LegalDocument | null>(null);
 
   // Función para limpiar todo (carrito + personalizaciones)
   const handleClearAll = () => {
@@ -74,9 +94,23 @@ const CartPage = () => {
 
       // Verificar cada instancia del item
       for (let i = 0; i < cartItem.quantity; i++) {
-        const { current } = getInstanceProgress(cartItem.id, i);
-        if (current < requiredImages) {
-          return false;
+        // NUEVO: Usar getTotalCopiesUsed para validar que se alcanzó el límite del paquete
+        const totalCopiesUsed = getTotalCopiesUsed(cartItem.id, i);
+
+        // IMPORTANTE: Para calendarios, validar que los 12 meses estén completos
+        const customization = getCustomization(cartItem.id, i);
+        if (customization?.editorType === "calendar") {
+          const calendarData = customization.data as CalendarCustomization;
+          const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+          if (completedMonths < 12) {
+            return false;
+          }
+        } else {
+          // Para Standard y Polaroid: validar que el total de copias alcance el mínimo requerido
+          // Permitir que el usuario use menos copias si lo desea, pero al menos 1 imagen
+          if (totalCopiesUsed === 0) {
+            return false;
+          }
         }
       }
     }
@@ -219,6 +253,26 @@ const CartPage = () => {
       return;
     }
 
+    // ===== VALIDACIÓN DE TÉRMINOS (ACTUALIZADA) =====
+    console.log('🔍 Verificando términos antes de checkout...');
+
+    // Verificar términos ANTES de proceder con el checkout
+    await checkTermsStatus();
+
+    // Esperar un ciclo de renderizado para que el estado se actualice
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verificar si el hook detectó que se necesita aceptación
+    if (needsAcceptance) {
+      console.log('⚠️ Usuario necesita aceptar términos actualizados');
+      setShowModal(true);
+      setCheckoutError("Debes aceptar los nuevos términos y condiciones para continuar");
+      return; // Detener checkout hasta que acepte términos
+    }
+
+    console.log('✅ Términos verificados, procediendo con checkout');
+    // ===== FIN VALIDACIÓN DE TÉRMINOS =====
+
     setIsProcessingCheckout(true);
     setCheckoutError(null);
 
@@ -257,11 +311,75 @@ const CartPage = () => {
       } else {
         setCheckoutError("Error al crear la sesión de pago");
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error en checkout:", error);
+
+      // ===== MANEJO DE ERROR DE TÉRMINOS (ACTUALIZADO) =====
+      // Si el backend retorna error por términos no aceptados
+      const errorObj = error as { status?: number; error?: string; message?: string; response?: { status?: number; data?: { error?: string; message?: string } } };
+      const errorMessage = errorObj?.message || errorObj?.error || errorObj?.response?.data?.message || '';
+
+      // Verificar si el error es por términos no aceptados (puede ser 400 o 403)
+      if (
+        errorMessage.toLowerCase().includes('términos') ||
+        errorMessage.toLowerCase().includes('terminos') ||
+        errorMessage.toLowerCase().includes('terms')
+      ) {
+        console.log('⚠️ Backend bloqueó checkout: términos no aceptados');
+        console.log('🔍 Error message:', errorMessage);
+
+        // Verificar el estado de términos para obtener la información completa
+        try {
+          await checkTermsStatus();
+          console.log('📋 checkTermsStatus completado');
+          console.log('🔴 needsAcceptance:', needsAcceptance);
+          console.log('📄 termsStatus:', termsStatus);
+        } catch (err) {
+          console.error('❌ Error al verificar términos:', err);
+        }
+
+        // Si no tenemos el documento de términos en termsStatus, cargarlo manualmente
+        if (!termsStatus?.termsDocument) {
+          console.log('📄 Cargando documento de términos activo...');
+          try {
+            const response = await obtenerDocumentoLegalActivo('terms');
+            if (response.success && response.data) {
+              console.log('✅ Documento de términos cargado:', response.data);
+              setLocalTermsDocument(response.data);
+            } else {
+              console.error('❌ No se pudo cargar documento de términos');
+            }
+          } catch (err) {
+            console.error('❌ Error al cargar documento de términos:', err);
+          }
+        }
+
+        // Mostrar modal bloqueante SIEMPRE que el backend rechace por términos
+        console.log('🚨 Forzando apertura del modal');
+        setShowModal(true);
+        setCheckoutError("Debes aceptar los nuevos términos y condiciones para continuar");
+        return;
+      }
+      // ===== FIN MANEJO DE ERROR =====
+
       setCheckoutError(error instanceof Error ? error.message : "Error al procesar el pago");
     } finally {
       setIsProcessingCheckout(false);
+    }
+  };
+
+  // Callback al aceptar términos desde el modal
+  const handleAcceptTerms = async () => {
+    try {
+      await acceptTerms();
+      setShowModal(false);
+      console.log('✅ Términos aceptados, reintentando checkout...');
+
+      // Reintentar checkout automáticamente después de aceptar
+      await handleCheckout();
+    } catch (error) {
+      console.error('Error al aceptar términos:', error);
+      setCheckoutError("Error al aceptar los términos. Por favor intenta nuevamente.");
     }
   };
 
@@ -410,16 +528,25 @@ const CartPage = () => {
                 // Create an array of cards for each quantity of the item
                 return Array.from({ length: cartItem.quantity }, (_, index) => {
                   const customization = getCustomization(cartItem.id, index);
-                  const { current: currentImagesAdded } = getInstanceProgress(
-                    cartItem.id,
-                    index
-                  );
+
+                  // NUEVO: Usar getTotalCopiesUsed para calcular progreso con sistema de copias
+                  const totalCopiesUsed = getTotalCopiesUsed(cartItem.id, index);
                   const requiredImages = itemDetails.numOfRequiredImages;
-                  const progress =
-                    requiredImages > 0
-                      ? Math.min(100, (currentImagesAdded / requiredImages) * 100)
-                      : 0;
-                  const isComplete = currentImagesAdded >= requiredImages;
+
+                  // Para calendarios, validar que los 12 meses estén completos
+                  let isComplete = false;
+                  let progress = 0;
+
+                  if (customization?.editorType === "calendar") {
+                    const calendarData = customization.data as CalendarCustomization;
+                    const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+                    isComplete = completedMonths === 12;
+                    progress = Math.min(100, (completedMonths / 12) * 100);
+                  } else {
+                    // Para Standard y Polaroid: el progreso se basa en copias usadas
+                    progress = requiredImages > 0 ? Math.min(100, (totalCopiesUsed / requiredImages) * 100) : 0;
+                    isComplete = totalCopiesUsed >= requiredImages;
+                  }
 
                   // Renderizar thumbnails según el tipo de editor
                   const renderThumbnails = () => {
@@ -439,11 +566,23 @@ const CartPage = () => {
                       const calendarData = customization.data as CalendarCustomization;
                       const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
+                      // NUEVO: Obtener cantidad de copias del calendario (todas los meses tienen el mismo valor)
+                      const calendarCopies = calendarData.months.find(m => m.imageSrc)?.copies || 1;
+                      const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+
                       return (
                         <div className="w-full">
                           <div className="flex items-center gap-2 mb-3">
                             <Calendar className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">Calendario - 12 meses</span>
+                            <span className="text-sm font-medium">
+                              Calendario - {completedMonths}/12 meses
+                            </span>
+                            {/* NUEVO: Mostrar cantidad de copias del calendario completo */}
+                            {calendarCopies > 1 && completedMonths === 12 && (
+                              <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-bold">
+                                ×{calendarCopies} calendarios
+                              </span>
+                            )}
                           </div>
                           <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
                             {calendarData.months.map((monthData, monthIndex) => (
@@ -479,14 +618,20 @@ const CartPage = () => {
                     // Polaroid: mostrar grid de polaroids guardadas
                     if (customization.editorType === "polaroid") {
                       const polaroidData = customization.data as PolaroidCustomization;
-                      const emptySlots = Math.max(0, polaroidData.maxPolaroids - polaroidData.polaroids.length);
+
+                      // NUEVO: Calcular total de copias usadas
+                      const totalCopiesUsed = polaroidData.polaroids.reduce((sum, p) => sum + (p.copies || 1), 0);
+                      const emptySlots = Math.max(0, polaroidData.maxPolaroids - totalCopiesUsed);
 
                       return (
                         <div className="w-full">
                           <div className="flex items-center gap-2 mb-3">
                             <Grid3X3 className="h-4 w-4 text-primary" />
                             <span className="text-sm font-medium">
-                              Polaroids - {polaroidData.polaroids.length} de {polaroidData.maxPolaroids}
+                              Polaroids - {totalCopiesUsed} de {polaroidData.maxPolaroids}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ({polaroidData.polaroids.length} {polaroidData.polaroids.length === 1 ? 'único' : 'únicos'})
                             </span>
                           </div>
                           <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
@@ -511,17 +656,20 @@ const CartPage = () => {
                                 <div className="absolute top-1 right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                                   {pIndex + 1}
                                 </div>
+                                {/* NUEVO: Badge de cantidad de copias */}
+                                {polaroid.copies && polaroid.copies > 1 && (
+                                  <div className="absolute bottom-1 right-1 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                                    ×{polaroid.copies}
+                                  </div>
+                                )}
                               </div>
                             ))}
                             {/* Slots vacíos */}
-                            {Array.from({ length: emptySlots }).map((_, emptyIndex) => (
-                              <div
-                                key={`empty-${emptyIndex}`}
-                                className="aspect-[3/4] rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted flex items-center justify-center"
-                              >
-                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            {emptySlots > 0 && (
+                              <div className="col-span-full text-xs text-muted-foreground text-center py-2">
+                                {emptySlots} {emptySlots === 1 ? 'espacio disponible' : 'espacios disponibles'}
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       );
@@ -532,14 +680,20 @@ const CartPage = () => {
                       const standardData = customization.data as StandardCustomization;
                       const images = standardData.images || [];
                       const maxImages = standardData.maxImages || requiredImages;
-                      const emptySlots = Math.max(0, maxImages - images.length);
+
+                      // NUEVO: Calcular total de copias usadas
+                      const totalCopiesUsed = images.reduce((sum, img) => sum + (img.copies || 1), 0);
+                      const emptySlots = Math.max(0, maxImages - totalCopiesUsed);
 
                       return (
                         <div className="w-full">
                           <div className="flex items-center gap-2 mb-3">
                             <ImageIcon className="h-4 w-4 text-primary" />
                             <span className="text-sm font-medium">
-                              Fotos - {images.length} de {maxImages}
+                              Fotos - {totalCopiesUsed} de {maxImages}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              ({images.length} {images.length === 1 ? 'única' : 'únicas'})
                             </span>
                           </div>
                           <div className="grid grid-cols-4 md:grid-cols-5 gap-2">
@@ -556,17 +710,20 @@ const CartPage = () => {
                                 <div className="absolute top-1 right-1 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                                   {imgIndex + 1}
                                 </div>
+                                {/* NUEVO: Badge de cantidad de copias */}
+                                {img.copies && img.copies > 1 && (
+                                  <div className="absolute bottom-1 right-1 bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-lg">
+                                    ×{img.copies}
+                                  </div>
+                                )}
                               </div>
                             ))}
                             {/* Slots vacíos */}
-                            {Array.from({ length: emptySlots }).map((_, emptyIndex) => (
-                              <div
-                                key={`empty-${emptyIndex}`}
-                                className="aspect-square rounded-lg border-2 border-dashed border-muted-foreground/30 bg-muted flex items-center justify-center"
-                              >
-                                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            {emptySlots > 0 && (
+                              <div className="col-span-full text-xs text-muted-foreground text-center py-2">
+                                {emptySlots} {emptySlots === 1 ? 'espacio disponible' : 'espacios disponibles'}
                               </div>
-                            ))}
+                            )}
                           </div>
                         </div>
                       );
@@ -626,7 +783,15 @@ const CartPage = () => {
                         <div className="w-full flex justify-between items-center">
                           <span className="text-sm text-muted-foreground">Progreso</span>
                           <span className="text-sm font-medium">
-                            {currentImagesAdded} / {requiredImages} imágenes
+                            {customization?.editorType === "calendar" ? (
+                              <>
+                                {customization.data && (customization.data as CalendarCustomization).months.filter(m => m.imageSrc !== null).length} / 12 meses
+                              </>
+                            ) : (
+                              <>
+                                {totalCopiesUsed} / {requiredImages} fotos
+                              </>
+                            )}
                           </span>
                         </div>
                         <Progress value={progress} className="w-full h-2" />
@@ -641,13 +806,13 @@ const CartPage = () => {
       )}
 
       {currentStep === 3 && (
-        <div className="w-full items-center flex flex-col justify-center gap-8 px-4 md:px-12">
+        <div className="w-full items-center flex flex-col justify-center gap-4 sm:gap-6 lg:gap-8 px-2 sm:px-4 lg:px-8 xl:px-12">
           <Stepper currentStep={3} steps={4} title="Proceder al pago" />
 
-          <div className="flex flex-col md:flex-row w-full gap-8">
+          <div className="flex flex-col lg:flex-row w-full gap-4 sm:gap-6 lg:gap-6 xl:gap-8 max-w-7xl mx-auto">
             {/* Columna izquierda: Resumen del pedido */}
-            <div className="w-full md:w-1/2 flex flex-col gap-4">
-              <h2 className="text-xl font-semibold">Resumen del Pedido</h2>
+            <div className="w-full lg:w-1/2 flex flex-col gap-3 sm:gap-4">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold">Resumen del Pedido</h2>
 
               {isLoadingProducts ? (
                 <p>Cargando productos...</p>
@@ -674,18 +839,18 @@ const CartPage = () => {
               )}
 
               {/* Totales */}
-              <div className="mt-6 p-4 bg-muted rounded-md">
+              <div className="mt-4 sm:mt-6 p-3 sm:p-4 md:p-5 bg-muted rounded-md">
                 <div className="space-y-2">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm sm:text-base md:text-lg">
                     <span>Subtotal:</span>
                     <span className="font-poppins">$ {subtotal.toFixed(2)}</span>
                   </div>
                   <Separator className="my-2" />
-                  <div className="flex justify-between font-bold text-lg">
+                  <div className="flex justify-between font-bold text-base sm:text-lg md:text-xl">
                     <span>Total:</span>
                     <span className="font-poppins">$ {total.toFixed(2)}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                     * Precios incluyen IVA
                   </p>
                 </div>
@@ -693,46 +858,46 @@ const CartPage = () => {
             </div>
 
             {/* Columna derecha: Dirección y Pago */}
-            <div className="w-full md:w-1/2 flex flex-col gap-6">
+            <div className="w-full lg:w-1/2 flex flex-col gap-4 sm:gap-6">
               {/* Verificar autenticación */}
               {!isAuthenticated ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-                  <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">Inicia sesión para continuar</h3>
-                  <p className="text-muted-foreground mb-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 sm:p-6 text-center">
+                  <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 text-yellow-500 mx-auto mb-3 sm:mb-4" />
+                  <h3 className="text-base sm:text-lg font-semibold mb-2">Inicia sesión para continuar</h3>
+                  <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4">
                     Necesitas una cuenta para procesar tu pedido
                   </p>
-                  <Button onClick={() => router.push("/login")}>
+                  <Button onClick={() => router.push("/login")} className="text-sm sm:text-base">
                     Iniciar Sesión
                   </Button>
                 </div>
               ) : (
                 <>
                   {/* Selector de Método de Entrega */}
-                  <div className="mb-6">
-                    <h2 className="text-xl font-semibold mb-4">Método de Entrega</h2>
+                  <div className="mb-4 sm:mb-6">
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold mb-3 sm:mb-4">Método de Entrega</h2>
 
                     <RadioGroup
                       value={deliveryMethod}
                       onValueChange={(value) => setDeliveryMethod(value as 'envio_domicilio' | 'recogida_tienda')}
-                      className="space-y-3"
+                      className="space-y-2 sm:space-y-3"
                     >
                       {/* Opción: Envío a domicilio */}
                       <div
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        className={`border-2 rounded-lg p-3 sm:p-4 md:p-5 cursor-pointer transition-all ${
                           deliveryMethod === 'envio_domicilio'
                             ? 'border-primary bg-primary/5'
                             : 'border-muted hover:border-primary/50'
                         }`}
                         onClick={() => setDeliveryMethod('envio_domicilio')}
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2 sm:gap-3 md:gap-4">
                           <RadioGroupItem value="envio_domicilio" id="envio_domicilio" className="mt-0.5" />
                           <div className="flex-1">
-                            <Label htmlFor="envio_domicilio" className="font-semibold cursor-pointer text-base">
+                            <Label htmlFor="envio_domicilio" className="font-semibold cursor-pointer text-sm sm:text-base md:text-lg">
                               Envío a domicilio
                             </Label>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1">
                               Tu pedido será enviado a la dirección que selecciones
                             </p>
                           </div>
@@ -741,20 +906,20 @@ const CartPage = () => {
 
                       {/* Opción: Recoger en tienda */}
                       <div
-                        className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
+                        className={`border-2 rounded-lg p-3 sm:p-4 md:p-5 cursor-pointer transition-all ${
                           deliveryMethod === 'recogida_tienda'
                             ? 'border-primary bg-primary/5'
                             : 'border-muted hover:border-primary/50'
                         }`}
                         onClick={() => setDeliveryMethod('recogida_tienda')}
                       >
-                        <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-2 sm:gap-3 md:gap-4">
                           <RadioGroupItem value="recogida_tienda" id="recogida_tienda" className="mt-0.5" />
                           <div className="flex-1">
-                            <Label htmlFor="recogida_tienda" className="font-semibold cursor-pointer text-base">
+                            <Label htmlFor="recogida_tienda" className="font-semibold cursor-pointer text-sm sm:text-base md:text-lg">
                               Recoger en tienda
                             </Label>
-                            <p className="text-sm text-muted-foreground mt-1">
+                            <p className="text-xs sm:text-sm md:text-base text-muted-foreground mt-1">
                               Recoge tu pedido en nuestra tienda física
                             </p>
                           </div>
@@ -766,64 +931,65 @@ const CartPage = () => {
                   {/* Selector de Dirección - Solo si es envío a domicilio */}
                   {deliveryMethod === 'envio_domicilio' && (
                     <div>
-                      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <MapPin className="h-5 w-5" />
+                      <h2 className="text-lg sm:text-xl lg:text-2xl font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                        <MapPin className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
                         Dirección de Envío
                       </h2>
 
                     {isLoadingAddresses ? (
-                      <div className="flex items-center justify-center p-8">
-                        <Loader2 className="h-6 w-6 animate-spin" />
-                        <span className="ml-2">Cargando direcciones...</span>
+                      <div className="flex items-center justify-center p-6 sm:p-8 md:p-10">
+                        <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 animate-spin" />
+                        <span className="ml-2 text-sm sm:text-base md:text-lg">Cargando direcciones...</span>
                       </div>
                     ) : addresses.length === 0 ? (
-                      <div className="bg-muted rounded-lg p-6 text-center">
-                        <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <p className="text-muted-foreground mb-4">
+                      <div className="bg-muted rounded-lg p-4 sm:p-6 md:p-8 text-center">
+                        <MapPin className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 text-muted-foreground mx-auto mb-3 sm:mb-4" />
+                        <p className="text-sm sm:text-base md:text-lg text-muted-foreground mb-3 sm:mb-4">
                           No tienes direcciones guardadas
                         </p>
                         <Button
                           variant="outline"
                           onClick={() => router.push("/user/profile")}
+                          className="text-sm sm:text-base md:text-lg"
                         >
                           Agregar Dirección
                         </Button>
                       </div>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         {addresses.map((address) => (
                           <div
                             key={address.id}
-                            className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                            className={`p-3 sm:p-4 md:p-5 border-2 rounded-lg cursor-pointer transition-all ${
                               selectedAddressId === address.id
                                 ? "border-primary bg-primary/5"
                                 : "border-muted hover:border-primary/50"
                             }`}
                             onClick={() => setSelectedAddressId(address.id!)}
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="font-semibold">{address.alias}</span>
+                            <div className="flex items-start justify-between gap-2 md:gap-3">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                  <span className="font-semibold text-sm sm:text-base md:text-lg">{address.alias}</span>
                                   {address.predeterminada && (
-                                    <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                    <span className="text-xs sm:text-sm bg-primary text-primary-foreground px-2 py-0.5 rounded whitespace-nowrap">
                                       Predeterminada
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm md:text-base text-muted-foreground break-words">
                                   {address.direccion}
                                   {address.numero_casa && ` #${address.numero_casa}`}
                                   {address.numero_departamento && `, Depto. ${address.numero_departamento}`}
                                 </p>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
                                   {address.ciudad}, {address.estado}, {address.codigo_postal}
                                 </p>
-                                <p className="text-sm text-muted-foreground">{address.pais}</p>
+                                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">{address.pais}</p>
                               </div>
-                              <div className="flex items-center">
+                              <div className="flex items-center flex-shrink-0">
                                 {selectedAddressId === address.id && (
-                                  <CheckCircle2 className="h-6 w-6 text-primary" />
+                                  <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 md:h-7 md:w-7 text-primary" />
                                 )}
                               </div>
                             </div>
@@ -832,7 +998,7 @@ const CartPage = () => {
 
                         <Button
                           variant="ghost"
-                          className="w-full"
+                          className="w-full text-sm sm:text-base"
                           onClick={() => router.push("/user/profile")}
                         >
                           <Plus className="h-4 w-4 mr-2" />
@@ -845,79 +1011,40 @@ const CartPage = () => {
 
                   {/* Información de Tienda - Solo si es recogida en tienda */}
                   {deliveryMethod === 'recogida_tienda' && (
-                    <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-6 border-2 border-blue-200 dark:border-blue-800">
-                      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-blue-600" />
-                        Ubicación de la Tienda
-                      </h2>
+                    <div>
+                      <StoreLocationInfo showMap={true} />
 
-                      <div className="space-y-3">
-                        <div>
-                          <p className="font-semibold text-lg">{config.storeInfo.nombre}</p>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Dirección</p>
-                            <p className="font-medium">{config.storeInfo.direccion}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {config.storeInfo.ciudad}, {config.storeInfo.estado}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              C.P. {config.storeInfo.codigo_postal}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <Phone className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Teléfono</p>
-                            <p className="font-medium">{config.storeInfo.telefono}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-start gap-2">
-                          <Calendar className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-sm text-muted-foreground">Horario</p>
-                            <p className="font-medium">{config.storeInfo.horario}</p>
-                          </div>
-                        </div>
-
-                        <div className="bg-blue-100 dark:bg-blue-900/30 rounded-md p-3 mt-4">
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
-                            <strong>Importante:</strong> Te notificaremos por email cuando tu pedido esté listo para recoger.
-                            No olvides traer una identificación oficial al recoger tu pedido.
-                          </p>
-                        </div>
+                      <div className="mt-4 bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <strong>Importante:</strong> Te notificaremos por email cuando tu pedido esté listo para recoger.
+                          No olvides traer una identificación oficial al recoger tu pedido.
+                        </p>
                       </div>
                     </div>
                   )}
 
                   {/* Botón de Pago */}
-                  <div className="mt-4">
-                    <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                      <CreditCard className="h-5 w-5" />
+                  <div className="mt-3 sm:mt-4">
+                    <h2 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4 flex items-center gap-2">
+                      <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
                       Pago Seguro
                     </h2>
 
                     {checkoutError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-center gap-2">
-                        <AlertCircle className="h-5 w-5" />
-                        {checkoutError}
+                      <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg mb-3 sm:mb-4 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
+                        <span className="text-xs sm:text-sm">{checkoutError}</span>
                       </div>
                     )}
 
-                    <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                      <p className="text-sm text-muted-foreground text-center">
+                    <div className="bg-muted/50 rounded-lg p-3 sm:p-4 mb-3 sm:mb-4">
+                      <p className="text-xs sm:text-sm text-muted-foreground text-center">
                         Serás redirigido a Stripe para completar tu pago de forma segura
                       </p>
                     </div>
 
                     <Button
-                      className="w-full h-14 text-lg font-semibold"
+                      className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold"
                       onClick={handleCheckout}
                       disabled={
                         isProcessingCheckout ||
@@ -927,12 +1054,12 @@ const CartPage = () => {
                     >
                       {isProcessingCheckout ? (
                         <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          <Loader2 className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                           Procesando...
                         </>
                       ) : (
                         <>
-                          <CreditCard className="mr-2 h-5 w-5" />
+                          <CreditCard className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                           Pagar $ {total.toFixed(2)} MXN
                         </>
                       )}
@@ -940,13 +1067,13 @@ const CartPage = () => {
 
                     {/* Mensaje dinámico según método de entrega */}
                     {deliveryMethod === 'envio_domicilio' && selectedAddress && (
-                      <p className="text-xs text-muted-foreground text-center mt-3">
+                      <p className="text-xs text-muted-foreground text-center mt-2 sm:mt-3">
                         Envío a: {selectedAddress.alias} - {selectedAddress.ciudad}
                       </p>
                     )}
 
                     {deliveryMethod === 'recogida_tienda' && (
-                      <p className="text-xs text-muted-foreground text-center mt-3">
+                      <p className="text-xs text-muted-foreground text-center mt-2 sm:mt-3">
                         Recoger en: {config.storeInfo.nombre}
                       </p>
                     )}
@@ -991,6 +1118,17 @@ const CartPage = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de aceptación de términos */}
+      <TermsAcceptanceModal
+        isOpen={showModal}
+        onAccept={handleAcceptTerms}
+        onCancel={() => setShowModal(false)}
+        termsDocument={termsStatus?.termsDocument ?? localTermsDocument}
+        previousVersion={termsStatus?.userAcceptedVersion ?? null}
+        isBlocking={currentStep === 3} // Bloquear si está en paso de checkout
+        isLoading={isAcceptingTerms}
+      />
     </div>
   );
 };

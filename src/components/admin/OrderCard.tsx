@@ -59,6 +59,12 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
   const status = order.estado ?? order.status ?? "Sin estado";
   const images = order.imagenes || order.images || [];
 
+  // Calcular total de copias (sumando cantidad_copias de cada foto)
+  const fotos = order.fotos || [];
+  const totalCopias = fotos.length > 0
+    ? fotos.reduce((sum, foto) => sum + (foto.cantidad_copias || 1), 0)
+    : images.length; // Fallback para pedidos antiguos sin cantidad_copias
+
   const statusStyles: Record<string, string> = {
     "Pendiente": "bg-orange-100 text-orange-800 border-orange-300",
     "En Proceso": "bg-blue-100 text-blue-800 border-blue-300",
@@ -156,10 +162,10 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
                 </Badge>
               )}
 
-              {images.length > 0 && (
+              {totalCopias > 0 && (
                 <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                   <ImageIcon className="h-3 w-3" />
-                  {images.length}
+                  {totalCopias}
                 </Badge>
               )}
             </div>
