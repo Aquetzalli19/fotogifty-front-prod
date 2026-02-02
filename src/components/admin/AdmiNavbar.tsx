@@ -14,7 +14,8 @@ import {
   ChevronDown,
   BarChart3,
   FileText,
-  MapPin
+  MapPin,
+  LayoutDashboard,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
@@ -40,6 +41,7 @@ const AdmiNavbar = () => {
     { href: "/admin/users", label: "Usuarios", icon: Users },
     { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
     { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
+    { href: "/admin/landing-content", label: "Landing Page", icon: LayoutDashboard },
     { href: "/admin/store-settings", label: "Configuración Tienda", icon: MapPin },
   ];
 

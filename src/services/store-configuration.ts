@@ -14,7 +14,7 @@ interface ApiResponse<T> {
  */
 export async function obtenerConfiguracionTienda(): Promise<ApiResponse<StoreConfiguration>> {
   try {
-    const response = await apiClient.get<ApiResponse<StoreConfiguration>>('/configuracion-tienda');
+    const response = await apiClient.get<StoreConfiguration>('/configuracion-tienda');
     return response;
   } catch (error) {
     console.error('Error obteniendo configuración de tienda:', error);
@@ -30,7 +30,7 @@ export async function actualizarConfiguracionTienda(
 ): Promise<ApiResponse<StoreConfiguration>> {
   try {
     console.log('📤 Actualizando configuración de tienda:', data);
-    const response = await apiClient.put<ApiResponse<StoreConfiguration>>(
+    const response = await apiClient.put<StoreConfiguration>(
       '/configuracion-tienda',
       data
     );

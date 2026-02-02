@@ -1,49 +1,97 @@
 import React from "react";
 import SingleImageCard from "../cards/SingleImageCard";
 import CollageImageCard from "../cards/CollageImageCard";
+import { LandingSectionComplete } from "@/interfaces/landing-content";
 
-const Polaroids = () => {
+interface PolaroidsProps {
+  bannerData?: LandingSectionComplete | null;
+  singleData?: LandingSectionComplete | null;
+  collageData?: LandingSectionComplete | null;
+}
+
+const Polaroids = ({ bannerData, singleData, collageData }: PolaroidsProps) => {
+  // Banner section data
+  const bannerSection = bannerData?.section;
+  const bannerTextoPrimario = bannerSection?.textoPrimario || "papel lustre profesional";
+  const bannerTextoSecundario = bannerSection?.textoSecundario || ", que realza los colores y los detalles con un acabado elegante y duradero.";
+  const bannerColor = bannerSection?.colorPrimario || "#F5A524";
+
+  // Single section data
+  const singleSection = singleData?.section;
+  const singleTitulo = singleSection?.titulo || "Imprime tus recuerdos,";
+  const singleSubtitulo = singleSection?.subtitulo || "Pack 50 fotos polaroid";
+  const singleDescripcion = singleSection?.descripcion || "consérvalos para siempre.";
+  const singleImagen = singleSection?.imagenPrincipalUrl || "/slide3.jpg";
+  const singleBotonColor = singleSection?.botonColor || "#47BEE5";
+
+  // Collage section data
+  const collageSection = collageData?.section;
+  const collageSlides = collageData?.slides || [];
+  const collageOptions = collageData?.options || [];
+  const collageTitulo = collageSection?.titulo || "Polaroid Prints";
+  const collageSubtitulo = collageSection?.subtitulo || "Perfectas para decorar tus espacios, crear murales, álbumes creativos o regalar recuerdos con un estilo único y atemporal.";
+
+  // Get images from slides or use defaults
+  const collageImages = collageSlides.filter(s => s.activo).map(s => s.imagenUrl);
+  const collageImagesTuple: [string, string, string, string] = collageImages.length >= 4
+    ? [collageImages[0], collageImages[1], collageImages[2], collageImages[3]]
+    : ["/slide3.jpg", "/slide3.jpg", "/slide3.jpg", "/slide3.jpg"];
+
+  const collageOptionsTextos = collageOptions.filter(o => o.activo).map(o => o.texto);
+
   return (
     <section id="polaroids">
-      <div className="w-full text-xl lg:text-3xl text-center pr-12 pl-12 p-2 mt-6 text-secondary-foreground bg-secondary">
-        <p>
-          Cada fotografía es impresa en{" "}
-          <span className="font-bold">papel lustre profesional</span> , que
-          realza los colores y los detalles con un{" "}
-          <span className=" font-bold">acabado elegante y duradero</span>.
-        </p>
-      </div>
-      <SingleImageCard
-        title="Imprime tus recuerdos,"
-        subtitle={
-          <p className="text-6xl font-normal text-primary">
-            <span className="text-zinc-800 dark:text-neutral-50 text-3xl font-extralight italic">
-              Pack 50 fotos polaroid
-            </span>
-            <br />
-            consérvalos para <br /> siempre.
+      {/* Banner */}
+      {bannerData?.section.activo !== false && (
+        <div
+          className="w-full text-xl lg:text-3xl text-center pr-12 pl-12 p-2 mt-6 text-secondary-foreground"
+          style={{ backgroundColor: bannerColor }}
+        >
+          <p className="text-white">
+            Cada fotografía es impresa en{" "}
+            <span className="font-bold">{bannerTextoPrimario}</span>
+            {bannerTextoSecundario.startsWith(",") ? bannerTextoSecundario : ` ${bannerTextoSecundario}`}
           </p>
-        }
-        buttonColor="#47BEE5"
-        image="/slide3.jpg"
-      />
-      <CollageImageCard
-        title="Polaroid Prints"
-        subtitle={
-          <p className="text-3xl font-light lg:pr-24 w-full">
-            <span className=" italic">
-              Perfectas para decorar tus espacios, crear murales, álbumes
-              creativos o regalar recuerdos con un estilo único y atemporal.
-            </span>
-          </p>
-        }
-        images={["/slide3.jpg", "/slide3.jpg", "/slide3.jpg", "/slide3.jpg"]}
-        options={[
-          "Pack 50 Prints 4x6",
-          "Pack 50 Prints 4x6",
-          "Pack 50 Prints 4x6",
-        ]}
-      />
+        </div>
+      )}
+
+      {/* Single Image Card */}
+      {singleData?.section.activo !== false && (
+        <SingleImageCard
+          title={singleTitulo}
+          subtitle={
+            <p className="text-6xl font-normal text-primary">
+              <span className="text-zinc-800 dark:text-neutral-50 text-3xl font-extralight italic">
+                {singleSubtitulo}
+              </span>
+              <br />
+              {singleDescripcion}
+            </p>
+          }
+          buttonColor={singleBotonColor}
+          image={singleImagen}
+        />
+      )}
+
+      {/* Collage */}
+      {collageData?.section.activo !== false && (
+        <CollageImageCard
+          title={collageTitulo}
+          subtitle={
+            <p className="text-3xl font-light lg:pr-24 w-full">
+              <span className=" italic">
+                {collageSubtitulo}
+              </span>
+            </p>
+          }
+          images={collageImagesTuple}
+          options={collageOptionsTextos.length > 0 ? collageOptionsTextos : [
+            "Pack 50 Prints 4x6",
+            "Pack 50 Prints 4x6",
+            "Pack 50 Prints 4x6",
+          ]}
+        />
+      )}
     </section>
   );
 };
