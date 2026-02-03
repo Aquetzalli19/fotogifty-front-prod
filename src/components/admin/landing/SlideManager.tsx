@@ -30,6 +30,7 @@ interface SlideManagerProps {
   onUpdate: (id: number, data: Partial<LandingSlide>) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onReorder: (ids: number[]) => Promise<void>;
+  onUploadImage?: (file: File) => Promise<string>;
   disabled?: boolean;
 }
 
@@ -42,6 +43,7 @@ export function SlideManager({
   onUpdate,
   onDelete,
   onReorder,
+  onUploadImage,
   disabled = false,
 }: SlideManagerProps) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -239,6 +241,7 @@ export function SlideManager({
         onOpenChange={setIsAddDialogOpen}
         slideType={slideType}
         onAdd={onAdd}
+        onUploadImage={onUploadImage}
       />
 
       <EditSlideDialog
@@ -246,6 +249,7 @@ export function SlideManager({
         onOpenChange={setIsEditDialogOpen}
         slide={selectedSlide}
         onUpdate={onUpdate}
+        onUploadImage={onUploadImage}
       />
 
       <DeleteSlideDialog

@@ -21,6 +21,7 @@ interface EditSlideDialogProps {
   onOpenChange: (open: boolean) => void;
   slide: LandingSlide | null;
   onUpdate: (id: number, data: Partial<LandingSlide>) => Promise<void>;
+  onUploadImage?: (file: File) => Promise<string>;
 }
 
 export function EditSlideDialog({
@@ -28,6 +29,7 @@ export function EditSlideDialog({
   onOpenChange,
   slide,
   onUpdate,
+  onUploadImage,
 }: EditSlideDialogProps) {
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -107,6 +109,7 @@ export function EditSlideDialog({
             value={imagenUrl}
             onChange={setImagenUrl}
             label="Imagen *"
+            onUpload={onUploadImage}
           />
 
           {showTitleField && (

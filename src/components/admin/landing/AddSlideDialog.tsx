@@ -21,6 +21,7 @@ interface AddSlideDialogProps {
   onOpenChange: (open: boolean) => void;
   slideType: SlideType;
   onAdd: (data: { titulo?: string; descripcion?: string; imagenUrl: string }) => Promise<void>;
+  onUploadImage?: (file: File) => Promise<string>;
 }
 
 export function AddSlideDialog({
@@ -28,6 +29,7 @@ export function AddSlideDialog({
   onOpenChange,
   slideType,
   onAdd,
+  onUploadImage,
 }: AddSlideDialogProps) {
   const [titulo, setTitulo] = useState("");
   const [descripcion, setDescripcion] = useState("");
@@ -96,6 +98,7 @@ export function AddSlideDialog({
             value={imagenUrl}
             onChange={setImagenUrl}
             label="Imagen *"
+            onUpload={onUploadImage}
           />
 
           {showTitleField && (

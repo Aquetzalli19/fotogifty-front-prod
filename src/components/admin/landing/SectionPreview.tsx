@@ -1,8 +1,10 @@
 "use client";
 
-import { LandingSectionDTO, LandingSlide, LandingOption, SectionKey, SECTION_METADATA } from "@/interfaces/landing-content";
+import { useState, useEffect } from "react";
+import { LandingSectionDTO, LandingSlide, LandingOption, SectionKey, SECTION_METADATA, CarouselConfig } from "@/interfaces/landing-content";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface SectionPreviewProps {
   sectionKey: SectionKey;
@@ -52,20 +54,74 @@ export function SectionPreview({
   }
 }
 
-// Hero Preview
+// Hero Preview with Carousel
 function HeroPreview({ values, slides }: { values: LandingSectionDTO; slides: LandingSlide[] }) {
-  const firstSlide = slides[0];
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const activeSlides = slides.filter((s) => s.activo);
+
+  // Get carousel config from values
+  const config = values.configuracionExtra as CarouselConfig | null;
+  const autoplay = config?.autoplay ?? true;
+  const autoplaySpeed = config?.autoplaySpeed ?? 5000;
+  const transitionSpeed = config?.transitionSpeed ?? 500;
+
+  // Auto-advance slides
+  useEffect(() => {
+    if (!autoplay || activeSlides.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
+    }, autoplaySpeed);
+
+    return () => clearInterval(interval);
+  }, [autoplay, autoplaySpeed, activeSlides.length]);
+
+  // Reset index if slides change
+  useEffect(() => {
+    if (currentIndex >= activeSlides.length) {
+      setCurrentIndex(0);
+    }
+  }, [activeSlides.length, currentIndex]);
+
+  const goToSlide = (index: number) => {
+    setCurrentIndex(index);
+  };
+
+  const goToPrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
+  };
+
+  const goToNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % activeSlides.length);
+  };
+
   return (
     <div className="relative h-64 w-full bg-gray-800 overflow-hidden rounded-lg">
-      {firstSlide && (
-        <Image
-          src={firstSlide.imagenUrl}
-          alt="Hero background"
-          fill
-          className="object-cover opacity-80"
-        />
-      )}
-      <div className="absolute inset-0 bg-gray-900/20 flex flex-col items-center justify-center text-center p-4">
+      {/* Slides Container */}
+      <div className="absolute inset-0">
+        {activeSlides.map((slide, index) => (
+          <div
+            key={slide.id}
+            className="absolute inset-0 transition-opacity"
+            style={{
+              opacity: index === currentIndex ? 1 : 0,
+              transitionDuration: `${transitionSpeed}ms`,
+            }}
+          >
+            <Image
+              src={slide.imagenUrl}
+              alt={slide.titulo || `Slide ${index + 1}`}
+              fill
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 600px"
+              priority={index === 0}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Overlay with content */}
+      <div className="absolute inset-0 bg-gray-900/30 flex flex-col items-center justify-center text-center p-4">
         <h1 className="text-white font-medium text-xl md:text-2xl leading-tight">
           {values.titulo || "Título del Hero"}
           <br />
@@ -82,6 +138,47 @@ function HeroPreview({ values, slides }: { values: LandingSectionDTO; slides: La
         >
           {values.botonTexto || "Botón"}
         </Button>
+      </div>
+
+      {/* Navigation Arrows */}
+      {activeSlides.length > 1 && (
+        <>
+          <button
+            onClick={goToPrev}
+            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 transition-colors z-10"
+            aria-label="Anterior"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            onClick={goToNext}
+            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white rounded-full p-1 transition-colors z-10"
+            aria-label="Siguiente"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
+
+      {/* Dots indicator */}
+      {activeSlides.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+          {activeSlides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-2 h-2 rounded-full transition-colors ${
+                index === currentIndex ? "bg-white" : "bg-white/40 hover:bg-white/60"
+              }`}
+              aria-label={`Ir a slide ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Slide info */}
+      <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded z-10">
+        {activeSlides.length > 0 ? `${currentIndex + 1}/${activeSlides.length}` : "Sin slides"}
       </div>
     </div>
   );

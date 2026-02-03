@@ -30,6 +30,7 @@ import {
   actualizarOpcion,
   eliminarOpcion,
   reordenarOpciones,
+  subirImagenLanding,
 } from "@/services/landing-content";
 import {
   LandingSectionComplete,
@@ -263,6 +264,15 @@ export default function SectionEditorPage({ params }: PageProps) {
     }
   };
 
+  // Image upload handler for slides
+  const handleUploadSlideImage = async (file: File): Promise<string> => {
+    const response = await subirImagenLanding(sectionKey, 'slide', file);
+    if (response.success && response.data) {
+      return response.data.url;
+    }
+    throw new Error(response.error || "Error al subir la imagen");
+  };
+
   // Option handlers
   const handleAddOption = async (texto: string) => {
     const response = await crearOpcion({ sectionKey, texto });
@@ -453,6 +463,7 @@ export default function SectionEditorPage({ params }: PageProps) {
                 onUpdate={handleUpdateSlide}
                 onDelete={handleDeleteSlide}
                 onReorder={handleReorderSlides}
+                onUploadImage={handleUploadSlideImage}
                 disabled={isSaving}
               />
             )}
