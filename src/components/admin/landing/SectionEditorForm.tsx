@@ -21,6 +21,8 @@ interface SectionEditorFormProps {
   values: LandingSectionDTO;
   onChange: (values: LandingSectionDTO) => void;
   disabled?: boolean;
+  onUploadMainImage?: (file: File) => Promise<string>;
+  onUploadBackgroundImage?: (file: File) => Promise<string>;
 }
 
 export function SectionEditorForm({
@@ -28,6 +30,8 @@ export function SectionEditorForm({
   values,
   onChange,
   disabled = false,
+  onUploadMainImage,
+  onUploadBackgroundImage,
 }: SectionEditorFormProps) {
   const metadata = SECTION_METADATA[sectionKey];
   const editableFields = metadata.editableFields;
@@ -198,6 +202,7 @@ export function SectionEditorForm({
             onChange={(url) => updateField("imagenPrincipalUrl", url)}
             label="Imagen Principal"
             disabled={disabled}
+            onUpload={onUploadMainImage}
           />
         );
 
@@ -209,6 +214,7 @@ export function SectionEditorForm({
             onChange={(url) => updateField("imagenFondoUrl", url)}
             label="Imagen de Fondo"
             disabled={disabled}
+            onUpload={onUploadBackgroundImage}
           />
         );
 

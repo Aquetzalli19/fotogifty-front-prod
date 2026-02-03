@@ -264,9 +264,25 @@ export default function SectionEditorPage({ params }: PageProps) {
     }
   };
 
-  // Image upload handler for slides
+  // Image upload handlers
   const handleUploadSlideImage = async (file: File): Promise<string> => {
     const response = await subirImagenLanding(sectionKey, 'slide', file);
+    if (response.success && response.data) {
+      return response.data.url;
+    }
+    throw new Error(response.error || "Error al subir la imagen");
+  };
+
+  const handleUploadMainImage = async (file: File): Promise<string> => {
+    const response = await subirImagenLanding(sectionKey, 'main', file);
+    if (response.success && response.data) {
+      return response.data.url;
+    }
+    throw new Error(response.error || "Error al subir la imagen");
+  };
+
+  const handleUploadBackgroundImage = async (file: File): Promise<string> => {
+    const response = await subirImagenLanding(sectionKey, 'background', file);
     if (response.success && response.data) {
       return response.data.url;
     }
@@ -450,6 +466,8 @@ export default function SectionEditorPage({ params }: PageProps) {
               values={formValues}
               onChange={setFormValues}
               disabled={isSaving}
+              onUploadMainImage={handleUploadMainImage}
+              onUploadBackgroundImage={handleUploadBackgroundImage}
             />
 
             {/* Slides Manager */}
