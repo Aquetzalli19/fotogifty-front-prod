@@ -7,6 +7,7 @@
 import React, { useState } from "react";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { Button } from "@/components/ui/button";
+import { useTheme } from "next-themes";
 
 interface PaymentFormProps {
   amount: number;
@@ -17,8 +18,10 @@ interface PaymentFormProps {
 const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
   const stripe = useStripe();
   const elements = useElements();
+  const { resolvedTheme } = useTheme();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
+  const isDark = resolvedTheme === "dark";
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -66,13 +69,13 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
     style: {
       base: {
         fontSize: "16px",
-        color: "#424770",
+        color: isDark ? "#f4f4f5" : "#424770",
         "::placeholder": {
-          color: "#aab7c4",
+          color: isDark ? "#71717a" : "#aab7c4",
         },
       },
       invalid: {
-        color: "#9e2146",
+        color: isDark ? "#f87171" : "#9e2146",
       },
     },
   };
@@ -83,7 +86,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
         <div>
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-foreground mb-1"
           >
             Email
           </label>
@@ -92,7 +95,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
             id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="tu@email.com"
           />
         </div>
@@ -100,7 +103,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
         <div>
           <label
             htmlFor="name"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-foreground mb-1"
           >
             Nombre completo
           </label>
@@ -109,17 +112,17 @@ const PaymentForm: React.FC<PaymentFormProps> = ({ amount, onSubmit }) => {
             id="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Nombre completo"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
+        <label className="block text-sm font-medium text-foreground mb-1">
           Información de la tarjeta
         </label>
-        <div className="border border-gray-300 rounded-md p-3 bg-white">
+        <div className="border border-input rounded-md p-3 bg-background">
           <CardElement options={cardElementOptions} />
         </div>
       </div>

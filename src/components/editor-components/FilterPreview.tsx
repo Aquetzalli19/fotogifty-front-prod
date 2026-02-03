@@ -87,7 +87,7 @@ const FilterPreview: React.FC<FilterPreviewProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                  <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
                     <span className="text-xs">No image</span>
                   </div>
                 )}

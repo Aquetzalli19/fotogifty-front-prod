@@ -30,7 +30,7 @@ const BackgroundTab = ({
     <div>
       <div className=" flex flex-row gap-2 items-center w-full">
         <div
-          className=" border border-gray-300 rounded-sm cursor-pointer w-8 h-7 flex justify-center items-center p-1"
+          className=" border border-gray-300 dark:border-gray-600 rounded-sm cursor-pointer w-8 h-7 flex justify-center items-center p-1"
           onClick={() => setDisplayBorderColorPicker(!displayBorderColorPicker)}
         >
           <div
@@ -69,7 +69,7 @@ const BackgroundTab = ({
       <div className="relative">
         <label className="text-xs">Color de fondo</label>
         <div
-          className="p-2 border border-gray-300 rounded-md cursor-pointer"
+          className="p-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
           onClick={() => setDisplayColorPicker(!displayColorPicker)}
         >
           <div

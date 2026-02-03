@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { ModeToggle } from "@/components/modeToggle";
 
 const StoreNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -20,12 +21,12 @@ const StoreNavbar = () => {
   }, [_hasHydrated]);
 
   const handleLogout = () => {
+    // logout() ahora limpia automáticamente:
+    // - Token de autenticación
+    // - Carrito de compras
+    // - Customizaciones de fotos
+    // - Datos del paso del carrito
     logout();
-
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
-
     window.location.href = '/login/store';
   };
 
@@ -68,6 +69,7 @@ const StoreNavbar = () => {
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           )}
+          <ModeToggle />
           <Button
             onClick={handleLogout}
             className="text-sm sm:text-base"
@@ -96,17 +98,20 @@ const StoreNavbar = () => {
             </Button>
           </Link>
           {isReady && user && (
-            <div className="pt-2 border-t border-gray-200">
+            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
               <p className="text-sm text-muted-foreground">{user.nombre} {user.apellido}</p>
               <p className="text-xs text-muted-foreground">{user.email}</p>
             </div>
           )}
-          <Button
-            onClick={handleLogout}
-            className="w-full text-base"
-          >
-            Cerrar sesión
-          </Button>
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <ModeToggle />
+            <Button
+              onClick={handleLogout}
+              className="flex-1 text-base"
+            >
+              Cerrar sesión
+            </Button>
+          </div>
         </div>
       </div>
     </div>

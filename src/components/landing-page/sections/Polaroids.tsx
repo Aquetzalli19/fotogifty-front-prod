@@ -60,12 +60,14 @@ const Polaroids = ({ bannerData, singleData, collageData }: PolaroidsProps) => {
         <SingleImageCard
           title={singleTitulo}
           subtitle={
-            <p className="text-6xl font-normal text-primary">
-              <span className="text-zinc-800 dark:text-neutral-50 text-3xl font-extralight italic">
+            <p className="font-normal text-primary">
+              <span className="text-muted-foreground font-extralight italic text-sm sm:text-base lg:text-lg">
                 {singleSubtitulo}
               </span>
               <br />
-              {singleDescripcion}
+              <span className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl">
+                {singleDescripcion}
+              </span>
             </p>
           }
           buttonColor={singleBotonColor}
@@ -78,8 +80,8 @@ const Polaroids = ({ bannerData, singleData, collageData }: PolaroidsProps) => {
         <CollageImageCard
           title={collageTitulo}
           subtitle={
-            <p className="text-3xl font-light lg:pr-24 w-full">
-              <span className=" italic">
+            <p className="font-light w-full">
+              <span className="italic">
                 {collageSubtitulo}
               </span>
             </p>

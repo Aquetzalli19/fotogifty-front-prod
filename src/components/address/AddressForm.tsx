@@ -302,7 +302,7 @@ const AddressForm: React.FC<AddressFormProps> = ({ onSubmit, onCancel, editingAd
                     type="checkbox"
                     checked={field.value}
                     onChange={field.onChange}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 text-primary focus:ring-primary"
                   />
                 </FormControl>
                 <FormLabel className="text-sm font-normal">

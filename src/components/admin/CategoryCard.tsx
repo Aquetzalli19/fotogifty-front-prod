@@ -34,7 +34,7 @@ export function CategoryCard({ category, onEdit, onDelete }: CategoryCardProps) 
           </div>
           <Badge
             variant={category.activo ? "default" : "secondary"}
-            className={category.activo ? "bg-green-500" : "bg-gray-500"}
+            className={category.activo ? "bg-green-500 dark:bg-green-600" : "bg-gray-500 dark:bg-gray-600"}
           >
             {category.activo ? "Activa" : "Inactiva"}
           </Badge>

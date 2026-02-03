@@ -78,6 +78,22 @@ interface LandingOptionBackend {
 // ============================================
 
 /**
+ * Helper to convert various backend boolean representations to actual boolean
+ * Handles: true, false, 1, 0, "true", "false", "1", "0", null, undefined
+ */
+function toBoolean(value: unknown, defaultValue = true): boolean {
+  if (value === null || value === undefined) return defaultValue;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase();
+    if (lower === 'true' || lower === '1') return true;
+    if (lower === 'false' || lower === '0') return false;
+  }
+  return defaultValue;
+}
+
+/**
  * Map backend section to frontend format
  */
 export function mapBackendToLandingSection(backend: LandingSectionBackend): LandingSection {
@@ -101,7 +117,7 @@ export function mapBackendToLandingSection(backend: LandingSectionBackend): Land
     botonEnlace: backend.boton_enlace,
     configuracionExtra: backend.configuracion_extra,
     orden: backend.orden,
-    activo: backend.activo,
+    activo: toBoolean(backend.activo, true),
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
   };
@@ -161,7 +177,7 @@ export function mapBackendToLandingSlide(backend: LandingSlideBackend): LandingS
     descripcion: backend.descripcion,
     imagenUrl: backend.imagen_url,
     orden: backend.orden,
-    activo: backend.activo,
+    activo: toBoolean(backend.activo, true),
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
   };
@@ -209,7 +225,7 @@ export function mapBackendToLandingOption(backend: LandingOptionBackend): Landin
     sectionKey: backend.section_key as SectionKey,
     texto: backend.texto,
     orden: backend.orden,
-    activo: backend.activo,
+    activo: toBoolean(backend.activo, true),
     createdAt: backend.created_at,
     updatedAt: backend.updated_at,
   };

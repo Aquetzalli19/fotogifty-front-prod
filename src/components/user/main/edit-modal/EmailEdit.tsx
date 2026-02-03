@@ -16,13 +16,14 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { actualizarCliente } from "@/services/usuarios";
+import { verificarContraseña, actualizarEmailCliente } from "@/services/usuarios";
 import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/stores/auth-store";
+import { Loader2 } from "lucide-react";
 
 interface EmailEditParams {
   prevEmail: string;
-  userId?: number; // Agregamos el ID de usuario para la actualización
+  userId?: number;
   onSuccess?: () => void;
 }
 
@@ -41,6 +42,8 @@ const ChangeEmailSchema = z.object({
 
 export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditParams) {
   const [isVerified, setIsVerified] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { success, error: showError } = useToast();
   const { updateUserData } = useAuthStore();
 
@@ -59,46 +62,78 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
       return;
     }
 
+    // Verificar que el email sea diferente al actual
+    if (values.newEmail === prevEmail) {
+      showError('El nuevo correo debe ser diferente al actual.');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // En una implementación real, haríamos una verificación de contraseña
-      // Aquí se usaría la función de actualización de cliente
-      const response = await actualizarCliente(userId, {
-        email: values.newEmail
-      });
+      // Usar el nuevo endpoint que incluye verificación de contraseña
+      const response = await actualizarEmailCliente(
+        userId,
+        values.newEmail,
+        values.currentPassword
+      );
 
       if (response.success && response.data) {
         // Actualizar el store con los nuevos datos
         updateUserData(response.data);
-
         success('Email actualizado correctamente.');
         emailForm.reset();
         setIsVerified(false);
-        // Cerrar el modal si se proporcionó el callback
         if (onSuccess) {
           onSuccess();
         }
       } else {
-        showError(response.message || 'Error al actualizar el email.');
+        showError(response.message || 'Error al actualizar el email. Verifica tu contraseña.');
       }
     } catch (error) {
       console.error('Error al actualizar el email:', error);
       showError('Error al actualizar el email. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleVerifyPassword = async () => {
+    if (!userId) {
+      showError('ID de usuario no disponible.');
+      return;
+    }
+
     const currentPassword = emailForm.getValues('currentPassword');
     if (!currentPassword) {
       showError('Por favor, ingresa tu contraseña actual.');
       return;
     }
 
-    // En una implementación real, aquí verificaríamos con el backend
-    // que la contraseña actual es correcta antes de permitir la edición
-    setIsVerified(true);
+    setIsVerifying(true);
+    try {
+      // Verificar la contraseña con el backend
+      const response = await verificarContraseña(userId, currentPassword);
+
+      if (response.success && response.data?.valid) {
+        setIsVerified(true);
+        success('Contraseña verificada correctamente.');
+      } else {
+        showError('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
+        emailForm.setError('currentPassword', {
+          type: 'manual',
+          message: 'Contraseña incorrecta'
+        });
+      }
+    } catch (error) {
+      console.error('Error verificando contraseña:', error);
+      showError('Error al verificar la contraseña. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const { control, handleSubmit } = emailForm;
+
   return (
     <div className="py-4">
       <Form {...emailForm}>
@@ -121,11 +156,26 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
                         id="current-password-email"
                         type="password"
                         placeholder="••••••••"
+                        disabled={isVerified || isVerifying}
                         {...field}
                       />
                     </FormControl>
-                    <Button onClick={handleVerifyPassword} type="button">
-                      Verificar
+                    <Button
+                      onClick={handleVerifyPassword}
+                      type="button"
+                      disabled={isVerified || isVerifying}
+                      variant={isVerified ? "outline" : "default"}
+                    >
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verificando...
+                        </>
+                      ) : isVerified ? (
+                        "✓ Verificado"
+                      ) : (
+                        "Verificar"
+                      )}
                     </Button>
                   </div>
                   <FormMessage />
@@ -134,6 +184,7 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
             />
             <Separator className="!mt-6" />
           </div>
+
           <FormField
             control={control}
             name="newEmail"
@@ -154,12 +205,25 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
                   />
                 </FormControl>
                 <FormMessage />
+                {!isVerified && (
+                  <p className="text-xs text-muted-foreground">
+                    Verifica tu contraseña para habilitar este campo
+                  </p>
+                )}
               </FormItem>
             )}
           />
+
           <div className="w-full justify-end flex pt-4">
-            <Button type="submit" disabled={!isVerified}>
-              Guardar Cambios
+            <Button type="submit" disabled={!isVerified || isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar Cambios"
+              )}
             </Button>
           </div>
         </form>

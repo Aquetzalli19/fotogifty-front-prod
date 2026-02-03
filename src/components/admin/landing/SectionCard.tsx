@@ -71,7 +71,7 @@ export function SectionCard({ sectionData, onToggle }: SectionCardProps) {
         <div className="absolute top-2 right-2">
           <Badge
             variant={section.activo ? "default" : "secondary"}
-            className={section.activo ? "bg-green-600" : "bg-gray-500"}
+            className={section.activo ? "bg-green-600 dark:bg-green-700" : "bg-gray-500 dark:bg-gray-600"}
           >
             {section.activo ? (
               <>

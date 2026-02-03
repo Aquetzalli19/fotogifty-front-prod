@@ -29,7 +29,7 @@ const Calendar = ({ data }: CalendarProps) => {
       <CollageImageCard
         title={titulo}
         subtitle={
-          <p className="text-3xl font-light lg:pr-24">
+          <p className="font-light">
             Perfectas para{" "}
             <span style={{ color: colorSecundario }}>
               {subtitulo.replace("Perfectas para ", "").replace(".", "")}
@@ -37,7 +37,7 @@ const Calendar = ({ data }: CalendarProps) => {
             .
             <br />
             <br />
-            <span className=" italic">
+            <span className="italic">
               {descripcion}
             </span>
           </p>

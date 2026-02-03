@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Poppins, Raleway } from "next/font/google";
 import AuthProvider from "@/providers/AuthProvider";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata: Metadata = {
   title: "FotoGifty",
@@ -38,9 +39,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${raleway.className} ${poppins.className}`}>
-        <AuthProvider>
-          <main className="w-full overflow-x-clip font-raleway">{children}</main>
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          storageKey="fotogifty-theme"
+        >
+          <AuthProvider>
+            <main className="w-full overflow-x-clip font-raleway">{children}</main>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

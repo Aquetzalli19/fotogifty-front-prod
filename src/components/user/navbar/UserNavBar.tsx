@@ -12,6 +12,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { ModeToggle } from "@/components/modeToggle";
 
 const UserNavBar = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -26,13 +27,12 @@ const UserNavBar = () => {
   }, [_hasHydrated]);
 
   const handleLogout = () => {
-    // Limpiar datos de sesión
+    // logout() ahora limpia automáticamente:
+    // - Token de autenticación
+    // - Carrito de compras
+    // - Customizaciones de fotos
+    // - Datos del paso del carrito
     logout();
-
-    // Limpiar localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
 
     // Redirigir al login
     window.location.href = '/login';
@@ -43,7 +43,7 @@ const UserNavBar = () => {
       {/* Botón de menú solo visible en móvil */}
       <button
         onClick={() => setIsOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-30 p-2 rounded-md bg-zinc-800 text-white shadow-lg"
+        className="lg:hidden fixed top-4 left-4 z-30 p-2 rounded-md bg-primary text-primary-foreground shadow-lg"
         aria-label="Abrir menú"
       >
         <MenuIcon size={24} />
@@ -52,13 +52,13 @@ const UserNavBar = () => {
       {/* Overlay solo en móvil cuando el menú está abierto */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-dark/40 z-30"
+          className="lg:hidden fixed inset-0 bg-black/40 z-30"
           onClick={() => setIsOpen(false)}
         ></div>
       )}
 
       <nav
-        className={`h-screen w-64 bg-zinc-900 fixed z-40 top-0 left-0 transform transition-transform duration-300 ease-in-out flex flex-col justify-between items-center py-2
+        className={`h-screen w-64 bg-sidebar dark:bg-sidebar fixed z-40 top-0 left-0 transform transition-transform duration-300 ease-in-out flex flex-col justify-between items-center py-2
         lg:translate-x-0 lg:opacity-100 lg:pointer-events-auto
         ${
           isOpen
@@ -69,7 +69,7 @@ const UserNavBar = () => {
         {/* Botón de cerrar solo visible en móvil */}
         <button
           onClick={() => setIsOpen(false)}
-          className="lg:hidden absolute top-4 right-4 p-1 rounded-md bg-zinc-800 text-white"
+          className="lg:hidden absolute top-4 right-4 p-1 rounded-md bg-sidebar-accent text-sidebar-foreground"
           aria-label="Cerrar menú"
         >
           <XIcon size={20} />
@@ -82,11 +82,18 @@ const UserNavBar = () => {
               alt="logo"
               width={2200}
               height={573}
-              className=" h-auto w-full object-fit"
+              className="h-auto w-full object-fit dark:block hidden"
+            />
+            <Image
+              src={"/navBarLogo.png"}
+              alt="logo"
+              width={2200}
+              height={573}
+              className="h-auto w-full object-fit dark:hidden block"
             />
           </Link>
 
-          <div className=" w-full px-2 flex flex-col gap-4">
+          <div className="w-full px-2 flex flex-col gap-4">
             <UserNavBarButton
               href="/user"
               title="Inicio"
@@ -105,19 +112,22 @@ const UserNavBar = () => {
           </div>
 
           {isReady && user && (
-            <div className="w-full px-4 py-2 border-t border-zinc-700 mt-4">
-              <p className="text-zinc-300 text-sm truncate">Hola, {user.nombre} {user.apellido}</p>
-              <p className="text-zinc-400 text-xs truncate">{user.email}</p>
+            <div className="w-full px-4 py-2 border-t border-sidebar-border mt-4">
+              <p className="text-sidebar-foreground text-sm truncate">Hola, {user.nombre} {user.apellido}</p>
+              <p className="text-sidebar-foreground/70 text-xs truncate">{user.email}</p>
             </div>
           )}
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="underline text-zinc-200 text-lg hover:text-white transition-colors"
-        >
-          Cerrar sesión
-        </button>
+        <div className="flex flex-col items-center gap-4 pb-4">
+          <ModeToggle />
+          <button
+            onClick={handleLogout}
+            className="underline text-sidebar-foreground text-lg hover:text-sidebar-foreground/80 transition-colors"
+          >
+            Cerrar sesión
+          </button>
+        </div>
       </nav>
     </>
   );

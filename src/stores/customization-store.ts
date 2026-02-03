@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { EditorType } from "@/lib/category-utils";
 import { Effect } from "@/lib/types";
+import {
+  obtenerCustomizacionesTemporales,
+  guardarCustomizacionTemporal,
+  eliminarCustomizacionTemporal,
+  eliminarTodasCustomizaciones,
+  debounce,
+} from "@/services/temp-cart";
 
 // Tipos de personalización para cada editor
 
@@ -162,12 +169,61 @@ export interface CustomizationState {
 
   // Limpiar todo
   clearAll: () => void;
+
+  // Métodos para sincronización con backend
+  isSyncing: boolean;
+  lastSyncError: string | null;
+  loadFromBackend: () => Promise<void>;
+  syncCustomizationToBackend: (cartItemId: number, instanceIndex: number) => Promise<void>;
+  clearAllAndSyncBackend: () => Promise<void>;
 }
+
+// Función debounced para sincronizar customización con backend (2 segundos de espera)
+const createDebouncedCustomizationSync = () => {
+  const syncQueue = new Map<string, NodeJS.Timeout>();
+
+  return (customization: Customization) => {
+    const key = `${customization.cartItemId}-${customization.instanceIndex}`;
+
+    // Cancelar sync pendiente para esta customización
+    const existingTimeout = syncQueue.get(key);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Programar nuevo sync
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await guardarCustomizacionTemporal(
+          String(customization.cartItemId),
+          customization.instanceIndex,
+          customization.editorType,
+          customization.data as unknown as Record<string, unknown>,
+          customization.completed
+        );
+        if (result.success) {
+          console.log('✅ Customización sincronizada con backend');
+        } else {
+          console.warn('⚠️ Error sincronizando customización:', result.message);
+        }
+      } catch (error) {
+        console.error('❌ Error en sincronización de customización:', error);
+      }
+      syncQueue.delete(key);
+    }, 2000);
+
+    syncQueue.set(key, timeout);
+  };
+};
+
+const debouncedCustomizationSync = createDebouncedCustomizationSync();
 
 export const useCustomizationStore = create<CustomizationState>()(
   persist(
     (set, get) => ({
       customizations: [],
+      isSyncing: false,
+      lastSyncError: null,
 
       getCustomization: (cartItemId, instanceIndex) => {
         return get().customizations.find(
@@ -197,6 +253,9 @@ export const useCustomizationStore = create<CustomizationState>()(
           // Agregar nuevo
           set({ customizations: [...customizations, newCustomization] });
         }
+
+        // Sincronizar con backend (debounced)
+        debouncedCustomizationSync(newCustomization);
       },
 
       removeCustomization: (cartItemId, instanceIndex) => {
@@ -335,9 +394,74 @@ export const useCustomizationStore = create<CustomizationState>()(
       clearAll: () => {
         set({ customizations: [] });
       },
+
+      // Cargar customizaciones desde el backend (llamar en login)
+      loadFromBackend: async () => {
+        set({ isSyncing: true, lastSyncError: null });
+        try {
+          const response = await obtenerCustomizacionesTemporales();
+          if (response.success && response.data && response.data.length > 0) {
+            console.log('📦 Customizaciones cargadas desde backend:', response.data.length);
+            // Los datos del backend se podrían usar para restaurar el estado
+            // Por ahora, solo logueamos - la lógica completa requiere mapear
+            // los datos del backend al formato local
+          }
+          set({ isSyncing: false });
+        } catch (error) {
+          console.error('Error cargando customizaciones desde backend:', error);
+          set({
+            isSyncing: false,
+            lastSyncError: 'Error al cargar customizaciones desde el servidor'
+          });
+        }
+      },
+
+      // Sincronizar una customización específica con el backend
+      syncCustomizationToBackend: async (cartItemId, instanceIndex) => {
+        const customization = get().getCustomization(cartItemId, instanceIndex);
+        if (!customization) return;
+
+        set({ isSyncing: true, lastSyncError: null });
+        try {
+          const result = await guardarCustomizacionTemporal(
+            String(cartItemId),
+            instanceIndex,
+            customization.editorType,
+            customization.data as unknown as Record<string, unknown>,
+            customization.completed
+          );
+          if (!result.success) {
+            set({ lastSyncError: result.message || 'Error al sincronizar' });
+          }
+          set({ isSyncing: false });
+        } catch (error) {
+          console.error('Error sincronizando customización:', error);
+          set({
+            isSyncing: false,
+            lastSyncError: 'Error al sincronizar con el servidor'
+          });
+        }
+      },
+
+      // Limpiar todo local y en backend
+      clearAllAndSyncBackend: async () => {
+        set({ customizations: [], isSyncing: true, lastSyncError: null });
+        try {
+          await eliminarTodasCustomizaciones();
+          set({ isSyncing: false });
+        } catch (error) {
+          console.error('Error eliminando customizaciones en backend:', error);
+          set({
+            isSyncing: false,
+            lastSyncError: 'Error al eliminar customizaciones del servidor'
+          });
+        }
+      },
     }),
     {
       name: "customization-storage",
+      // Solo persistir customizations, no el estado de sincronización
+      partialize: (state) => ({ customizations: state.customizations }),
     }
   )
 );

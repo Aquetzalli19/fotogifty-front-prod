@@ -674,14 +674,14 @@ export default function StandardEditor() {
         </div>
 
         {/* Sección de galería y botones - Desktop */}
-        <div className="hidden md:flex flex-col gap-3 pt-4 mt-auto border-t border-gray-700">
+        <div className="hidden md:flex flex-col gap-3 pt-4 mt-auto border-t border-border">
           {isCartMode ? (
             <>
               {/* Indicador de progreso */}
               <div className="text-sm text-center text-muted-foreground">
                 {copiesProjected} / {maxImages} copias
               </div>
-              <div className="w-full bg-gray-700 rounded-full h-2">
+              <div className="w-full bg-muted rounded-full h-2">
                 <div
                   className="bg-primary h-2 rounded-full transition-all"
                   style={{ width: `${Math.min(100, (copiesProjected / maxImages) * 100)}%` }}
@@ -756,7 +756,7 @@ export default function StandardEditor() {
                       {copiesProjected}/{maxImages}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                     <div
                       className="bg-primary h-full transition-all"
                       style={{ width: `${(copiesProjected / maxImages) * 100}%` }}
@@ -846,7 +846,7 @@ export default function StandardEditor() {
                 </Button>
               )}
 
-              <Separator className="bg-gray-700" />
+              <Separator />
 
               {/* Botones del carrito */}
               <div className="flex gap-2">
@@ -872,7 +872,7 @@ export default function StandardEditor() {
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  className="flex-1 h-10 bg-white text-black hover:bg-white/90"
+                  className="flex-1 h-10 bg-secondary text-secondary-foreground hover:bg-secondary/80"
                   onClick={() => {
                     handleTransformChange({
                       scale: 1,
@@ -924,7 +924,7 @@ export default function StandardEditor() {
         className="flex-1 md:flex-2  sm:min-h-1/2 sm:max-h-1/2 md:min-h-full flex flex-col items-center justify-center rounded-md bg-dark p-4 relative overflow-hidden"
       >
         {resolutionWarning && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded-md flex items-center gap-2 w-full md:max-w-md">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded-md flex items-center gap-2 w-full md:max-w-md">
             <AlertCircle className="h-5 w-5" />
             <span className="text-sm">{resolutionWarning}</span>
           </div>
@@ -935,8 +935,8 @@ export default function StandardEditor() {
         ) : (
           <div className={`absolute w-60 h-40 border-2 border-dashed rounded-2xl flex items-center justify-center z-10 transition-colors duration-200 ${
             copiesProjected >= maxImages
-              ? 'border-gray-300 bg-gray-100 opacity-50 cursor-not-allowed'
-              : 'border-gray-500 hover:bg-gray-400/20 cursor-pointer'
+              ? 'border-muted-foreground/30 bg-muted/50 opacity-50 cursor-not-allowed'
+              : 'border-muted-foreground/50 hover:bg-muted/30 cursor-pointer'
           }`}>
             {" "}
             <Input
@@ -1097,7 +1097,7 @@ export default function StandardEditor() {
                 <span className="text-sm text-muted-foreground">
                   {copiesProjected}/{maxImages}
                 </span>
-                <div className="flex-1 bg-gray-700 rounded-full h-2">
+                <div className="flex-1 bg-muted rounded-full h-2">
                   <div
                     className="bg-primary h-2 rounded-full transition-all"
                     style={{ width: `${Math.min(100, (copiesProjected / maxImages) * 100)}%` }}
@@ -1118,7 +1118,7 @@ export default function StandardEditor() {
                   <div
                     key={img.id}
                     className={`relative shrink-0 w-14 h-14 rounded overflow-hidden border-2 ${
-                      editingImageId === img.id ? "border-primary" : "border-gray-600"
+                      editingImageId === img.id ? "border-primary" : "border-border"
                     }`}
                   >
                     <img
@@ -1216,7 +1216,7 @@ export default function StandardEditor() {
             <div className="flex gap-2">
               <Button
                 variant="ghost"
-                className="flex-1 h-11 bg-white text-black hover:bg-white/90"
+                className="flex-1 h-11 bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 onClick={() => {
                   handleTransformChange({
                     scale: 1,

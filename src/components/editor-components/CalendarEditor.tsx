@@ -1779,7 +1779,7 @@ export default function CalendarEditor() {
                       isSelected
                         ? "bg-primary text-primary-foreground"
                         : hasImage
-                        ? "bg-green-100 text-green-800 hover:bg-green-200"
+                        ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/70"
                         : "bg-muted hover:bg-muted/80"
                     }`}
                   >
@@ -2034,7 +2034,7 @@ export default function CalendarEditor() {
 
               {previewThumbnail ? (
                 <div className="space-y-2">
-                  <div className="relative bg-white rounded-lg shadow-md overflow-hidden border-2 border-primary/30">
+                  <div className="relative bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden border-2 border-primary/30">
                     <img
                       src={previewThumbnail}
                       alt={`Vista previa ${MONTHS[selectedMonth - 1]}`}

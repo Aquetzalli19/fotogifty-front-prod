@@ -1030,7 +1030,7 @@ export default function PolaroidEditor() {
                     {copiesProjected}/{maxPolaroids}
                   </span>
                 </div>
-                <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
                   <div
                     className="bg-primary h-full transition-all"
                     style={{ width: `${(copiesProjected / maxPolaroids) * 100}%` }}

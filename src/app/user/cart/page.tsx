@@ -396,7 +396,7 @@ const CartPage = () => {
 
       {/* Advertencia de items huérfanos */}
       {hasOrphanItems && (
-        <div className="w-full bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4">
+        <div className="w-full bg-yellow-100 dark:bg-yellow-900/30 border-l-4 border-yellow-500 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5" />
@@ -408,7 +408,6 @@ const CartPage = () => {
               onClick={cleanOrphanItems}
               variant="outline"
               size="sm"
-              className="bg-white"
             >
               Limpiar carrito
             </Button>
@@ -458,7 +457,7 @@ const CartPage = () => {
           {/* resumen de orden */}
           {items.length > 0 && (
             <div className=" flex flex-col md:w-1/2">
-              <div className=" w-full flex flex-col text-lg gap-1 text-gray-600 font-light md:px-12 items-center">
+              <div className=" w-full flex flex-col text-lg gap-1 text-muted-foreground font-light md:px-12 items-center">
                 {expandedItems.map((items, index) => {
                   return (
                     <p
@@ -472,7 +471,7 @@ const CartPage = () => {
                     </p>
                   );
                 })}
-                <p className="flex flex-row w-full justify-between hover:bg-muted font-semibold text-gray-400">
+                <p className="flex flex-row w-full justify-between hover:bg-muted font-semibold text-muted-foreground/70">
                   Subtotal:{" "}
                   {isClient ? (
                     <span className=" font-poppins">$ {subtotal.toFixed(2)}</span>
@@ -638,7 +637,7 @@ const CartPage = () => {
                             {polaroidData.polaroids.map((polaroid, pIndex) => (
                               <div
                                 key={polaroid.id}
-                                className="relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-green-500 bg-white shadow-sm"
+                                className="relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-green-500 dark:border-green-400 bg-white dark:bg-slate-800 shadow-sm"
                               >
                                 {polaroid.thumbnailDataUrl ? (
                                   <img
@@ -861,8 +860,8 @@ const CartPage = () => {
             <div className="w-full lg:w-1/2 flex flex-col gap-4 sm:gap-6">
               {/* Verificar autenticación */}
               {!isAuthenticated ? (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 sm:p-6 text-center">
-                  <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 text-yellow-500 mx-auto mb-3 sm:mb-4" />
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 sm:p-6 text-center">
+                  <AlertCircle className="h-10 w-10 sm:h-12 sm:w-12 text-yellow-500 dark:text-yellow-400 mx-auto mb-3 sm:mb-4" />
                   <h3 className="text-base sm:text-lg font-semibold mb-2">Inicia sesión para continuar</h3>
                   <p className="text-sm sm:text-base text-muted-foreground mb-3 sm:mb-4">
                     Necesitas una cuenta para procesar tu pedido
@@ -1031,7 +1030,7 @@ const CartPage = () => {
                     </h2>
 
                     {checkoutError && (
-                      <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg mb-3 sm:mb-4 flex items-center gap-2">
+                      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg mb-3 sm:mb-4 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 flex-shrink-0" />
                         <span className="text-xs sm:text-sm">{checkoutError}</span>
                       </div>

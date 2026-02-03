@@ -137,7 +137,7 @@ export default function LandingContentPage() {
               {sections.filter((s) => s.section.activo).length}
             </span>
           </div>
-          <div className="bg-gray-500/10 rounded-lg px-4 py-2">
+          <div className="bg-gray-500/10 dark:bg-gray-400/10 rounded-lg px-4 py-2">
             <span className="text-sm text-gray-600 dark:text-gray-400">
               Ocultas:
             </span>

@@ -20,6 +20,7 @@ import {
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePathname } from "next/navigation";
+import { ModeToggle } from "@/components/modeToggle";
 
 const AdmiNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -53,10 +54,12 @@ const AdmiNavbar = () => {
   };
 
   const handleLogout = () => {
+    // logout() ahora limpia automáticamente:
+    // - Token de autenticación
+    // - Carrito de compras
+    // - Customizaciones de fotos
+    // - Datos del paso del carrito
     logout();
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
-    }
     window.location.href = '/login/admin';
   };
 
@@ -127,6 +130,7 @@ const AdmiNavbar = () => {
                 </p>
               </div>
             )}
+            <ModeToggle />
             <Button
               onClick={handleLogout}
               variant="outline"
@@ -187,18 +191,21 @@ const AdmiNavbar = () => {
             </div>
           )}
 
-          {/* Logout button */}
-          <Button
-            onClick={() => {
-              closeMobileMenu();
-              handleLogout();
-            }}
-            variant="destructive"
-            className="w-full gap-2 mt-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Cerrar sesión
-          </Button>
+          {/* Theme toggle and Logout button */}
+          <div className="flex items-center justify-between gap-2 mt-2">
+            <ModeToggle />
+            <Button
+              onClick={() => {
+                closeMobileMenu();
+                handleLogout();
+              }}
+              variant="destructive"
+              className="flex-1 gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Cerrar sesión
+            </Button>
+          </div>
         </div>
       </div>
 

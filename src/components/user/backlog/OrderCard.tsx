@@ -42,18 +42,18 @@ export function OrderCard({ order }: OrderCardProps) {
     }
   };
 
-  // Estilos para diferentes estados
+  // Estilos para diferentes estados con soporte para modo oscuro
   const statusStyles: Record<string, string> = {
-    "Pendiente": "bg-gray-100 text-gray-800 border-gray-300",
-    "En Proceso": "bg-blue-100 text-blue-800 border-blue-300",
-    "Enviado": "bg-indigo-100 text-indigo-800 border-indigo-300",
-    "En reparto": "bg-yellow-100 text-yellow-800 border-yellow-300",
-    "Entregado": "bg-green-100 text-green-800 border-green-300",
-    "Cancelado": "bg-red-100 text-red-800 border-red-300",
+    "Pendiente": "bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600",
+    "En Proceso": "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+    "Enviado": "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
+    "En reparto": "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
+    "Entregado": "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700",
+    "Cancelado": "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700",
   };
 
   const getStatusStyle = (status: string) => {
-    return statusStyles[status] || "bg-gray-100 text-gray-800 border-gray-300";
+    return statusStyles[status] || "bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600";
   };
 
   return (

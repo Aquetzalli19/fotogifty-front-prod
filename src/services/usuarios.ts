@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiResponse } from '@/lib/api-client';
 import { Cliente } from '@/interfaces/users';
 
 /**
@@ -20,10 +20,54 @@ export async function obtenerClientePorId(id: number) {
 }
 
 /**
+ * Verifica la contraseña actual del usuario
+ * Retorna success: true si la contraseña es correcta
+ */
+export async function verificarContraseña(id: number, password: string): Promise<ApiResponse<{ valid: boolean }>> {
+  try {
+    const response = await apiClient.post<{ valid: boolean }>(`/usuarios/${id}/verify-password`, {
+      password
+    });
+    return response;
+  } catch (error) {
+    console.error('Error verificando contraseña:', error);
+    return {
+      success: false,
+      data: { valid: false },
+      message: 'Error al verificar la contraseña'
+    };
+  }
+}
+
+/**
  * Actualiza la información de un cliente
  */
 export async function actualizarCliente(id: number, data: Partial<Omit<Cliente, 'id' | 'fecha_creacion'>>) {
   return apiClient.put<Cliente>(`/usuarios/${id}`, data);
+}
+
+/**
+ * Actualiza el email de un cliente con verificación de contraseña
+ * Requiere la contraseña actual para confirmar la identidad
+ */
+export async function actualizarEmailCliente(
+  id: number,
+  newEmail: string,
+  currentPassword: string
+): Promise<ApiResponse<Cliente>> {
+  try {
+    const response = await apiClient.put<Cliente>(`/usuarios/${id}/email`, {
+      email: newEmail,
+      currentPassword
+    });
+    return response;
+  } catch (error) {
+    console.error('Error actualizando email:', error);
+    return {
+      success: false,
+      message: 'Error al actualizar el email. Verifica tu contraseña.'
+    };
+  }
 }
 
 /**

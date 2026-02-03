@@ -113,7 +113,7 @@ const DownloadPreview: React.FC<DownloadPreviewProps> = ({
       );
     } else {
       return (
-        <div className="relative border border-gray-300 rounded-md overflow-hidden max-w-full max-h-[60vh]">
+        <div className="relative border border-gray-300 dark:border-gray-600 rounded-md overflow-hidden max-w-full max-h-[60vh]">
           {previewImage && (
             <Image
               src={previewImage}
@@ -144,7 +144,7 @@ const DownloadPreview: React.FC<DownloadPreviewProps> = ({
           ) : (
             <>
               {renderPreview()}
-              <div className="text-sm text-gray-500">
+              <div className="text-sm text-muted-foreground">
                 Dimensiones: {imageDimensions.width} x {imageDimensions.height}{" "}
                 px
               </div>

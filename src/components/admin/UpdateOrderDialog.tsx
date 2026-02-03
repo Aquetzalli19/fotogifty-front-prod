@@ -228,7 +228,9 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
           Pedido #{orderId ?? "N/A"}
           {paymentStatus && (
             <span className={`text-xs px-2 py-0.5 rounded-full ${
-              paymentStatus === "pagado" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+              paymentStatus === "pagado"
+                ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300"
+                : "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300"
             }`}>
               {paymentStatus}
             </span>
@@ -438,7 +440,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
               {/* Vista ampliada de imagen seleccionada */}
               {selectedImage && (
                 <div className="mb-4">
-                  <div className="relative w-full h-64 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
+                  <div className="relative w-full h-64 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden flex items-center justify-center">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={selectedImage}
@@ -462,7 +464,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
                 {groupedPhotos.map((photo, index) => (
                   <div
                     key={index}
-                    className={`relative aspect-square bg-gray-100 rounded-md overflow-hidden border-2 transition-all ${
+                    className={`relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden border-2 transition-all ${
                       selectedImage === photo.url ? "border-primary" : "border-transparent"
                     }`}
                   >

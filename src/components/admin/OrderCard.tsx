@@ -66,11 +66,11 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
     : images.length; // Fallback para pedidos antiguos sin cantidad_copias
 
   const statusStyles: Record<string, string> = {
-    "Pendiente": "bg-orange-100 text-orange-800 border-orange-300",
-    "En Proceso": "bg-blue-100 text-blue-800 border-blue-300",
-    "Enviado": "bg-yellow-100 text-yellow-800 border-yellow-300",
-    "Entregado": "bg-green-200 text-green-900 border-green-400",
-    "Cancelado": "bg-red-100 text-red-800 border-red-300",
+    "Pendiente": "bg-orange-100 dark:bg-orange-900/50 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700",
+    "En Proceso": "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700",
+    "Enviado": "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
+    "Entregado": "bg-green-200 dark:bg-green-900/50 text-green-900 dark:text-green-300 border-green-400 dark:border-green-700",
+    "Cancelado": "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700",
   };
 
   return (
@@ -145,7 +145,7 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
               <Badge
                 variant="outline"
                 className={`border-solid ${
-                  statusStyles[status] ?? "bg-gray-100 text-gray-800"
+                  statusStyles[status] ?? "bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300"
                 } text-xs sm:text-sm`}
               >
                 {status}
@@ -155,7 +155,7 @@ const OrderCard = ({ order, onOrderUpdated }: OrderCardProps) => {
               {order.metodo_entrega === 'recogida_tienda' && (
                 <Badge
                   variant="secondary"
-                  className="bg-blue-100 text-blue-800 border-blue-300 text-xs sm:text-sm flex items-center gap-1"
+                  className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700 text-xs sm:text-sm flex items-center gap-1"
                 >
                   <MapPin className="h-3 w-3" />
                   Recoger en tienda
