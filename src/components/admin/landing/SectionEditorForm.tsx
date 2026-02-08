@@ -348,7 +348,6 @@ export function SectionEditorForm({
       "colorGradienteInicio",
       "colorGradienteMedio",
       "colorGradienteFin",
-      "botonColor",
     ].includes(f)
   );
   const imageFields = editableFields.filter((f) =>
