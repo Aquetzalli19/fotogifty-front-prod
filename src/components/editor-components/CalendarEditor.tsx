@@ -1939,7 +1939,7 @@ export default function CalendarEditor() {
               </Select>
               <Button
                 onClick={handleCopyFromMonth}
-                disabled={!copyFromMonth}
+                disabled={!copyFromMonth || !monthPhotos[parseInt(copyFromMonth || "0") - 1]?.imageSrc}
                 variant="secondary"
                 className="w-full"
                 size="sm"
@@ -1947,6 +1947,11 @@ export default function CalendarEditor() {
                 <ImageIcon className="mr-2 h-4 w-4" />
                 Copiar foto seleccionada
               </Button>
+              {copyFromMonth && !monthPhotos[parseInt(copyFromMonth) - 1]?.imageSrc && (
+                <p className="text-xs text-amber-600 text-center">
+                  {MONTHS[parseInt(copyFromMonth) - 1]} no tiene foto cargada
+                </p>
+              )}
             </div>
 
             {/* Eliminar foto */}
