@@ -19,7 +19,8 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/stores/auth-store";
-import { actualizarCliente } from "@/services/usuarios";
+import { verificarContraseña, actualizarCliente } from "@/services/usuarios";
+import { Loader2 } from "lucide-react";
 
 interface PhoneEditProps {
   prevPhone: string;
@@ -43,6 +44,7 @@ const ChangePhoneSchema = z.object({
 
 export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditProps) {
   const [isVerified, setIsVerified] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   const { success, error: showError } = useToast();
   const { updateUserData } = useAuthStore();
 
@@ -100,15 +102,39 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
   };
 
   const handleVerifyPassword = async () => {
+    if (!userId) {
+      showError('ID de usuario no disponible.');
+      return;
+    }
+
     const currentPassword = phoneForm.getValues('currentPassword');
     if (!currentPassword) {
       showError('Por favor, ingresa tu contraseña actual.');
       return;
     }
 
-    // En una implementación real, aquí verificaríamos con el backend
-    // que la contraseña actual es correcta antes de permitir la edición
-    setIsVerified(true);
+    setIsVerifying(true);
+    try {
+      const response = await verificarContraseña(userId, currentPassword);
+
+      if (response.success && response.data?.valid) {
+        setIsVerified(true);
+        success('Contraseña verificada correctamente.');
+      } else if (!response.success) {
+        showError(response.message || 'Error al verificar la contraseña.');
+      } else {
+        showError('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
+        phoneForm.setError('currentPassword', {
+          type: 'manual',
+          message: 'Contraseña incorrecta'
+        });
+      }
+    } catch (error) {
+      console.error('Error verificando contraseña:', error);
+      showError('Error al verificar la contraseña. Por favor, inténtalo de nuevo.');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const { control, handleSubmit } = phoneForm;
@@ -133,11 +159,26 @@ export default function PhoneEdit({ prevPhone, userId, onSuccess }: PhoneEditPro
                       <PasswordInput
                         id="current-password-phone"
                         placeholder="••••••••"
+                        disabled={isVerified || isVerifying}
                         {...field}
                       />
                     </FormControl>
-                    <Button onClick={handleVerifyPassword} type="button">
-                      Verificar
+                    <Button
+                      onClick={handleVerifyPassword}
+                      type="button"
+                      disabled={isVerified || isVerifying}
+                      variant={isVerified ? "outline" : "default"}
+                    >
+                      {isVerifying ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Verificando...
+                        </>
+                      ) : isVerified ? (
+                        "✓ Verificado"
+                      ) : (
+                        "Verificar"
+                      )}
                     </Button>
                   </div>
                   <FormMessage />

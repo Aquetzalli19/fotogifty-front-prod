@@ -59,7 +59,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await verificarIdentidad({
         email: values.email,
-        telefono: `${values.countryCode}${values.phoneNumber}`,
+        telefono: values.phoneNumber,
       });
 
       if (response.success) {
@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
     try {
       const response = await cambiarPasswordOlvidada({
         email: verifiedData.email,
-        telefono: `${verifiedData.countryCode}${verifiedData.phoneNumber}`,
+        telefono: verifiedData.phoneNumber,
         nueva_password: values.newPassword,
       });
 

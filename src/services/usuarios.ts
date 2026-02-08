@@ -28,13 +28,23 @@ export async function verificarContraseña(id: number, password: string): Promis
     const response = await apiClient.post<{ valid: boolean }>(`/usuarios/${id}/verify-password`, {
       password
     });
-    return response;
+    console.log('🔑 verificarContraseña response:', JSON.stringify(response));
+    // Handle different possible response structures from backend
+    const raw = response as Record<string, unknown>;
+    const valid = (response.data as { valid?: boolean })?.valid
+      ?? (raw.datos as { valid?: boolean })?.valid
+      ?? raw.valid;
+    return {
+      success: response.success,
+      data: { valid: !!valid },
+      message: response.message,
+    };
   } catch (error) {
     console.error('Error verificando contraseña:', error);
     return {
       success: false,
       data: { valid: false },
-      message: 'Error al verificar la contraseña'
+      message: error instanceof Error ? error.message : 'Error al verificar la contraseña'
     };
   }
 }

@@ -117,6 +117,8 @@ export default function EmailEdit({ prevEmail, userId, onSuccess }: EmailEditPar
       if (response.success && response.data?.valid) {
         setIsVerified(true);
         success('Contraseña verificada correctamente.');
+      } else if (!response.success) {
+        showError(response.message || 'Error al verificar la contraseña.');
       } else {
         showError('Contraseña incorrecta. Por favor, inténtalo de nuevo.');
         emailForm.setError('currentPassword', {
