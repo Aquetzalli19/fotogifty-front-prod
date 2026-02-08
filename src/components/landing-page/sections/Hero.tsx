@@ -37,7 +37,7 @@ const Hero = ({ slides, data }: heroProps) => {
   return (
     <section className="w-full h-[60vh] md:h-[70vh] lg:h-screen relative">
       <div className="absolute z-20 flex flex-col items-center text-center w-full h-full justify-center gap-4 md:gap-8 lg:gap-12 bg-gray-900/20 px-4">
-        <h1 className="text-primary-foreground font-medium text-2xl sm:text-3xl md:text-5xl lg:text-7xl xl:text-8xl leading-tight">
+        <h1 className="text-white font-medium text-2xl sm:text-3xl md:text-5xl lg:text-7xl xl:text-8xl leading-tight">
           {titulo} <br />
           <span style={{ color: colorPrimario }}>{subtitulo}</span>
         </h1>
@@ -58,6 +58,7 @@ const Hero = ({ slides, data }: heroProps) => {
             alt="slide"
             width={1440}
             height={706}
+            unoptimized
             className="w-full h-[60vh] md:h-[70vh] lg:h-screen max-w-full object-cover"
           />
         ))}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,10 +45,6 @@ import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
 import Link from "next/link";
 
-interface PageProps {
-  params: Promise<{ sectionKey: string }>;
-}
-
 // Debounce helper
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -61,9 +57,9 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-export default function SectionEditorPage({ params }: PageProps) {
-  const resolvedParams = use(params);
-  const sectionKey = resolvedParams.sectionKey as SectionKey;
+export default function SectionEditorPage() {
+  const params = useParams<{ sectionKey: string }>();
+  const sectionKey = params.sectionKey as SectionKey;
   const router = useRouter();
 
   const [sectionData, setSectionData] = useState<LandingSectionComplete | null>(null);

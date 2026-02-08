@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
-import Image from "next/image";
+import { SafeImage } from "./SafeImage";
 
 interface ImageUploaderProps {
   value: string | null;
@@ -134,12 +134,11 @@ export function ImageUploader({
       {/* Preview */}
       {value && (
         <div className="relative w-full h-40 rounded-lg overflow-hidden bg-muted border">
-          <Image
+          <SafeImage
             src={value}
             alt="Preview"
             fill
             className="object-contain"
-            sizes="(max-width: 768px) 100vw, 400px"
           />
           <Button
             variant="destructive"

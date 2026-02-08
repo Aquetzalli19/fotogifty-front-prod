@@ -53,6 +53,7 @@ const Legend = ({ data }: LegendProps) => {
           src={imagenFondo}
           fill
           alt="image"
+          unoptimized
           style={{ objectFit: "cover" }}
           className=" bg-repeat"
         />

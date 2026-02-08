@@ -29,6 +29,7 @@ const DualImageCard = ({
             alt={title}
             width={302}
             height={592}
+            unoptimized
             className="w-full h-full object-cover rounded-md transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
@@ -59,6 +60,7 @@ const DualImageCard = ({
             alt={title}
             width={302}
             height={592}
+            unoptimized
             className="w-full h-full object-cover rounded-md transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />

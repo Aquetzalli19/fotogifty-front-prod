@@ -18,7 +18,7 @@ import {
   EyeOff,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
+import { SafeImage } from "./SafeImage";
 
 interface SectionCardProps {
   sectionData: LandingSectionComplete;
@@ -51,12 +51,11 @@ export function SectionCard({ sectionData, onToggle }: SectionCardProps) {
       {/* Preview Image */}
       <div className="relative h-32 bg-muted overflow-hidden">
         {previewImage ? (
-          <Image
+          <SafeImage
             src={previewImage}
             alt={metadata.name}
             fill
             className="object-cover"
-            sizes="(max-width: 768px) 100vw, 50vw"
           />
         ) : (
           <div className="flex items-center justify-center h-full">

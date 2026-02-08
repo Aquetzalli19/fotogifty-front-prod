@@ -50,6 +50,7 @@ const SingleImageCard = ({
             src={image}
             width={593}
             height={508}
+            unoptimized
             className="h-64 sm:h-80 lg:h-96 xl:h-[480px] w-auto max-w-full object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 rounded-xl flex items-center justify-center">

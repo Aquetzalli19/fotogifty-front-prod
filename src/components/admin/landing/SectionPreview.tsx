@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { LandingSectionDTO, LandingSlide, LandingOption, SectionKey, SECTION_METADATA, CarouselConfig } from "@/interfaces/landing-content";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
+import { SafeImage } from "./SafeImage";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface SectionPreviewProps {
@@ -108,13 +108,12 @@ function HeroPreview({ values, slides }: { values: LandingSectionDTO; slides: La
               transitionDuration: `${transitionSpeed}ms`,
             }}
           >
-            <Image
+            <SafeImage
               src={slide.imagenUrl}
               alt={slide.titulo || `Slide ${index + 1}`}
               fill
               className="object-cover"
               sizes="(max-width: 768px) 100vw, 600px"
-              priority={index === 0}
             />
           </div>
         ))}
@@ -209,7 +208,7 @@ function ExtensionsPreview({ values, options }: { values: LandingSectionDTO; opt
       </div>
       <div className="relative w-full md:w-1/2 h-40 rounded-lg overflow-hidden bg-muted">
         {values.imagenPrincipalUrl && (
-          <Image
+          <SafeImage
             src={values.imagenPrincipalUrl}
             alt="Extension"
             fill
@@ -237,7 +236,7 @@ function ProductSliderPreview({ values, slides }: { values: LandingSectionDTO; s
         {slides.slice(0, 4).map((slide) => (
           <div key={slide.id} className="flex-shrink-0 w-32">
             <div className="relative h-24 rounded overflow-hidden bg-muted">
-              <Image src={slide.imagenUrl} alt={slide.titulo || ""} fill className="object-cover" />
+              <SafeImage src={slide.imagenUrl} alt={slide.titulo || ""} fill className="object-cover" />
             </div>
             <p className="text-xs font-medium mt-1 truncate">{slide.titulo}</p>
             <p className="text-xs text-muted-foreground truncate">{slide.descripcion}</p>
@@ -259,7 +258,7 @@ function LegendPreview({ values }: { values: LandingSectionDTO }) {
   return (
     <div className="relative h-40 w-full overflow-hidden rounded-lg">
       {values.imagenFondoUrl && (
-        <Image
+        <SafeImage
           src={values.imagenFondoUrl}
           alt="Legend background"
           fill
@@ -284,7 +283,7 @@ function CalendarsPreview({ values, slides, options }: { values: LandingSectionD
       <div className="grid grid-cols-2 gap-2 w-full md:w-1/2">
         {slides.slice(0, 4).map((slide) => (
           <div key={slide.id} className="relative h-20 rounded overflow-hidden bg-muted">
-            <Image src={slide.imagenUrl} alt="" fill className="object-cover" />
+            <SafeImage src={slide.imagenUrl} alt="" fill className="object-cover" />
           </div>
         ))}
       </div>
@@ -341,7 +340,7 @@ function PrintsPreview({ values, options }: { values: LandingSectionDTO; options
     <div className="flex gap-4 p-4 bg-background rounded-lg">
       <div className="relative w-24 h-32 rounded overflow-hidden bg-muted shrink-0">
         {values.imagenPrincipalUrl && (
-          <Image src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
+          <SafeImage src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
         )}
       </div>
       <div className="flex-1 space-y-2 text-center">
@@ -360,7 +359,7 @@ function PrintsPreview({ values, options }: { values: LandingSectionDTO; options
       </div>
       <div className="relative w-24 h-32 rounded overflow-hidden bg-muted shrink-0">
         {values.imagenPrincipalUrl && (
-          <Image src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
+          <SafeImage src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
         )}
       </div>
     </div>
@@ -397,7 +396,7 @@ function PolaroidsSinglePreview({ values }: { values: LandingSectionDTO }) {
       </div>
       <div className="relative w-full md:w-1/2 h-40 rounded-lg overflow-hidden bg-muted">
         {values.imagenPrincipalUrl && (
-          <Image src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
+          <SafeImage src={values.imagenPrincipalUrl} alt="" fill className="object-cover" />
         )}
       </div>
     </div>
@@ -411,7 +410,7 @@ function PolaroidsCollagePreview({ values, slides, options }: { values: LandingS
       <div className="grid grid-cols-2 gap-2 w-full md:w-1/2">
         {slides.slice(0, 4).map((slide) => (
           <div key={slide.id} className="relative h-20 rounded overflow-hidden bg-muted">
-            <Image src={slide.imagenUrl} alt="" fill className="object-cover" />
+            <SafeImage src={slide.imagenUrl} alt="" fill className="object-cover" />
           </div>
         ))}
       </div>
@@ -449,7 +448,7 @@ function PlatformShowcasePreview({ values }: { values: LandingSectionDTO }) {
       <div className="relative h-32" style={gradientStyle}>
         {values.imagenPrincipalUrl && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Image
+            <SafeImage
               src={values.imagenPrincipalUrl}
               alt="Platform"
               width={150}

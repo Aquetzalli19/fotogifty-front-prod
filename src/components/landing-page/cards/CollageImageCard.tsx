@@ -32,6 +32,7 @@ const CollageImageCard = ({
                   src={el}
                   width={345}
                   height={345}
+                  unoptimized
                   className="w-full h-full object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 rounded-xl" />

@@ -156,6 +156,8 @@ export async function obtenerSeccionesLanding(): Promise<MappedApiResponse<Landi
 
 /**
  * Get a single section by key
+ * Uses the "get all" endpoint and filters by key, since the individual
+ * endpoint may not be available on all backend versions.
  */
 export async function obtenerSeccionPorKey(sectionKey: SectionKey): Promise<MappedApiResponse<LandingSectionComplete>> {
   if (USE_MOCK_DATA) {
@@ -173,19 +175,21 @@ export async function obtenerSeccionPorKey(sectionKey: SectionKey): Promise<Mapp
     };
   }
 
-  const response = await apiClient.get<ApiResponse<unknown>>(`/landing-content/sections/${sectionKey}`);
+  const allSections = await obtenerSeccionesLanding();
 
-  if (response.success && response.data) {
-    return {
-      success: true,
-      data: mapBackendToLandingSectionComplete(response.data as never),
-      message: response.message,
-    };
+  if (allSections.success && allSections.data) {
+    const section = allSections.data.find(s => s.section.sectionKey === sectionKey);
+    if (section) {
+      return {
+        success: true,
+        data: section,
+      };
+    }
   }
 
   return {
     success: false,
-    error: response.error || 'Error al obtener sección',
+    error: allSections.error || 'Sección no encontrada',
   };
 }
 

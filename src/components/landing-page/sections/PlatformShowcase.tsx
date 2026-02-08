@@ -43,6 +43,7 @@ const PlatformShowcase = ({ data }: PlatformShowcaseProps) => {
             src={imagen}
             width={910}
             height={708}
+            unoptimized
             className=" object-cover"
           />
         </div>

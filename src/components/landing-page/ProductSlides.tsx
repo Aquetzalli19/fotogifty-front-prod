@@ -71,6 +71,7 @@ const ProductSlides = ({ slides, href = "/user" }: productSlidesProps) => {
                         src={el.image}
                         width={280}
                         height={280}
+                        unoptimized
                         className="w-50 h-50 lg:w-68 lg:h-66 object-cover transition-transform duration-500 group-hover:scale-110"
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />

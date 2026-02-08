@@ -19,7 +19,7 @@ import { LandingSlide, SectionKey, SlideType } from "@/interfaces/landing-conten
 import { AddSlideDialog } from "./AddSlideDialog";
 import { EditSlideDialog } from "./EditSlideDialog";
 import { DeleteSlideDialog } from "./DeleteSlideDialog";
-import Image from "next/image";
+import { SafeImage } from "./SafeImage";
 
 interface SlideManagerProps {
   slides: LandingSlide[];
@@ -146,12 +146,11 @@ export function SlideManager({
 
                 {/* Thumbnail */}
                 <div className="relative w-16 h-16 rounded overflow-hidden bg-muted shrink-0">
-                  <Image
+                  <SafeImage
                     src={slide.imagenUrl}
                     alt={slide.titulo || `Slide ${index + 1}`}
                     fill
                     className="object-cover"
-                    sizes="64px"
                   />
                 </div>
 
