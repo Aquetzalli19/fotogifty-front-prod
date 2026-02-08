@@ -254,24 +254,39 @@ export default function CalendarEditor() {
       if (existing && existing.editorType === "calendar") {
         const data = existing.data as CalendarCustomization;
         // Agregar valores por defecto para nuevos campos si no existen
-        const normalizedMonths = data.months.map(month => ({
-          ...month,
-          transformations: {
-            scale: month.transformations?.scale || 1,
-            rotation: month.transformations?.rotation || 0,
-            posX: month.transformations?.posX || 0,
-            posY: month.transformations?.posY || 0,
-          },
-          effects: month.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 },
-          selectedFilter: month.selectedFilter || "none",
-          canvasStyle: month.canvasStyle || { borderColor: "#000000", borderWidth: 0, backgroundColor: "#FFFFFF" },
-        }));
+        const backendMonths = data?.months || [];
+        const normalizedMonths: MonthPhoto[] = Array.from({ length: 12 }, (_, i) => {
+          const month = backendMonths.find(m => m.month === i + 1) || backendMonths[i];
+          return {
+            month: i + 1,
+            imageSrc: month?.imageSrc ?? null,
+            renderedImageSrc: month?.renderedImageSrc,
+            transformations: {
+              scale: month?.transformations?.scale ?? 1,
+              rotation: month?.transformations?.rotation ?? 0,
+              posX: month?.transformations?.posX ?? 0,
+              posY: month?.transformations?.posY ?? 0,
+            },
+            effects: {
+              brightness: month?.effects?.brightness ?? 0,
+              contrast: month?.effects?.contrast ?? 0,
+              saturation: month?.effects?.saturation ?? 0,
+              sepia: month?.effects?.sepia ?? 0,
+            },
+            selectedFilter: month?.selectedFilter ?? "none",
+            canvasStyle: {
+              borderColor: month?.canvasStyle?.borderColor ?? "#000000",
+              borderWidth: month?.canvasStyle?.borderWidth ?? 0,
+              backgroundColor: month?.canvasStyle?.backgroundColor ?? "#FFFFFF",
+            },
+          };
+        });
         setMonthPhotos(normalizedMonths);
 
         let loadedCount = 0;
-        const totalToLoad = data.months.filter(m => m.imageSrc).length;
+        const totalToLoad = (data?.months || []).filter(m => m.imageSrc).length;
 
-        data.months.forEach((monthData) => {
+        (data?.months || []).forEach((monthData) => {
           if (monthData.imageSrc) {
             const img = new Image();
             img.onload = () => {
@@ -289,7 +304,30 @@ export default function CalendarEditor() {
     }
   }, []);
 
-  const currentMonthPhoto = monthPhotos[selectedMonth - 1];
+  const rawMonthPhoto = monthPhotos[selectedMonth - 1];
+  const currentMonthPhoto: MonthPhoto = {
+    month: rawMonthPhoto?.month ?? selectedMonth,
+    imageSrc: rawMonthPhoto?.imageSrc ?? null,
+    renderedImageSrc: rawMonthPhoto?.renderedImageSrc,
+    transformations: {
+      scale: rawMonthPhoto?.transformations?.scale ?? 1,
+      rotation: rawMonthPhoto?.transformations?.rotation ?? 0,
+      posX: rawMonthPhoto?.transformations?.posX ?? 0,
+      posY: rawMonthPhoto?.transformations?.posY ?? 0,
+    },
+    effects: {
+      brightness: rawMonthPhoto?.effects?.brightness ?? 0,
+      contrast: rawMonthPhoto?.effects?.contrast ?? 0,
+      saturation: rawMonthPhoto?.effects?.saturation ?? 0,
+      sepia: rawMonthPhoto?.effects?.sepia ?? 0,
+    },
+    selectedFilter: rawMonthPhoto?.selectedFilter ?? "none",
+    canvasStyle: {
+      borderColor: rawMonthPhoto?.canvasStyle?.borderColor ?? "#000000",
+      borderWidth: rawMonthPhoto?.canvasStyle?.borderWidth ?? 0,
+      backgroundColor: rawMonthPhoto?.canvasStyle?.backgroundColor ?? "#FFFFFF",
+    },
+  };
   const completedMonths = monthPhotos.filter(m => m.imageSrc).length;
 
   // ========================================
@@ -1432,7 +1470,7 @@ export default function CalendarEditor() {
       canvas.removeEventListener('touchmove', handleTouchMove);
       canvas.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [currentMonthPhoto.imageSrc, isDragging, canvasZoom, dragStart]);
+  }, [currentMonthPhoto?.imageSrc, isDragging, canvasZoom, dragStart]);
 
   // Zoom
   const handleZoomIn = () => setCanvasZoom((prev) => Math.min(prev + 0.05, 1));
@@ -1476,39 +1514,32 @@ export default function CalendarEditor() {
     });
   };
 
-  // Copiar foto y edición desde otro mes
-  const handleCopyFromMonth = () => {
-    if (!copyFromMonth) {
-      alert("Por favor selecciona un mes para copiar");
-      return;
-    }
+  // Copiar foto y edición del mes actual HACIA el mes seleccionado
+  const handleCopyToMonth = () => {
+    if (!copyFromMonth) return;
+    if (!currentMonthPhoto.imageSrc) return;
 
-    const sourceMonthIndex = parseInt(copyFromMonth) - 1;
-    const sourceMonth = monthPhotos[sourceMonthIndex];
-
-    if (!sourceMonth.imageSrc) {
-      alert("El mes seleccionado no tiene foto");
-      return;
-    }
+    const targetMonthIndex = parseInt(copyFromMonth) - 1;
+    const previousTargetState = { ...monthPhotos[targetMonthIndex] };
 
     execute({
       undo: () => {
         setMonthPhotos((prev) => {
           const newPhotos = [...prev];
-          newPhotos[selectedMonth - 1] = currentMonthPhoto;
+          newPhotos[targetMonthIndex] = previousTargetState;
           return newPhotos;
         });
       },
       redo: () => {
         setMonthPhotos((prev) => {
           const newPhotos = [...prev];
-          newPhotos[selectedMonth - 1] = {
-            ...newPhotos[selectedMonth - 1],
-            imageSrc: sourceMonth.imageSrc,
-            transformations: { ...sourceMonth.transformations },
-            effects: { ...sourceMonth.effects },
-            selectedFilter: sourceMonth.selectedFilter,
-            canvasStyle: { ...sourceMonth.canvasStyle },
+          newPhotos[targetMonthIndex] = {
+            ...newPhotos[targetMonthIndex],
+            imageSrc: currentMonthPhoto.imageSrc,
+            transformations: { ...currentMonthPhoto.transformations },
+            effects: { ...currentMonthPhoto.effects },
+            selectedFilter: currentMonthPhoto.selectedFilter,
+            canvasStyle: { ...currentMonthPhoto.canvasStyle },
           };
           return newPhotos;
         });
@@ -1517,21 +1548,21 @@ export default function CalendarEditor() {
 
     setMonthPhotos((prev) => {
       const newPhotos = [...prev];
-      newPhotos[selectedMonth - 1] = {
-        ...newPhotos[selectedMonth - 1],
-        imageSrc: sourceMonth.imageSrc,
-        transformations: { ...sourceMonth.transformations },
-        effects: { ...sourceMonth.effects },
-        selectedFilter: sourceMonth.selectedFilter,
-        canvasStyle: { ...sourceMonth.canvasStyle },
+      newPhotos[targetMonthIndex] = {
+        ...newPhotos[targetMonthIndex],
+        imageSrc: currentMonthPhoto.imageSrc,
+        transformations: { ...currentMonthPhoto.transformations },
+        effects: { ...currentMonthPhoto.effects },
+        selectedFilter: currentMonthPhoto.selectedFilter,
+        canvasStyle: { ...currentMonthPhoto.canvasStyle },
       };
       return newPhotos;
     });
 
-    // Copiar la imagen al ref para renderizado
-    const sourceImage = photoImageRefs.current.get(sourceMonthIndex + 1);
+    // Copiar la imagen al ref para renderizado del mes destino
+    const sourceImage = photoImageRefs.current.get(selectedMonth);
     if (sourceImage) {
-      photoImageRefs.current.set(selectedMonth, sourceImage);
+      photoImageRefs.current.set(targetMonthIndex + 1, sourceImage);
     }
 
     setCopyFromMonth(""); // Reset selection
@@ -1924,38 +1955,38 @@ export default function CalendarEditor() {
             <div className="bg-primary/5 rounded-xl p-3 sm:p-4 border-2 border-primary/20 space-y-3 mt-3">
               <div className="flex items-center gap-2 mb-2">
                 <ImageIcon className="h-4 w-4 text-primary" />
-                <label className="text-sm font-medium">Reutilizar foto de otro mes</label>
+                <label className="text-sm font-medium">Copiar edición a otro mes</label>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Copia la foto y toda su edición desde otro mes a este mes
+                Copia la foto y edición de {MONTHS[selectedMonth - 1]} hacia otro mes
               </p>
               <Select value={copyFromMonth} onValueChange={setCopyFromMonth}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Seleccionar mes..." />
+                  <SelectValue placeholder="Seleccionar mes destino..." />
                 </SelectTrigger>
                 <SelectContent>
                   {monthPhotos
                     .filter((m) => m.month !== selectedMonth)
                     .map((m) => (
                       <SelectItem key={m.month} value={m.month.toString()}>
-                        {MONTHS[m.month - 1]}{m.imageSrc ? "" : " (sin foto)"}
+                        {MONTHS[m.month - 1]}{m.imageSrc ? " (tiene foto)" : ""}
                       </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
               <Button
-                onClick={handleCopyFromMonth}
-                disabled={!copyFromMonth || !monthPhotos[parseInt(copyFromMonth || "0") - 1]?.imageSrc}
+                onClick={handleCopyToMonth}
+                disabled={!copyFromMonth || !currentMonthPhoto.imageSrc}
                 variant="secondary"
                 className="w-full"
                 size="sm"
               >
                 <ImageIcon className="mr-2 h-4 w-4" />
-                Copiar foto seleccionada
+                Copiar a {copyFromMonth ? MONTHS[parseInt(copyFromMonth) - 1] : "mes seleccionado"}
               </Button>
-              {copyFromMonth && !monthPhotos[parseInt(copyFromMonth) - 1]?.imageSrc && (
+              {!currentMonthPhoto.imageSrc && (
                 <p className="text-xs text-amber-600 text-center">
-                  {MONTHS[parseInt(copyFromMonth) - 1]} no tiene foto cargada
+                  {MONTHS[selectedMonth - 1]} no tiene foto para copiar
                 </p>
               )}
             </div>
@@ -2078,10 +2109,10 @@ export default function CalendarEditor() {
                   Tu progreso ha sido guardado. Puedes continuar después.
                 </p>
               )}
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <Button
                   onClick={handleSaveToCart}
-                  className="flex-1 h-12 text-base font-semibold"
+                  className="w-full h-12 text-base font-semibold"
                   disabled={completedMonths < 12}
                 >
                   <Check className="mr-2 h-5 w-5" />
@@ -2090,7 +2121,7 @@ export default function CalendarEditor() {
                 <Button
                   onClick={() => { saveProgress(); router.push("/user/cart"); }}
                   variant="outline"
-                  className="flex-1 h-12 text-base"
+                  className="w-full h-12 text-base"
                 >
                   <ChevronLeft className="mr-2 h-5 w-5" />
                   Volver al carrito

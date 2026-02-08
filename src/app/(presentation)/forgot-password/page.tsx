@@ -70,8 +70,8 @@ export default function ForgotPasswordPage() {
         showError(response.message || "Los datos no coinciden con nuestros registros");
       }
     } catch (err) {
-      console.error("Error al verificar identidad:", err);
-      showError("Error al verificar los datos. Por favor, intenta de nuevo.");
+      const message = err instanceof Error ? err.message : "Error al verificar los datos";
+      showError(message);
     }
   };
 

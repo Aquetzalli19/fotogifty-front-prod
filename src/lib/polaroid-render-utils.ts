@@ -97,7 +97,7 @@ async function blobToDataURL(blob: Blob): Promise<string> {
 }
 
 /**
- * Renderiza un polaroid completo con marco blanco
+ * Renderiza un polaroid completo usando el template PNG como overlay
  * @param polaroidData - Datos del polaroid (imagen, transformaciones, efectos)
  * @param options - Opciones de renderizado (dimensiones, DPI). Si no se proporciona, usa dimensiones hardcodeadas (800×1000)
  */
@@ -122,31 +122,22 @@ export async function renderPolaroid(
   if (!ctx) return undefined;
 
   try {
-    const img = await loadImage(polaroidData.imageSrc);
+    const [img, templateImg] = await Promise.all([
+      loadImage(polaroidData.imageSrc),
+      loadImage("/polaroid/Polaroid.png"),
+    ]);
 
-    // 1. Dibujar marco del polaroid con color de fondo personalizado
-    const backgroundColor = polaroidData.canvasStyle?.backgroundColor ?? "#FFFFFF";
-    ctx.fillStyle = backgroundColor;
-    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-    // 2. Dibujar la foto con transformaciones
+    // 1. Dibujar la foto del usuario con transformaciones (clipped al photo area)
     ctx.save();
 
-    // Crear clipping path para que la foto no se salga del área
     ctx.beginPath();
-    ctx.rect(
-      photoArea.left,
-      photoArea.top,
-      photoArea.width,
-      photoArea.height
-    );
+    ctx.rect(photoArea.left, photoArea.top, photoArea.width, photoArea.height);
     ctx.clip();
 
     const { scale, rotation = 0, posX, posY } = polaroidData.transformations;
     const centerX = photoArea.left + photoArea.width / 2;
     const centerY = photoArea.top + photoArea.height / 2;
 
-    // Aplicar transformaciones
     ctx.translate(centerX + posX, centerY + posY);
     ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(scale, scale);
@@ -156,13 +147,11 @@ export async function renderPolaroid(
     const selectedFilter = polaroidData.selectedFilter ?? "none";
     const filters: string[] = [];
 
-    // Aplicar filtro seleccionado
     if (selectedFilter === "blackwhite") {
       filters.push("grayscale(100%)");
     } else if (selectedFilter === "sepia") {
       filters.push("sepia(100%)");
     } else {
-      // Aplicar ajustes manuales
       if (effects.brightness !== 0) filters.push(`brightness(${1 + effects.brightness / 100})`);
       if (effects.contrast !== 0) filters.push(`contrast(${1 + effects.contrast / 100})`);
       if (effects.saturation !== 0) filters.push(`saturate(${1 + effects.saturation / 100})`);
@@ -173,27 +162,14 @@ export async function renderPolaroid(
       ctx.filter = filters.join(" ");
     }
 
-    // Dibujar imagen
     ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
 
     ctx.restore();
 
-    // 3. Dibujar borde personalizado del polaroid
-    const canvasStyle = polaroidData.canvasStyle;
-    if (canvasStyle && canvasStyle.borderWidth > 0) {
-      ctx.save();
-      ctx.strokeStyle = canvasStyle.borderColor;
-      ctx.lineWidth = canvasStyle.borderWidth;
-      ctx.strokeRect(
-        canvasStyle.borderWidth / 2,
-        canvasStyle.borderWidth / 2,
-        canvasWidth - canvasStyle.borderWidth,
-        canvasHeight - canvasStyle.borderWidth
-      );
-      ctx.restore();
-    }
+    // 2. Dibujar el template PNG encima como overlay (el marco tapa los bordes de la foto)
+    ctx.drawImage(templateImg, 0, 0, canvasWidth, canvasHeight);
 
-    // 4. Convertir a PNG con DPI y metadatos de impresión
+    // 3. Convertir a PNG con DPI y metadatos de impresión
     const blob = await canvasToBlobWithDPI(canvas, exportResolution, 0.95);
     const blobWithMetadata = await addPrintMetadataToPNG(blob, widthInches, heightInches, exportResolution);
     const dataURL = await blobToDataURL(blobWithMetadata);

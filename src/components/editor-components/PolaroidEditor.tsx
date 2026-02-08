@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { ColorResult } from "react-color";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -24,7 +23,6 @@ import {
   Check,
   X,
   Settings2,
-  Paintbrush,
   AlertCircle,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
@@ -35,8 +33,14 @@ import { compressCanvas } from "@/lib/canvas-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
 import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
-import BackgroundTab from "@/components/editor-components/BackgroundTab";
 import EditorDisclaimer from "@/components/editor-components/EditorDisclaimer";
+
+// ⚙️ CONFIGURACIÓN DEL ÁREA DE FOTO (porcentajes del template 1200x1800)
+// Estos valores definen dónde se coloca la foto del usuario dentro del template PNG
+const PHOTO_AREA_TOP_PERCENT = 0.277;    // 27.7% desde arriba
+const PHOTO_AREA_LEFT_PERCENT = 0.059;   // 5.9% desde izquierda
+const PHOTO_AREA_WIDTH_PERCENT = 0.880;  // 88.0% del ancho
+const PHOTO_AREA_HEIGHT_PERCENT = 0.591; // 59.1% del alto
 
 // Interfaz para cada polaroid guardada
 interface SavedPolaroid {
@@ -83,14 +87,14 @@ export default function PolaroidEditor() {
   const instanceIndex = searchParams.get("instanceIndex");
   const maxPolaroids = parseInt(searchParams.get("quantity") || "10");
 
-  // Obtener dimensiones del paquete desde los parámetros (en pulgadas)
+  // Dimensiones del template PNG (fijas: 1200x1800)
+  const POLAROID_WIDTH = 1200;
+  const POLAROID_HEIGHT = 1800;
+
+  // Para metadatos de exportación
   const widthInches = parseFloat(searchParams.get("width") || "4");
   const heightInches = parseFloat(searchParams.get("height") || "5");
   const exportResolution = parseInt(searchParams.get("resolution") || "300"); // DPI
-
-  // Calcular dimensiones base del canvas polaroid en pixels
-  const BASE_POLAROID_WIDTH = Math.round(widthInches * exportResolution);
-  const BASE_POLAROID_HEIGHT = Math.round(heightInches * exportResolution);
 
   // Detectar si estamos en modo "carrito"
   const isCartMode = cartItemId !== null && instanceIndex !== null;
@@ -98,65 +102,13 @@ export default function PolaroidEditor() {
   const [activeTab, setActiveTab] = useState<string | null>("transform");
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
 
-  // Estado para orientación del canvas
-  const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">("portrait");
-
-  // Calcular dimensiones según orientación
-  const POLAROID_WIDTH = canvasOrientation === "portrait" ? BASE_POLAROID_WIDTH : BASE_POLAROID_HEIGHT;
-  const POLAROID_HEIGHT = canvasOrientation === "portrait" ? BASE_POLAROID_HEIGHT : BASE_POLAROID_WIDTH;
-
-  // Área de la foto dentro del polaroid (se ajusta según orientación)
-  // Calculamos proporcionalmente basado en las dimensiones del canvas
-  const PHOTO_AREA = React.useMemo(() => {
-    // Marco proporcional: 6.25% del ancho/alto como borde
-    const borderSize = Math.round(Math.min(POLAROID_WIDTH, POLAROID_HEIGHT) * 0.0625);
-
-    if (canvasOrientation === "portrait") {
-      // En portrait: marco superior y laterales iguales, marco inferior más grande
-      const bottomMargin = Math.round(POLAROID_HEIGHT * 0.25); // 25% del alto para el marco inferior
-      const photoWidth = POLAROID_WIDTH - (borderSize * 2);
-      const photoHeight = POLAROID_HEIGHT - borderSize - bottomMargin;
-
-      return {
-        top: borderSize,
-        left: borderSize,
-        width: photoWidth,
-        height: photoHeight,
-      };
-    } else {
-      // Landscape: marco superior, inferior e izquierdo iguales, marco derecho más grande
-      const rightMargin = Math.round(POLAROID_WIDTH * 0.25); // 25% del ancho para el marco derecho
-      const photoWidth = POLAROID_WIDTH - borderSize - rightMargin;
-      const photoHeight = POLAROID_HEIGHT - (borderSize * 2);
-
-      return {
-        top: borderSize,
-        left: borderSize,
-        width: photoWidth,
-        height: photoHeight,
-      };
-    }
-  }, [canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT]);
-
-  // Dimensiones del marco blanco (calculadas proporcionalmente)
-  const FRAME = React.useMemo(() => {
-    const borderSize = Math.round(Math.min(POLAROID_WIDTH, POLAROID_HEIGHT) * 0.0625);
-
-    if (canvasOrientation === "portrait") {
-      return {
-        top: borderSize,
-        side: borderSize,
-        bottom: Math.round(POLAROID_HEIGHT * 0.25), // Marco más grande abajo (característico de polaroid)
-      };
-    } else {
-      // Landscape: el marco grande va a la derecha
-      return {
-        top: borderSize,
-        side: Math.round(POLAROID_WIDTH * 0.25), // Marco grande a la derecha
-        bottom: borderSize,
-      };
-    }
-  }, [canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT]);
+  // Área de la foto basada en porcentajes del template PNG
+  const PHOTO_AREA = React.useMemo(() => ({
+    top: Math.round(POLAROID_HEIGHT * PHOTO_AREA_TOP_PERCENT),
+    left: Math.round(POLAROID_WIDTH * PHOTO_AREA_LEFT_PERCENT),
+    width: Math.round(POLAROID_WIDTH * PHOTO_AREA_WIDTH_PERCENT),
+    height: Math.round(POLAROID_HEIGHT * PHOTO_AREA_HEIGHT_PERCENT),
+  }), [POLAROID_WIDTH, POLAROID_HEIGHT]);
 
   // Estado para la foto actual en edición
   const [currentImageSrc, setCurrentImageSrc] = useState<string | null>(null);
@@ -173,12 +125,10 @@ export default function PolaroidEditor() {
     sepia: 0,
   });
   const [selectedFilter, setSelectedFilter] = useState<string>("none");
-  // Border width proporcional al tamaño del canvas
-  const defaultBorderWidth = Math.round(Math.min(BASE_POLAROID_WIDTH, BASE_POLAROID_HEIGHT) * 0.0625);
-
+  // canvasStyle se mantiene para backward compatibility con datos guardados, pero ya no se usa visualmente
   const [canvasStyle, setCanvasStyle] = useState({
     borderColor: "#FFFFFF",
-    borderWidth: defaultBorderWidth,
+    borderWidth: 0,
     backgroundColor: "#FFFFFF",
   });
 
@@ -197,6 +147,8 @@ export default function PolaroidEditor() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentImageRef = useRef<HTMLImageElement | null>(null);
+  const templateImageRef = useRef<HTMLImageElement | null>(null);
+  const [templateLoaded, setTemplateLoaded] = useState(false);
 
   const { execute, undo, redo, canUndo, canRedo, reset } = useHistory();
 
@@ -246,7 +198,20 @@ export default function PolaroidEditor() {
     return total;
   }, [copiesUsed, currentImageSrc, editingPolaroidId, copiesToSave, currentCopiesWhenEditing]);
 
-  // Renderizar el canvas con el polaroid
+  // Cargar template PNG al montar
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/polaroid/Polaroid.png";
+    img.onload = () => {
+      templateImageRef.current = img;
+      setTemplateLoaded(true);
+    };
+    img.onerror = () => {
+      console.error("Error cargando template de polaroid");
+    };
+  }, []);
+
+  // Renderizar el canvas con el polaroid (patrón: foto → template overlay)
   const renderCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -258,46 +223,8 @@ export default function PolaroidEditor() {
     // Limpiar canvas
     ctx.clearRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
-    // Dibujar marco del polaroid con el color de fondo personalizado
-    ctx.fillStyle = canvasStyle.backgroundColor;
-    ctx.fillRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-
-    // Dibujar área de la foto (fondo gris si no hay imagen)
-    if (!currentImageSrc) {
-      ctx.fillStyle = "#F3F4F6";
-      ctx.fillRect(
-        PHOTO_AREA.left,
-        PHOTO_AREA.top,
-        PHOTO_AREA.width,
-        PHOTO_AREA.height
-      );
-
-      // Dibujar borde punteado para indicar el área de foto
-      ctx.save();
-      ctx.strokeStyle = "#9CA3AF";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 5]);
-      ctx.strokeRect(
-        PHOTO_AREA.left,
-        PHOTO_AREA.top,
-        PHOTO_AREA.width,
-        PHOTO_AREA.height
-      );
-      ctx.restore();
-
-      // Texto indicativo
-      ctx.save();
-      ctx.fillStyle = "#6B7280";
-      ctx.font = "24px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Sube una foto",
-        POLAROID_WIDTH / 2,
-        PHOTO_AREA.top + PHOTO_AREA.height / 2
-      );
-      ctx.restore();
-    } else {
-      // Dibujar la foto con transformaciones y efectos
+    // 1. Dibujar la foto del usuario con transformaciones (clipped al photo area)
+    if (currentImageSrc) {
       const img = currentImageRef.current;
       if (img) {
         ctx.save();
@@ -319,7 +246,6 @@ export default function PolaroidEditor() {
         const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
         const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
 
-        // Aplicar transformaciones
         ctx.translate(centerX + posX, centerY + posY);
         ctx.rotate((rotation * Math.PI) / 180);
         ctx.scale(scale, scale);
@@ -328,13 +254,11 @@ export default function PolaroidEditor() {
         const { brightness, contrast, saturation, sepia } = currentEffects;
         const filters: string[] = [];
 
-        // Aplicar filtro seleccionado
         if (selectedFilter === "blackwhite") {
           filters.push("grayscale(100%)");
         } else if (selectedFilter === "sepia") {
           filters.push("sepia(100%)");
         } else {
-          // Aplicar ajustes manuales
           if (brightness !== 0) filters.push(`brightness(${1 + brightness / 100})`);
           if (contrast !== 0) filters.push(`contrast(${1 + contrast / 100})`);
           if (saturation !== 0) filters.push(`saturate(${1 + saturation / 100})`);
@@ -345,29 +269,39 @@ export default function PolaroidEditor() {
           ctx.filter = filters.join(" ");
         }
 
-        // Dibujar imagen centrada
-        ctx.drawImage(
-          img,
-          -img.width / 2,
-          -img.height / 2,
-          img.width,
-          img.height
-        );
+        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
 
         ctx.restore();
       }
     }
 
-    // Dibujar borde personalizado del polaroid
-    if (canvasStyle.borderWidth > 0) {
+    // 2. Dibujar el template PNG encima (las áreas opacas cubren todo excepto la zona de foto)
+    if (templateImageRef.current) {
+      ctx.drawImage(templateImageRef.current, 0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+    }
+
+    // 3. Si no hay foto, mostrar indicador en el área de foto
+    if (!currentImageSrc) {
       ctx.save();
-      ctx.strokeStyle = canvasStyle.borderColor;
-      ctx.lineWidth = canvasStyle.borderWidth;
+      ctx.strokeStyle = "rgba(156, 163, 175, 0.8)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 5]);
       ctx.strokeRect(
-        canvasStyle.borderWidth / 2,
-        canvasStyle.borderWidth / 2,
-        POLAROID_WIDTH - canvasStyle.borderWidth,
-        POLAROID_HEIGHT - canvasStyle.borderWidth
+        PHOTO_AREA.left,
+        PHOTO_AREA.top,
+        PHOTO_AREA.width,
+        PHOTO_AREA.height
+      );
+      ctx.restore();
+
+      ctx.save();
+      ctx.fillStyle = "#6B7280";
+      ctx.font = "24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(
+        "Sube una foto",
+        POLAROID_WIDTH / 2,
+        PHOTO_AREA.top + PHOTO_AREA.height / 2
       );
       ctx.restore();
     }
@@ -376,7 +310,7 @@ export default function PolaroidEditor() {
   // Re-renderizar cuando cambian las transformaciones, efectos o la imagen
   useEffect(() => {
     renderCanvas();
-  }, [currentImageSrc, currentTransformations, currentEffects, selectedFilter, canvasStyle, canvasOrientation, POLAROID_WIDTH, POLAROID_HEIGHT, PHOTO_AREA]);
+  }, [currentImageSrc, currentTransformations, currentEffects, selectedFilter, templateLoaded, PHOTO_AREA]);
 
   // Cargar personalización existente si estamos en modo carrito
   useEffect(() => {
@@ -591,37 +525,6 @@ export default function PolaroidEditor() {
     setSelectedFilter(filter);
   };
 
-  // ===== HANDLERS DE ESTILO DE CANVAS =====
-  const handleBorderWidthChange = (value: number) => {
-    const oldStyle = { ...canvasStyle };
-    execute({
-      undo: () => setCanvasStyle(oldStyle),
-      redo: () => setCanvasStyle({ ...canvasStyle, borderWidth: value }),
-    });
-    setCanvasStyle({ ...canvasStyle, borderWidth: value });
-  };
-
-  const handleBorderWidthLive = (value: number) => {
-    setCanvasStyle({ ...canvasStyle, borderWidth: value });
-  };
-
-  const handleBorderColorChange = (color: ColorResult) => {
-    const oldStyle = { ...canvasStyle };
-    execute({
-      undo: () => setCanvasStyle(oldStyle),
-      redo: () => setCanvasStyle({ ...canvasStyle, borderColor: color.hex }),
-    });
-    setCanvasStyle({ ...canvasStyle, borderColor: color.hex });
-  };
-
-  const handleBackgroundColorChange = (color: ColorResult) => {
-    const oldStyle = { ...canvasStyle };
-    execute({
-      undo: () => setCanvasStyle(oldStyle),
-      redo: () => setCanvasStyle({ ...canvasStyle, backgroundColor: color.hex }),
-    });
-    setCanvasStyle({ ...canvasStyle, backgroundColor: color.hex });
-  };
 
   // Manejar drag de la imagen
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -972,26 +875,6 @@ export default function PolaroidEditor() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="colorize">
-                <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
-                  <div className="flex items-center gap-2">
-                    <Paintbrush className="h-4 w-4" />
-                    Personalizar marco
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <BackgroundTab
-                    borderColor={canvasStyle.borderColor}
-                    borderWidth={canvasStyle.borderWidth}
-                    backgroundColor={canvasStyle.backgroundColor}
-                    borderUpdate={handleBorderWidthChange}
-                    borderColorUpdate={handleBorderColorChange}
-                    backgroundColorUpdate={handleBackgroundColorChange}
-                    borderWidthLive={handleBorderWidthLive}
-                    hideBorder
-                  />
-                </AccordionContent>
-              </AccordionItem>
             </Accordion>
             <Separator />
           </>

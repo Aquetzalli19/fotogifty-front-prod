@@ -101,14 +101,13 @@ const CartPage = () => {
         const customization = getCustomization(cartItem.id, i);
         if (customization?.editorType === "calendar") {
           const calendarData = customization.data as CalendarCustomization;
-          const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+          const completedMonths = calendarData?.months?.filter(m => m.imageSrc !== null).length || 0;
           if (completedMonths < 12) {
             return false;
           }
         } else {
-          // Para Standard y Polaroid: validar que el total de copias alcance el mínimo requerido
-          // Permitir que el usuario use menos copias si lo desea, pero al menos 1 imagen
-          if (totalCopiesUsed === 0) {
+          // Para Standard y Polaroid: validar que el total de copias alcance el total requerido del paquete
+          if (totalCopiesUsed < requiredImages) {
             return false;
           }
         }
@@ -538,7 +537,7 @@ const CartPage = () => {
 
                   if (customization?.editorType === "calendar") {
                     const calendarData = customization.data as CalendarCustomization;
-                    const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+                    const completedMonths = calendarData?.months?.filter(m => m.imageSrc !== null).length || 0;
                     isComplete = completedMonths === 12;
                     progress = Math.min(100, (completedMonths / 12) * 100);
                   } else {
@@ -566,8 +565,8 @@ const CartPage = () => {
                       const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
                       // NUEVO: Obtener cantidad de copias del calendario (todas los meses tienen el mismo valor)
-                      const calendarCopies = calendarData.months.find(m => m.imageSrc)?.copies || 1;
-                      const completedMonths = calendarData.months.filter(m => m.imageSrc !== null).length;
+                      const calendarCopies = calendarData?.months?.find(m => m.imageSrc)?.copies || 1;
+                      const completedMonths = calendarData?.months?.filter(m => m.imageSrc !== null).length || 0;
 
                       return (
                         <div className="w-full">
@@ -584,7 +583,7 @@ const CartPage = () => {
                             )}
                           </div>
                           <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-                            {calendarData.months.map((monthData, monthIndex) => (
+                            {(calendarData?.months || []).map((monthData, monthIndex) => (
                               <div
                                 key={monthIndex}
                                 className={`relative aspect-square rounded-lg overflow-hidden border-2 ${

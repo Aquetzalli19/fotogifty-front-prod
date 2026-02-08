@@ -168,7 +168,6 @@ export const useCartStore = create<CartState>()(
             }
 
             set({ items: merged });
-            console.log(`📦 Carrito restaurado: ${backendItems.length} del backend, ${merged.length} total`);
           }
           set({ isSyncing: false });
         } catch (error) {

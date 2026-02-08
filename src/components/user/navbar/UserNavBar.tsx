@@ -30,10 +30,12 @@ const UserNavBar = () => {
 
   const handleLogout = async () => {
     // Sincronizar datos pendientes con el backend antes de limpiar
+    const validCustomizations = useCustomizationStore.getState().customizations
+      .filter((c) => c.cartItemId != null && !isNaN(c.cartItemId) && c.instanceIndex != null && !isNaN(c.instanceIndex));
     try {
       await Promise.all([
         useCartStore.getState().syncToBackend(),
-        ...useCustomizationStore.getState().customizations.map((c) =>
+        ...validCustomizations.map((c) =>
           useCustomizationStore.getState().syncCustomizationToBackend(c.cartItemId, c.instanceIndex)
         ),
       ]);

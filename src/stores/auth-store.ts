@@ -50,7 +50,6 @@ export const useAuthStore = create<AuthState>()(
           localStorage.setItem('auth_token', token);
 
           // SEGURIDAD: Validar y limpiar datos si pertenecen a otro usuario
-          // Esto previene que un usuario vea datos de otro usuario
           validateAndClearIfDifferentUser(userData.id, userData.email);
 
           // Establecer el usuario actual como dueño de los datos
@@ -108,9 +107,8 @@ export const useAuthStore = create<AuthState>()(
             useCartStore.getState().loadFromBackend(),
             useCustomizationStore.getState().loadFromBackend(),
           ]);
-          console.log('✅ Datos de usuario cargados desde backend');
         } catch (error) {
-          console.error('Error cargando datos de usuario desde backend:', error);
+          console.error('Error cargando datos del usuario desde backend:', error);
         } finally {
           set({ isLoadingUserData: false });
         }

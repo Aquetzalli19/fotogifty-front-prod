@@ -292,18 +292,17 @@ export const useCustomizationStore = create<CustomizationState>()(
         switch (customization.editorType) {
           case 'standard':
             const standardData = customization.data as StandardCustomization;
-            // Nuevo formato: array de imágenes
-            current = standardData.images?.length || 0;
+            current = standardData?.images?.length || 0;
             break;
 
           case 'calendar':
             const calendarData = customization.data as CalendarCustomization;
-            current = calendarData.months.filter((m) => m.imageSrc !== null).length;
+            current = calendarData?.months?.filter((m) => m.imageSrc !== null).length || 0;
             break;
 
           case 'polaroid':
             const polaroidData = customization.data as PolaroidCustomization;
-            current = polaroidData.polaroids.length;
+            current = polaroidData?.polaroids?.length || 0;
             break;
         }
 
@@ -367,19 +366,19 @@ export const useCustomizationStore = create<CustomizationState>()(
         switch (customization.editorType) {
           case 'standard':
             const standardData = customization.data as StandardCustomization;
-            total = standardData.images.reduce((sum, img) => sum + (img.copies || 1), 0);
+            total = standardData?.images?.reduce((sum, img) => sum + (img.copies || 1), 0) || 0;
             break;
 
           case 'calendar':
             const calendarData = customization.data as CalendarCustomization;
-            total = calendarData.months
-              .filter((m) => m.imageSrc !== null)
-              .reduce((sum, month) => sum + (month.copies || 1), 0);
+            total = calendarData?.months
+              ?.filter((m) => m.imageSrc !== null)
+              .reduce((sum, month) => sum + (month.copies || 1), 0) || 0;
             break;
 
           case 'polaroid':
             const polaroidData = customization.data as PolaroidCustomization;
-            total = polaroidData.polaroids.reduce((sum, p) => sum + (p.copies || 1), 0);
+            total = polaroidData?.polaroids?.reduce((sum, p) => sum + (p.copies || 1), 0) || 0;
             break;
         }
 
@@ -403,14 +402,24 @@ export const useCustomizationStore = create<CustomizationState>()(
           if (response.success && response.data && response.data.length > 0) {
             const localCustomizations = get().customizations;
 
-            const backendCustomizations: Customization[] = response.data.map((item) => ({
-              cartItemId: typeof item.cartItemId === 'string' ? parseInt(item.cartItemId, 10) : item.cartItemId,
-              instanceIndex: item.instanceIndex,
-              editorType: item.editorType as EditorType,
-              data: item.data as unknown as StandardCustomization | CalendarCustomization | PolaroidCustomization,
-              completed: item.completed,
-              lastModified: Date.now(),
-            }));
+            const backendCustomizations: Customization[] = response.data
+              .map((item) => {
+                // Manejar tanto camelCase como snake_case del backend
+                const raw = item as Record<string, unknown>;
+                const cid = raw.cartItemId ?? raw.cart_item_id ?? raw.cartitemid;
+                const iidx = raw.instanceIndex ?? raw.instance_index;
+                const etype = (raw.editorType ?? raw.editor_type) as string;
+
+                return {
+                  cartItemId: typeof cid === 'string' ? parseInt(cid, 10) : Number(cid),
+                  instanceIndex: typeof iidx === 'string' ? parseInt(iidx as string, 10) : Number(iidx),
+                  editorType: etype as EditorType,
+                  data: (raw.data ?? raw.datos) as unknown as StandardCustomization | CalendarCustomization | PolaroidCustomization,
+                  completed: item.completed,
+                  lastModified: Date.now(),
+                };
+              })
+              .filter((c) => !isNaN(c.cartItemId) && !isNaN(c.instanceIndex));
 
             // Merge: backend llena los huecos donde no hay datos locales
             const merged = [...localCustomizations];
@@ -424,7 +433,6 @@ export const useCustomizationStore = create<CustomizationState>()(
             }
 
             set({ customizations: merged });
-            console.log(`📦 Customizaciones restauradas: ${backendCustomizations.length} del backend, ${merged.length} total`);
           }
           set({ isSyncing: false });
         } catch (error) {

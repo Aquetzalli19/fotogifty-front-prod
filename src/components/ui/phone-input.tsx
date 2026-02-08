@@ -10,16 +10,16 @@ import {
 
 // Lista de países con sus códigos y longitudes de teléfono
 export const COUNTRIES = [
-  { code: "+52", name: "México", flag: "🇲🇽", digitLimit: 10 },
-  { code: "+1", name: "Estados Unidos", flag: "🇺🇸", digitLimit: 10 },
-  { code: "+1", name: "Canadá", flag: "🇨🇦", digitLimit: 10 },
-  { code: "+34", name: "España", flag: "🇪🇸", digitLimit: 9 },
-  { code: "+54", name: "Argentina", flag: "🇦🇷", digitLimit: 10 },
-  { code: "+56", name: "Chile", flag: "🇨🇱", digitLimit: 9 },
-  { code: "+57", name: "Colombia", flag: "🇨🇴", digitLimit: 10 },
-  { code: "+51", name: "Perú", flag: "🇵🇪", digitLimit: 9 },
-  { code: "+58", name: "Venezuela", flag: "🇻🇪", digitLimit: 10 },
-  { code: "+55", name: "Brasil", flag: "🇧🇷", digitLimit: 11 },
+  { id: "MX", code: "+52", name: "México", flag: "🇲🇽", digitLimit: 10 },
+  { id: "US", code: "+1", name: "Estados Unidos", flag: "🇺🇸", digitLimit: 10 },
+  { id: "CA", code: "+1", name: "Canadá", flag: "🇨🇦", digitLimit: 10 },
+  { id: "ES", code: "+34", name: "España", flag: "🇪🇸", digitLimit: 9 },
+  { id: "AR", code: "+54", name: "Argentina", flag: "🇦🇷", digitLimit: 10 },
+  { id: "CL", code: "+56", name: "Chile", flag: "🇨🇱", digitLimit: 9 },
+  { id: "CO", code: "+57", name: "Colombia", flag: "🇨🇴", digitLimit: 10 },
+  { id: "PE", code: "+51", name: "Perú", flag: "🇵🇪", digitLimit: 9 },
+  { id: "VE", code: "+58", name: "Venezuela", flag: "🇻🇪", digitLimit: 10 },
+  { id: "BR", code: "+55", name: "Brasil", flag: "🇧🇷", digitLimit: 11 },
 ] as const;
 
 interface PhoneInputProps {
@@ -45,7 +45,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     },
     ref
   ) => {
-    const selectedCountry = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES[0];
+    const selectedCountry = COUNTRIES.find((c) => c.code === countryCode) || COUNTRIES.find((c) => c.id === countryCode) || COUNTRIES[0];
 
     const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value.replace(/[^0-9]/g, "");
@@ -59,7 +59,14 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     return (
       <div className="flex gap-2">
         {/* Selector de país */}
-        <Select value={countryCode} onValueChange={onCountryChange} disabled={disabled}>
+        <Select
+          value={selectedCountry.id}
+          onValueChange={(id) => {
+            const country = COUNTRIES.find((c) => c.id === id);
+            if (country) onCountryChange(country.code);
+          }}
+          disabled={disabled}
+        >
           <SelectTrigger className="w-[140px] h-11 md:h-12">
             <SelectValue>
               <span className="flex items-center gap-2">
@@ -70,7 +77,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           </SelectTrigger>
           <SelectContent>
             {COUNTRIES.map((country) => (
-              <SelectItem key={country.code + country.name} value={country.code}>
+              <SelectItem key={country.id} value={country.id}>
                 <span className="flex items-center gap-2">
                   <span className="text-lg">{country.flag}</span>
                   <span className="text-sm">{country.code}</span>

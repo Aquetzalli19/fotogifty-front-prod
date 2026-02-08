@@ -77,7 +77,8 @@ export default function StoreLocationMap() {
   // Dirección para mostrar (la bonita)
   const displayAddress = `${storeConfig.direccion}, ${storeConfig.ciudad}, ${storeConfig.estado} ${storeConfig.codigo_postal}, ${storeConfig.pais}`;
 
-  // Dirección para Google Maps (usa direccion_maps si existe, sino usa coordenadas)
+  // Búsqueda en Google Maps: usa direccion_maps para buscar el negocio.
+  // Si está vacía, usa coordenadas GPS como fallback.
   const mapsQuery = storeConfig.direccion_maps
     ? encodeURIComponent(storeConfig.direccion_maps)
     : `${storeConfig.latitud},${storeConfig.longitud}`;
