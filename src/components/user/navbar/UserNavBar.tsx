@@ -12,6 +12,8 @@ import {
   XIcon,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCartStore } from "@/stores/cart-store";
+import { useCustomizationStore } from "@/stores/customization-store";
 import { ModeToggle } from "@/components/modeToggle";
 
 const UserNavBar = () => {
@@ -26,12 +28,20 @@ const UserNavBar = () => {
     }
   }, [_hasHydrated]);
 
-  const handleLogout = () => {
-    // logout() ahora limpia automáticamente:
-    // - Token de autenticación
-    // - Carrito de compras
-    // - Customizaciones de fotos
-    // - Datos del paso del carrito
+  const handleLogout = async () => {
+    // Sincronizar datos pendientes con el backend antes de limpiar
+    try {
+      await Promise.all([
+        useCartStore.getState().syncToBackend(),
+        ...useCustomizationStore.getState().customizations.map((c) =>
+          useCustomizationStore.getState().syncCustomizationToBackend(c.cartItemId, c.instanceIndex)
+        ),
+      ]);
+    } catch (e) {
+      console.warn('Error sincronizando antes de logout:', e);
+    }
+
+    // logout() limpia todos los datos locales
     logout();
 
     // Redirigir al login

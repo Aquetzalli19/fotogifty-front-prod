@@ -24,7 +24,7 @@ import { useAuthStore } from "@/stores/auth-store";
 export default function LoginPage() {
   type LoginFormType = z.infer<typeof loginSchema>;
   const router = useRouter();
-  const { login } = useAuthStore();
+  const { login, loadUserDataFromBackend } = useAuthStore();
 
   const loginSchema = z.object({
     email: z
@@ -74,6 +74,9 @@ export default function LoginPage() {
           // Guardar usuario COMPLETO y token en el store de autenticación
           login(userDataResponse.data, response.data.token);
 
+          // Restaurar carrito y customizaciones del usuario desde el backend
+          await loadUserDataFromBackend();
+
           success('Inicio de sesión exitoso');
 
           // Redirigir al usuario a la página principal o dashboard
@@ -82,6 +85,7 @@ export default function LoginPage() {
           // Si falla obtener datos completos, usar los datos básicos del login
           console.warn('No se pudieron obtener datos completos del usuario, usando datos básicos');
           login(response.data.user, response.data.token);
+          await loadUserDataFromBackend();
           router.push('/user');
         }
       } else {

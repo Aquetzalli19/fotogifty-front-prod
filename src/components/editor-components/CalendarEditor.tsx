@@ -116,7 +116,7 @@ const PHOTO_AREA_WIDTH_PERCENT = .944;  // ← MODIFICAR AQUÍ (1 = 100% del anc
 export default function CalendarEditor() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { saveCustomization, getCustomization } = useCustomizationStore();
+  const { saveCustomization, getCustomization, syncCustomizationToBackend } = useCustomizationStore();
 
   const category = searchParams.get("category");
   const cartItemId = searchParams.get("cartItemId");
@@ -1688,13 +1688,19 @@ export default function CalendarEditor() {
 
     const editorType = category ? getEditorType(category) : "calendar";
 
+    const cId = parseInt(cartItemId);
+    const iIdx = parseInt(instanceIndex);
+
     saveCustomization({
-      cartItemId: parseInt(cartItemId),
-      instanceIndex: parseInt(instanceIndex),
+      cartItemId: cId,
+      instanceIndex: iIdx,
       editorType,
       data: customizationData,
       completed: completedMonths >= 12,
     });
+
+    // Sincronizar inmediatamente con backend (no esperar debounce)
+    syncCustomizationToBackend(cId, iIdx);
   };
 
   const handleSaveToCart = async () => {

@@ -6,7 +6,7 @@ import { obtenerUsuarioActual } from '@/services/auth';
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
-  const { login } = useAuthStore();
+  const { login, loadUserDataFromBackend } = useAuthStore();
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -17,6 +17,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
           const response = await obtenerUsuarioActual();
           if (response.success && response.data) {
             login(response.data, token);
+            // Restaurar carrito y customizaciones del usuario desde el backend
+            await loadUserDataFromBackend();
           } else {
             localStorage.removeItem('auth_token');
           }
@@ -30,7 +32,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     };
 
     initializeAuth();
-  }, [login]);
+  }, [login, loadUserDataFromBackend]);
 
   if (!isInitialized) {
     return (

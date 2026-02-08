@@ -146,13 +146,29 @@ export const useCartStore = create<CartState>()(
         try {
           const response = await obtenerCarritoTemporal();
           if (response.success && response.data && response.data.items.length > 0) {
+            const localItems = get().items;
             // Convertir TempCartItem[] a CartItem[]
-            // Nota: Necesitamos los datos completos del paquete, pero por ahora
-            // solo cargamos lo básico. En producción, se debería hacer un fetch
-            // de los paquetes para obtener datos completos.
-            console.log('📦 Carrito cargado desde backend:', response.data.items.length, 'items');
-            // Los items del backend se mezclan con los locales si es necesario
-            // Por ahora, priorizamos el backend
+            const backendItems: CartItem[] = response.data.items.map((item) => ({
+              id: item.packageId,
+              name: item.packageName,
+              productCategory: item.categoryName,
+              itemPrice: item.price,
+              quantity: item.quantity,
+              itemImage: item.imageUrl || '',
+              editorType: undefined, // Se restaurará cuando el usuario abra el editor
+            } as CartItem));
+
+            // Merge: backend llena los huecos donde no hay datos locales
+            const merged = [...localItems];
+            for (const backendItem of backendItems) {
+              const existsLocally = merged.some((c) => c.id === backendItem.id);
+              if (!existsLocally) {
+                merged.push(backendItem);
+              }
+            }
+
+            set({ items: merged });
+            console.log(`📦 Carrito restaurado: ${backendItems.length} del backend, ${merged.length} total`);
           }
           set({ isSyncing: false });
         } catch (error) {
