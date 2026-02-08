@@ -34,6 +34,7 @@ import { StoreConfigurationDTO } from "@/interfaces/store-config";
 const storeConfigSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
   direccion: z.string().min(1, "La dirección es requerida"),
+  direccion_maps: z.string().optional(),
   ciudad: z.string().min(1, "La ciudad es requerida"),
   estado: z.string().min(1, "El estado es requerido"),
   codigo_postal: z.string().min(1, "El código postal es requerido"),
@@ -61,6 +62,7 @@ export default function StoreSettingsPage() {
     defaultValues: {
       nombre: "",
       direccion: "",
+      direccion_maps: "",
       ciudad: "",
       estado: "",
       codigo_postal: "",
@@ -89,6 +91,7 @@ export default function StoreSettingsPage() {
           form.reset({
             nombre: config.nombre,
             direccion: config.direccion,
+            direccion_maps: config.direccion_maps || "",
             ciudad: config.ciudad,
             estado: config.estado,
             codigo_postal: config.codigo_postal,
@@ -120,6 +123,7 @@ export default function StoreSettingsPage() {
     try {
       const dto: StoreConfigurationDTO = {
         ...data,
+        direccion_maps: data.direccion_maps || undefined,
         email: data.email || undefined,
         horario_lunes_viernes: data.horario_lunes_viernes || undefined,
         horario_sabado: data.horario_sabado || undefined,
@@ -261,10 +265,30 @@ export default function StoreSettingsPage() {
                 name="direccion"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Dirección</FormLabel>
+                    <FormLabel>Dirección (Para mostrar)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Av. Insurgentes Sur 1602" {...field} />
+                      <Input placeholder="Av. Insurgentes Sur 1602, Col. Crédito Constructor" {...field} />
                     </FormControl>
+                    <FormDescription>
+                      Esta dirección se muestra en el carrito y en la landing page
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="direccion_maps"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Dirección para Google Maps (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Av. Insurgentes Sur 1602, CDMX, México" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      Dirección que Google Maps puede encontrar. Si está vacía, se usarán las coordenadas GPS
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -4,7 +4,8 @@
 export interface StoreConfiguration {
   id: number;
   nombre: string;
-  direccion: string;
+  direccion: string; // Dirección para mostrar en el carrito y landing page
+  direccion_maps: string | null; // Dirección para búsqueda en Google Maps (geocoding)
   ciudad: string;
   estado: string;
   codigo_postal: string;
@@ -26,7 +27,8 @@ export interface StoreConfiguration {
  */
 export interface StoreConfigurationDTO {
   nombre: string;
-  direccion: string;
+  direccion: string; // Dirección para mostrar
+  direccion_maps?: string; // Dirección para búsqueda en Google Maps
   ciudad: string;
   estado: string;
   codigo_postal: string;

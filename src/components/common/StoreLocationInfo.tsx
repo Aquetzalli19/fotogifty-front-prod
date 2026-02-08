@@ -72,8 +72,13 @@ export default function StoreLocationInfo({
     );
   }
 
-  const fullAddress = `${storeConfig.direccion}, ${storeConfig.ciudad}, ${storeConfig.estado} ${storeConfig.codigo_postal}, ${storeConfig.pais}`;
-  const mapUrl = `https://www.google.com/maps/embed/v1/place?key=YOUR_API_KEY&q=${storeConfig.latitud},${storeConfig.longitud}&zoom=15`;
+  // Dirección para mostrar
+  const displayAddress = `${storeConfig.direccion}, ${storeConfig.ciudad}, ${storeConfig.estado} ${storeConfig.codigo_postal}, ${storeConfig.pais}`;
+
+  // Dirección para Google Maps (usa direccion_maps si existe, sino usa coordenadas)
+  const mapsQuery = storeConfig.direccion_maps
+    ? encodeURIComponent(storeConfig.direccion_maps)
+    : `${storeConfig.latitud},${storeConfig.longitud}`;
 
   return (
     <Card className={className}>
@@ -89,7 +94,7 @@ export default function StoreLocationInfo({
           <MapPin className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
           <div>
             <p className="font-medium text-sm text-foreground">Dirección</p>
-            <p className="text-sm text-muted-foreground">{fullAddress}</p>
+            <p className="text-sm text-muted-foreground">{displayAddress}</p>
           </div>
         </div>
 
@@ -181,7 +186,7 @@ export default function StoreLocationInfo({
         {showMap && (
           <div className="pt-2">
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${storeConfig.latitud},${storeConfig.longitud}`}
+              href={`https://www.google.com/maps/search/?api=1&query=${mapsQuery}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm text-primary hover:underline"

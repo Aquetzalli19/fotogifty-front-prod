@@ -702,14 +702,9 @@ export async function subirImagenLanding(
   formData.append('image_type', imageType);
   formData.append('imagen', file);
 
-  const response = await apiClient.post<ApiResponse<{ url: string }>>(
+  const response = await apiClient.postFormData<ApiResponse<{ url: string }>>(
     '/landing-content/upload',
-    formData,
-    {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    }
+    formData
   );
 
   if (response.success && response.data) {

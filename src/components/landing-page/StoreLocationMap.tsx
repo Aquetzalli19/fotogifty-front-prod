@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MapPin, Navigation, Phone, Clock, Loader2, AlertCircle } from "lucide-react";
+import { MapPin, Phone, Clock, AlertCircle } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,9 +74,14 @@ export default function StoreLocationMap() {
     );
   }
 
-  const fullAddress = `${storeConfig.direccion}, ${storeConfig.ciudad}, ${storeConfig.estado} ${storeConfig.codigo_postal}, ${storeConfig.pais}`;
-  const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
-  const googleMapsDirectionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${storeConfig.latitud},${storeConfig.longitud}`;
+  // Dirección para mostrar (la bonita)
+  const displayAddress = `${storeConfig.direccion}, ${storeConfig.ciudad}, ${storeConfig.estado} ${storeConfig.codigo_postal}, ${storeConfig.pais}`;
+
+  // Dirección para Google Maps (usa direccion_maps si existe, sino usa coordenadas)
+  const mapsQuery = storeConfig.direccion_maps
+    ? encodeURIComponent(storeConfig.direccion_maps)
+    : `${storeConfig.latitud},${storeConfig.longitud}`;
+  const googleMapsSearchUrl = `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`;
 
   return (
     <section id="ubicacion" className="w-full py-12 md:py-20 bg-muted/30">
@@ -126,7 +131,7 @@ export default function StoreLocationMap() {
                   <h3 className="font-semibold text-sm text-muted-foreground mb-2">
                     Dirección
                   </h3>
-                  <p className="text-base leading-relaxed">{fullAddress}</p>
+                  <p className="text-base leading-relaxed">{displayAddress}</p>
                 </div>
 
                 {/* Teléfono */}
@@ -188,8 +193,8 @@ export default function StoreLocationMap() {
                 {storeConfig.instrucciones_llegada && (
                   <div className="bg-primary/5 p-4 rounded-lg border border-primary/20">
                     <h3 className="font-semibold text-sm mb-2 flex items-center gap-2">
-                      <Navigation className="h-4 w-4 text-primary" />
-                      Cómo llegar
+                      <MapPin className="h-4 w-4 text-primary" />
+                      Referencias
                     </h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       {storeConfig.instrucciones_llegada}
@@ -197,27 +202,12 @@ export default function StoreLocationMap() {
                   </div>
                 )}
 
-                {/* Botones de acción */}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                {/* Botón Ver en Maps */}
+                <div className="pt-2">
                   <Button
                     asChild
                     variant="default"
-                    className="flex-1"
-                  >
-                    <a
-                      href={googleMapsDirectionsUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2"
-                    >
-                      <Navigation className="h-4 w-4" />
-                      Cómo llegar
-                    </a>
-                  </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="flex-1"
+                    className="w-full sm:w-auto"
                   >
                     <a
                       href={googleMapsSearchUrl}

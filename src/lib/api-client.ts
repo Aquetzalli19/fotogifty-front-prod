@@ -210,6 +210,31 @@ class ApiClient {
 
     return this.handleResponse<T>(response);
   }
+
+  /**
+   * Realiza una petición POST con FormData (para subir archivos)
+   * No establece Content-Type para que el navegador lo configure automáticamente con el boundary
+   */
+  async postFormData<T>(endpoint: string, formData: FormData, options?: RequestOptions): Promise<ApiResponse<T>> {
+    const url = this.buildUrl(endpoint, options?.params);
+
+    // Para FormData, solo necesitamos el Authorization header
+    // NO debemos establecer Content-Type, el navegador lo hace automáticamente
+    const headers: Record<string, string> = {};
+    const token = this.getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData, // No stringify para FormData
+      ...options,
+    });
+
+    return this.handleResponse<T>(response);
+  }
 }
 
 /**
