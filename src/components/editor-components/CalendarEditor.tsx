@@ -189,6 +189,7 @@ export default function CalendarEditor() {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showMonthGrid, setShowMonthGrid] = useState(false);
   const [previewThumbnail, setPreviewThumbnail] = useState<string | null>(null);
+  const [imagesLoaded, setImagesLoaded] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [copyFromMonth, setCopyFromMonth] = useState<string>("");
 
@@ -267,13 +268,21 @@ export default function CalendarEditor() {
         }));
         setMonthPhotos(normalizedMonths);
 
+        let loadedCount = 0;
+        const totalToLoad = data.months.filter(m => m.imageSrc).length;
+
         data.months.forEach((monthData) => {
           if (monthData.imageSrc) {
             const img = new Image();
-            img.src = monthData.imageSrc;
             img.onload = () => {
               photoImageRefs.current.set(monthData.month, img);
+              loadedCount++;
+              // Cuando todas las imágenes cargaron, forzar re-render
+              if (loadedCount >= totalToLoad) {
+                setImagesLoaded(true);
+              }
             };
+            img.src = monthData.imageSrc;
           }
         });
       }
@@ -493,7 +502,7 @@ export default function CalendarEditor() {
 
   useEffect(() => {
     renderCanvas();
-  }, [currentMonthPhoto, selectedMonth, calendarDimensions, canvasOrientation]);
+  }, [currentMonthPhoto, selectedMonth, calendarDimensions, canvasOrientation, imagesLoaded]);
 
   // Generar vista previa del calendario renderizado
   const generatePreview = async () => {
@@ -1901,26 +1910,6 @@ export default function CalendarEditor() {
                     </AccordionContent>
                   </AccordionItem>
 
-                  <AccordionItem value="colorize">
-                    <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Paintbrush className="h-4 w-4" />
-                        Personalizar
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <BackgroundTab
-                        borderColor={currentMonthPhoto.canvasStyle.borderColor}
-                        borderWidth={currentMonthPhoto.canvasStyle.borderWidth}
-                        backgroundColor={currentMonthPhoto.canvasStyle.backgroundColor}
-                        borderUpdate={handleBorderWidthChange}
-                        borderColorUpdate={handleBorderColorChange}
-                        backgroundColorUpdate={handleBackgroundColorChange}
-                        borderWidthLive={handleBorderWidthLive}
-                        hideBorder
-                      />
-                    </AccordionContent>
-                  </AccordionItem>
                 </Accordion>
               </div>
             )}
