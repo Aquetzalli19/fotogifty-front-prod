@@ -988,6 +988,7 @@ export default function PolaroidEditor() {
                     borderColorUpdate={handleBorderColorChange}
                     backgroundColorUpdate={handleBackgroundColorChange}
                     borderWidthLive={handleBorderWidthLive}
+                    hideBorder
                   />
                 </AccordionContent>
               </AccordionItem>

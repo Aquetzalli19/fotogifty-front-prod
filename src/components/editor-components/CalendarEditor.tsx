@@ -288,6 +288,24 @@ export default function CalendarEditor() {
   // ========================================
 
   // Función auxiliar para dibujar fondo difuminado (blur) de la imagen
+  const buildFilterString = (monthPhoto: MonthPhoto): string => {
+    const filters: string[] = [];
+
+    if (monthPhoto.selectedFilter === "blackwhite") {
+      filters.push("grayscale(100%)");
+    } else if (monthPhoto.selectedFilter === "sepia") {
+      filters.push("sepia(100%)");
+    } else {
+      const { brightness, contrast, saturation, sepia } = monthPhoto.effects;
+      if (brightness !== 0) filters.push(`brightness(${1 + brightness / 100})`);
+      if (contrast !== 0) filters.push(`contrast(${1 + contrast / 100})`);
+      if (saturation !== 0) filters.push(`saturate(${1 + saturation / 100})`);
+      if (sepia !== 0) filters.push(`sepia(${sepia / 100})`);
+    }
+
+    return filters.join(" ");
+  };
+
   const drawBlurredBackground = (
     ctx: CanvasRenderingContext2D,
     img: HTMLImageElement,
@@ -318,8 +336,9 @@ export default function CalendarEditor() {
       offsetY = areaTop - (drawHeight - areaHeight) / 2;
     }
 
-    // Aplicar filtro de blur
-    ctx.filter = 'blur(25px)';
+    // Aplicar blur + los mismos filtros de la imagen (brillo, contraste, etc.)
+    const imageFilters = buildFilterString(currentMonthPhoto);
+    ctx.filter = imageFilters ? `blur(25px) ${imageFilters}` : 'blur(25px)';
 
     // Dibujar imagen difuminada cubriendo toda el área
     ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
@@ -436,24 +455,9 @@ export default function CalendarEditor() {
         ctx.scale(scale, scale);
 
         // Aplicar filtros CSS
-        const { brightness, contrast, saturation, sepia } = currentMonthPhoto.effects;
-        const filters: string[] = [];
-
-        // Aplicar filtro seleccionado
-        if (currentMonthPhoto.selectedFilter === "blackwhite") {
-          filters.push("grayscale(100%)");
-        } else if (currentMonthPhoto.selectedFilter === "sepia") {
-          filters.push("sepia(100%)");
-        } else {
-          // Aplicar ajustes manuales
-          if (brightness !== 0) filters.push(`brightness(${1 + brightness / 100})`);
-          if (contrast !== 0) filters.push(`contrast(${1 + contrast / 100})`);
-          if (saturation !== 0) filters.push(`saturate(${1 + saturation / 100})`);
-          if (sepia !== 0) filters.push(`sepia(${sepia / 100})`);
-        }
-
-        if (filters.length > 0) {
-          ctx.filter = filters.join(" ");
+        const filterStr = buildFilterString(currentMonthPhoto);
+        if (filterStr) {
+          ctx.filter = filterStr;
         }
 
         ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
@@ -1913,6 +1917,7 @@ export default function CalendarEditor() {
                         borderColorUpdate={handleBorderColorChange}
                         backgroundColorUpdate={handleBackgroundColorChange}
                         borderWidthLive={handleBorderWidthLive}
+                        hideBorder
                       />
                     </AccordionContent>
                   </AccordionItem>
