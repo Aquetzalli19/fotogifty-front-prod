@@ -940,8 +940,6 @@ export default function PolaroidEditor() {
                     onPosYLive={handlePosYLive}
                     canvasWidth={PHOTO_AREA.width}
                     canvasHeight={PHOTO_AREA.height}
-                    canvasOrientation={canvasOrientation}
-                    onCanvasOrientationChange={setCanvasOrientation}
                   />
                 </AccordionContent>
               </AccordionItem>

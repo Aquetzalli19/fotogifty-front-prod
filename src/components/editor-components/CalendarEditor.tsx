@@ -1659,14 +1659,8 @@ export default function CalendarEditor() {
   };
 
   // Guardar y volver al carrito
-  const handleSaveToCart = async () => {
+  const saveProgress = () => {
     if (!isCartMode || !cartItemId || !instanceIndex) return;
-
-    console.log("💾 Guardando calendario...");
-
-    // IMPORTANTE: Solo guardamos imageSrc y transformations en localStorage
-    // Las versiones renderizadas (renderedImageSrc y croppedPhotoSrc) se generan
-    // SOLO al momento de subir al backend para evitar QuotaExceededError
 
     const customizationData: CalendarCustomization = {
       months: monthPhotos.map((monthData) => ({
@@ -1676,7 +1670,6 @@ export default function CalendarEditor() {
         effects: monthData.effects,
         selectedFilter: monthData.selectedFilter,
         canvasStyle: monthData.canvasStyle,
-        // NO guardamos renderedImageSrc ni croppedPhotoSrc aquí
       })),
     };
 
@@ -1689,11 +1682,20 @@ export default function CalendarEditor() {
       data: customizationData,
       completed: completedMonths >= 12,
     });
+  };
 
-    console.log("✅ Calendario guardado:");
-    console.log("   - Solo se guardaron: imageSrc + transformations (para evitar QuotaExceededError)");
-    console.log("   - Las imágenes renderizadas se generarán al subir al backend");
+  const handleSaveToCart = async () => {
+    if (!isCartMode || !cartItemId || !instanceIndex) return;
+    saveProgress();
     router.push("/user/cart");
+  };
+
+  const [showSavedMessage, setShowSavedMessage] = useState(false);
+
+  const handleSaveProgress = () => {
+    saveProgress();
+    setShowSavedMessage(true);
+    setTimeout(() => setShowSavedMessage(false), 3000);
   };
 
   const handleCancelEdit = () => {
@@ -1860,8 +1862,6 @@ export default function CalendarEditor() {
                         onPosYLive={handlePosYLive}
                         canvasWidth={PHOTO_AREA.width}
                         canvasHeight={PHOTO_AREA.height}
-                        canvasOrientation={canvasOrientation}
-                        onCanvasOrientationChange={setCanvasOrientation}
                       />
                       <p className="text-xs text-muted-foreground text-center mt-2">
                         Arrastra la imagen para posicionarla
@@ -1935,10 +1935,10 @@ export default function CalendarEditor() {
                 </SelectTrigger>
                 <SelectContent>
                   {monthPhotos
-                    .filter((m) => m.imageSrc && m.month !== selectedMonth)
+                    .filter((m) => m.month !== selectedMonth)
                     .map((m) => (
                       <SelectItem key={m.month} value={m.month.toString()}>
-                        {MONTHS[m.month - 1]}
+                        {MONTHS[m.month - 1]}{m.imageSrc ? "" : " (sin foto)"}
                       </SelectItem>
                     ))}
                 </SelectContent>
@@ -2060,22 +2060,35 @@ export default function CalendarEditor() {
           {/* Botones de acción del carrito */}
           {isCartMode ? (
             <div className="bg-primary/5 rounded-xl p-3 sm:p-4 border-2 border-primary/20 space-y-3">
+              <Button
+                onClick={handleSaveProgress}
+                variant="outline"
+                className="w-full h-10 text-sm"
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {showSavedMessage ? "Progreso guardado" : "Guardar progreso"}
+              </Button>
+              {showSavedMessage && (
+                <p className="text-xs text-green-600 text-center">
+                  Tu progreso ha sido guardado. Puedes continuar después.
+                </p>
+              )}
               <div className="flex gap-2">
                 <Button
                   onClick={handleSaveToCart}
                   className="flex-1 h-12 text-base font-semibold"
                   disabled={completedMonths < 12}
                 >
-                  <Save className="mr-2 h-5 w-5" />
-                  Guardar
+                  <Check className="mr-2 h-5 w-5" />
+                  Finalizar
                 </Button>
                 <Button
-                  onClick={handleCancelEdit}
+                  onClick={() => { saveProgress(); router.push("/user/cart"); }}
                   variant="outline"
                   className="flex-1 h-12 text-base"
                 >
-                  <X className="mr-2 h-5 w-5" />
-                  Cancelar
+                  <ChevronLeft className="mr-2 h-5 w-5" />
+                  Volver al carrito
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground text-center">
