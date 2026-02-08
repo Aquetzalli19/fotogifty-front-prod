@@ -401,10 +401,30 @@ export const useCustomizationStore = create<CustomizationState>()(
         try {
           const response = await obtenerCustomizacionesTemporales();
           if (response.success && response.data && response.data.length > 0) {
-            console.log('📦 Customizaciones cargadas desde backend:', response.data.length);
-            // Los datos del backend se podrían usar para restaurar el estado
-            // Por ahora, solo logueamos - la lógica completa requiere mapear
-            // los datos del backend al formato local
+            const localCustomizations = get().customizations;
+
+            const backendCustomizations: Customization[] = response.data.map((item) => ({
+              cartItemId: typeof item.cartItemId === 'string' ? parseInt(item.cartItemId, 10) : item.cartItemId,
+              instanceIndex: item.instanceIndex,
+              editorType: item.editorType as EditorType,
+              data: item.data as unknown as StandardCustomization | CalendarCustomization | PolaroidCustomization,
+              completed: item.completed,
+              lastModified: Date.now(),
+            }));
+
+            // Merge: backend llena los huecos donde no hay datos locales
+            const merged = [...localCustomizations];
+            for (const backendItem of backendCustomizations) {
+              const existsLocally = merged.some(
+                (c) => c.cartItemId === backendItem.cartItemId && c.instanceIndex === backendItem.instanceIndex
+              );
+              if (!existsLocally) {
+                merged.push(backendItem);
+              }
+            }
+
+            set({ customizations: merged });
+            console.log(`📦 Customizaciones restauradas: ${backendCustomizations.length} del backend, ${merged.length} total`);
           }
           set({ isSyncing: false });
         } catch (error) {
