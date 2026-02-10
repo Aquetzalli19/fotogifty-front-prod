@@ -5,9 +5,7 @@ import { Effect } from "@/lib/types";
 import {
   obtenerCustomizacionesTemporales,
   guardarCustomizacionTemporal,
-  eliminarCustomizacionTemporal,
   eliminarTodasCustomizaciones,
-  debounce,
 } from "@/services/temp-cart";
 
 // Tipos de personalización para cada editor
@@ -405,7 +403,7 @@ export const useCustomizationStore = create<CustomizationState>()(
             const backendCustomizations: Customization[] = response.data
               .map((item) => {
                 // Manejar tanto camelCase como snake_case del backend
-                const raw = item as Record<string, unknown>;
+                const raw = item as unknown as Record<string, unknown>;
                 const cid = raw.cartItemId ?? raw.cart_item_id ?? raw.cartitemid;
                 const iidx = raw.instanceIndex ?? raw.instance_index;
                 const etype = (raw.editorType ?? raw.editor_type) as string;

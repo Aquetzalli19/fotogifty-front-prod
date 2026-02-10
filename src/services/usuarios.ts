@@ -30,7 +30,7 @@ export async function verificarContraseña(id: number, password: string): Promis
     });
     console.log('🔑 verificarContraseña response:', JSON.stringify(response));
     // Handle different possible response structures from backend
-    const raw = response as Record<string, unknown>;
+    const raw = response as unknown as Record<string, unknown>;
     const valid = (response.data as { valid?: boolean })?.valid
       ?? (raw.datos as { valid?: boolean })?.valid
       ?? raw.valid;
