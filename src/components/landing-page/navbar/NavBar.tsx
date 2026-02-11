@@ -111,6 +111,12 @@ const NavBar = ({ sections }: navBarProps) => {
             // Usuario logueado - mostrar menú de usuario
             <div className="flex flex-row items-center gap-3 ml-4">
               <Link
+                href="/user"
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
+              >
+                Ordenar
+              </Link>
+              <Link
                 href="/user/cart"
                 className="p-2 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
               >
@@ -156,8 +162,14 @@ const NavBar = ({ sections }: navBarProps) => {
               </DropdownMenu>
             </div>
           ) : (
-            // Usuario no logueado - mostrar botones de login/registro
+            // Usuario no logueado - mostrar botón Ordenar + login/registro
             <div className="flex flex-row gap-3 text-primary-foreground text-sm font-medium ml-4">
+              <Link
+                className="bg-accent text-accent-foreground rounded-lg px-4 py-2 hover:bg-accent/80 transition-colors border border-border"
+                href={"/user"}
+              >
+                Ordenar
+              </Link>
               <Link
                 className="bg-primary rounded-lg px-4 py-2 hover:bg-primary/80 transition-colors"
                 href={"/login"}
@@ -236,6 +248,14 @@ const NavBar = ({ sections }: navBarProps) => {
               </div>
 
               <Link
+                href="/user"
+                onClick={closeMenu}
+                className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
+              >
+                Ordenar
+              </Link>
+
+              <Link
                 href="/user/profile"
                 onClick={closeMenu}
                 className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
@@ -273,6 +293,13 @@ const NavBar = ({ sections }: navBarProps) => {
           ) : (
             // Usuario no logueado - botones mobile
             <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+              <Link
+                className="bg-accent text-accent-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-accent/80 transition-colors border border-border"
+                href={"/user"}
+                onClick={closeMenu}
+              >
+                Ordenar
+              </Link>
               <Link
                 className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
                 href={"/login"}

@@ -8,7 +8,6 @@ import {
   ArchiveIcon,
   HomeIcon,
   MenuIcon,
-  ShoppingBag,
   UserCircle,
   XIcon,
 } from "lucide-react";
@@ -111,11 +110,6 @@ const UserNavBar = () => {
               href="/user"
               title="Inicio"
               icon={<HomeIcon size={24} />}
-            />
-            <UserNavBarButton
-              href="/user"
-              title="Ordenar"
-              icon={<ShoppingBag size={24} />}
             />
             <UserNavBarButton
               href="/user/profile"
