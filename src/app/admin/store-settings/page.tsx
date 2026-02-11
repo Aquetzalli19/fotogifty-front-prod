@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useToast } from "@/hooks/useToast";
+import { Toast, ToastContainer } from "@/components/ui/toast";
 import { Loader2, MapPin, Clock, Info } from "lucide-react";
 import {
   obtenerConfiguracionTienda,
@@ -55,7 +56,7 @@ type StoreConfigFormData = z.infer<typeof storeConfigSchema>;
 export default function StoreSettingsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
-  const { success, error } = useToast();
+  const { toasts, removeToast, success, error } = useToast();
 
   const form = useForm<StoreConfigFormData>({
     resolver: zodResolver(storeConfigSchema),
@@ -156,7 +157,20 @@ export default function StoreSettingsPage() {
   }
 
   return (
-    <div className="container mx-auto py-8 px-4 max-w-4xl">
+    <>
+      <ToastContainer>
+        {toasts.map((toast) => (
+          <Toast
+            key={toast.id}
+            id={toast.id}
+            message={toast.message}
+            type={toast.type}
+            onClose={() => removeToast(toast.id)}
+          />
+        ))}
+      </ToastContainer>
+
+      <div className="container mx-auto py-8 px-4 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground mb-2">
           Configuración de Tienda
@@ -496,5 +510,6 @@ export default function StoreSettingsPage() {
         </form>
       </Form>
     </div>
+    </>
   );
 }
