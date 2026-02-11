@@ -2,10 +2,20 @@
 
 import { ModeToggle } from "@/components/modeToggle";
 import { navbarLinks } from "@/interfaces/navbar";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User, ShoppingCart, Package, LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
+import { useAuthStore } from "@/stores/auth-store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 
 interface navBarProps {
   sections: navbarLinks[];
@@ -13,6 +23,7 @@ interface navBarProps {
 
 const NavBar = ({ sections }: navBarProps) => {
   const [opened, setOpened] = useState(false);
+  const { isAuthenticated, user, logout } = useAuthStore();
 
   // Cerrar menú cuando cambia el tamaño de pantalla a desktop
   useEffect(() => {
@@ -39,8 +50,13 @@ const NavBar = ({ sections }: navBarProps) => {
 
   const closeMenu = () => setOpened(false);
 
+  const handleLogout = () => {
+    logout();
+    closeMenu();
+  };
+
   return (
-    <nav className="bg-background w-full z-50 sticky top-0 transition-all">
+    <nav className="bg-background w-full z-50 sticky top-0 transition-all border-b border-border">
       {/* Header - siempre visible */}
       <div className="w-full flex flex-row justify-between items-center px-4 lg:px-6 h-16 lg:h-20 relative z-50 bg-background">
         <Link
@@ -71,20 +87,71 @@ const NavBar = ({ sections }: navBarProps) => {
             ))}
           </div>
 
-          <div className="flex flex-row gap-3 text-primary-foreground text-sm font-medium ml-4">
-            <Link
-              className="bg-primary rounded-lg px-4 py-2 hover:bg-primary/80 transition-colors"
-              href={"/login"}
-            >
-              Inicia sesión
-            </Link>
-            <Link
-              className="bg-secondary rounded-lg px-4 py-2 hover:bg-secondary/80 transition-colors"
-              href={"/signup"}
-            >
-              Regístrate
-            </Link>
-          </div>
+          {isAuthenticated ? (
+            // Usuario logueado - mostrar menú de usuario
+            <div className="flex flex-row items-center gap-3 ml-4">
+              <Link
+                href="/user/cart"
+                className="p-2 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5" />
+              </Link>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="font-medium">{user?.nombre || "Usuario"}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/user/profile" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/user/backlog" className="cursor-pointer">
+                      <Package className="mr-2 h-4 w-4" />
+                      Mis Pedidos
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/user/cart" className="cursor-pointer">
+                      <ShoppingCart className="mr-2 h-4 w-4" />
+                      Carrito
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Cerrar sesión
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : (
+            // Usuario no logueado - mostrar botones de login/registro
+            <div className="flex flex-row gap-3 text-primary-foreground text-sm font-medium ml-4">
+              <Link
+                className="bg-primary rounded-lg px-4 py-2 hover:bg-primary/80 transition-colors"
+                href={"/login"}
+              >
+                Inicia sesión
+              </Link>
+              <Link
+                className="bg-secondary rounded-lg px-4 py-2 hover:bg-secondary/80 transition-colors"
+                href={"/signup"}
+              >
+                Regístrate
+              </Link>
+            </div>
+          )}
 
           <ModeToggle />
         </div>
@@ -135,23 +202,73 @@ const NavBar = ({ sections }: navBarProps) => {
             ))}
           </div>
 
-          {/* Auth buttons */}
-          <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-            <Link
-              className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
-              href={"/login"}
-              onClick={closeMenu}
-            >
-              Inicia sesión
-            </Link>
-            <Link
-              className="bg-secondary text-secondary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-secondary/80 transition-colors"
-              href={"/signup"}
-              onClick={closeMenu}
-            >
-              Regístrate
-            </Link>
-          </div>
+          {isAuthenticated ? (
+            // Usuario logueado - menú mobile
+            <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
+              <div className="flex items-center gap-3 px-4 py-2 mb-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <User className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium">{user?.nombre || "Usuario"}</p>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                </div>
+              </div>
+
+              <Link
+                href="/user/profile"
+                onClick={closeMenu}
+                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
+              >
+                <User className="w-5 h-5" />
+                <span>Mi Perfil</span>
+              </Link>
+
+              <Link
+                href="/user/backlog"
+                onClick={closeMenu}
+                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
+              >
+                <Package className="w-5 h-5" />
+                <span>Mis Pedidos</span>
+              </Link>
+
+              <Link
+                href="/user/cart"
+                onClick={closeMenu}
+                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                <span>Carrito</span>
+              </Link>
+
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors text-destructive"
+              >
+                <LogOut className="w-5 h-5" />
+                <span>Cerrar sesión</span>
+              </button>
+            </div>
+          ) : (
+            // Usuario no logueado - botones mobile
+            <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
+              <Link
+                className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
+                href={"/login"}
+                onClick={closeMenu}
+              >
+                Inicia sesión
+              </Link>
+              <Link
+                className="bg-secondary text-secondary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-secondary/80 transition-colors"
+                href={"/signup"}
+                onClick={closeMenu}
+              >
+                Regístrate
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </nav>
