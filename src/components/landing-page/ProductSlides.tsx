@@ -43,7 +43,7 @@ const ProductSlides = ({ slides, href = "/user" }: productSlidesProps) => {
   return (
     <div className="w-full mt-10">
       <div className="embla overflow-hidden" ref={emblaRef}>
-        <div className="embla__container flex">
+        <div className={`embla__container flex ${slides.length < 3 ? 'justify-center' : ''}`}>
           {slides.map((el, index) => (
             <div
               key={index}
