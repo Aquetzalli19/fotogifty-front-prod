@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
@@ -36,6 +36,7 @@ import { mockCategories } from "@/test-data/categories-mockdata";
 import { config } from "@/lib/config";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";
+import { getEditorType } from "@/lib/category-utils";
 import Image from "next/image";
 
 const AddItemPage = () => {
@@ -72,6 +73,16 @@ const AddItemPage = () => {
       photoHeight: 15,
     },
   });
+
+  // Detectar el tipo de editor basándose en la categoría seleccionada
+  const selectedCategory = form.watch('productClasification');
+  const editorType = useMemo(() => {
+    if (!selectedCategory) return 'standard';
+    return getEditorType(selectedCategory);
+  }, [selectedCategory]);
+
+  // Determinar si se debe mostrar el template uploader
+  const showTemplateUploader = editorType === 'calendar' || editorType === 'polaroid';
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -273,18 +284,20 @@ const AddItemPage = () => {
             </div>
           </div>
 
-          {/* Sección de Template PNG */}
-          <TemplateUploader
-            value={templateFile}
-            onChange={(file, dimensions) => {
-              setTemplateFile(file);
-              setHasTemplate(file !== null);
-              // Actualizar automáticamente los campos de dimensiones
-              form.setValue('photoWidth', dimensions.width);
-              form.setValue('photoHeight', dimensions.height);
-            }}
-            resolution={form.watch('photoResolution') || 300}
-          />
+          {/* Sección de Template PNG - Solo para Polaroid y Calendar */}
+          {showTemplateUploader && (
+            <TemplateUploader
+              value={templateFile}
+              onChange={(file, dimensions) => {
+                setTemplateFile(file);
+                setHasTemplate(file !== null);
+                // Actualizar automáticamente los campos de dimensiones
+                form.setValue('photoWidth', dimensions.width);
+                form.setValue('photoHeight', dimensions.height);
+              }}
+              resolution={form.watch('photoResolution') || 300}
+            />
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <FormField
@@ -381,6 +394,42 @@ const AddItemPage = () => {
               )}
             />
 
+            {/* Indicador del tipo de editor */}
+            {form.watch('productClasification') && (
+              <div className={`p-3 rounded-lg border ${
+                editorType === 'standard'
+                  ? 'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'
+                  : editorType === 'calendar'
+                  ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800'
+                  : 'bg-pink-50 dark:bg-pink-950/20 border-pink-200 dark:border-pink-800'
+              }`}>
+                <p className={`text-sm font-medium ${
+                  editorType === 'standard'
+                    ? 'text-blue-800 dark:text-blue-200'
+                    : editorType === 'calendar'
+                    ? 'text-purple-800 dark:text-purple-200'
+                    : 'text-pink-800 dark:text-pink-200'
+                }`}>
+                  📝 Tipo de editor: <strong>
+                    {editorType === 'standard' && 'Estándar (Impresiones/Ampliaciones)'}
+                    {editorType === 'calendar' && 'Calendario'}
+                    {editorType === 'polaroid' && 'Polaroid'}
+                  </strong>
+                </p>
+                <p className={`text-xs mt-1 ${
+                  editorType === 'standard'
+                    ? 'text-blue-700 dark:text-blue-300'
+                    : editorType === 'calendar'
+                    ? 'text-purple-700 dark:text-purple-300'
+                    : 'text-pink-700 dark:text-pink-300'
+                }`}>
+                  {editorType === 'standard' && '• Debes especificar manualmente las dimensiones del canvas'}
+                  {editorType === 'calendar' && '• Puedes subir un template PNG personalizado (opcional)'}
+                  {editorType === 'polaroid' && '• Puedes subir un template PNG personalizado (opcional)'}
+                </p>
+              </div>
+            )}
+
             <FormField
               control={form.control}
               name="photoQuantity"
@@ -451,8 +500,10 @@ const AddItemPage = () => {
               )}
             />
 
-            {/* Campos de dimensiones - Ocultos si hay template, pero aún se envían */}
-            {!hasTemplate && (
+            {/* Campos de dimensiones */}
+            {/* Para Standard: siempre visible */}
+            {/* Para Calendar/Polaroid: oculto si hay template */}
+            {(editorType === 'standard' || !hasTemplate) && (
               <>
                 <FormField
                   control={form.control}
@@ -504,8 +555,8 @@ const AddItemPage = () => {
               </>
             )}
 
-            {/* Campos hidden para enviar al backend cuando hay template */}
-            {hasTemplate && (
+            {/* Campos hidden para enviar al backend cuando hay template (solo para Calendar/Polaroid) */}
+            {hasTemplate && editorType !== 'standard' && (
               <>
                 <input type="hidden" {...form.register('photoWidth')} />
                 <input type="hidden" {...form.register('photoHeight')} />
