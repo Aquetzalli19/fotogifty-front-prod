@@ -19,10 +19,12 @@ The template upload feature behaves differently based on the product category:
 - 📐 Canvas size: Manually specified by admin
 
 ### **Calendar Editor**
-- ✅ **Template upload available (optional)**
-- 📁 If template uploaded: dimensions auto-calculated, fields hidden
-- 📏 If NO template: uses default calendar templates, fields visible
+- ✅ **12 template uploads available (one per month, optional)**
+- 📁 If templates uploaded: dimensions auto-calculated, fields hidden
+- 📅 Can upload all 12 months or partial (missing months use defaults)
+- 📏 If NO templates: uses default calendar templates, fields visible
 - 🎨 Used for: Calendar products (12-month layouts)
+- ⚠️ **Important:** All templates must have the same dimensions
 
 ### **Polaroid Editor**
 - ✅ **Template upload available (optional)**
@@ -51,6 +53,14 @@ When creating a package, admins see a colored badge indicating the detected edit
 - ✅ CalendarEditor loads templates dynamically from packages
 - ✅ Canvas dimensions calculated from template
 - ✅ Fallback to default templates if no custom template exists
+
+### **Phase 3: Calendar 12-Month Templates** (Commit: dd8047e)
+- ✅ CalendarTemplateUploader component for 12 individual uploads
+- ✅ Grid layout showing all 12 months (Enero - Diciembre)
+- ✅ Dimension validation across all templates
+- ✅ Progress indicator (X/12 templates uploaded)
+- ✅ Partial upload support (missing months use defaults)
+- ✅ Backend receives 12 files: template_mes_1 through template_mes_12
 
 ---
 
@@ -112,7 +122,8 @@ CREATE TABLE paquetes_predefinidos (
   ancho_foto DECIMAL(10,2) NOT NULL, -- Width in inches (e.g., 4.00)
   alto_foto DECIMAL(10,2) NOT NULL,  -- Height in inches (e.g., 6.00)
   imagen_url VARCHAR(500),           -- Product preview image
-  template_url VARCHAR(500),         -- 🆕 Custom PNG template
+  template_url VARCHAR(500),         -- 🆕 Custom PNG template (Polaroid)
+  templates_calendario TEXT,         -- 🆕 12 calendar templates as JSON: {"1": "url1", ..., "12": "url12"}
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -429,7 +440,16 @@ fotogifty-bucket/
 
 ## 📝 CHANGELOG
 
-### Version 1.2.0 (Current - 2026-02-11)
+### Version 1.3.0 (Current - 2026-02-11)
+- ✅ **MAJOR FEATURE**: Calendar templates now support 12 individual uploads (one per month)
+- ✅ New CalendarTemplateUploader component with grid interface
+- ✅ Dimension validation across all calendar templates
+- ✅ Partial upload support (missing months use default templates)
+- ✅ Backend receives template_mes_1 through template_mes_12
+- ✅ Database field templates_calendario (JSON) stores 12 URLs
+- 📄 **Documentation**: CALENDAR_TEMPLATES_BACKEND_SPEC.md added
+
+### Version 1.2.0 (2026-02-11)
 - ✅ **CRITICAL FIX**: Changed from base64 data URLs to actual S3 file upload
 - ✅ **FEATURE**: Template uploader now conditional based on editor type
 - ✅ Visual indicator for detected editor type (color-coded badges)
