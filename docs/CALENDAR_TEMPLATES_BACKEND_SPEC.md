@@ -1,20 +1,64 @@
 # 📅 CALENDAR TEMPLATES - BACKEND SPECIFICATION
 
+## ✅ STATUS: IMPLEMENTED
+
+**All backend changes have been completed and deployed!** This document now serves as reference documentation for the implemented system.
+
 ## 🎯 Overview
 
-This document specifies the backend requirements for the **12-Month Calendar Template System**. Unlike Polaroid templates (single file), calendar templates require **12 separate PNG files** (one per month).
+This document specifies the backend implementation of the **12-Month Calendar Template System**. Unlike Polaroid templates (single file), calendar templates require **12 separate PNG files** (one per month).
+
+---
+
+## ✅ IMPLEMENTED CHANGES
+
+### Backend Files Modified (7 files)
+
+1. **`prisma/schema.prisma`**
+   - ✅ Added `templates_calendario Json?` field to `paquetes_predefinidos` model
+
+2. **`src/domain/entities/paquete.entity.ts`**
+   - ✅ Added `templates_calendario?: Record<string, string>` to interface
+   - ✅ Updated constructor and `static create()` method
+
+3. **`src/infrastructure/repositories/prisma-paquete.repository.ts`**
+   - ✅ Added JSON parsing in `toDomain()` with fallback
+   - ✅ Added JSON stringification in `toPrisma()`
+
+4. **`src/application/use-cases/crear-paquete.use-case.ts`**
+   - ✅ Added `templates_calendario` parameter
+   - ✅ Passed through to `PaqueteEntity.create()`
+
+5. **`src/application/use-cases/actualizar-paquete.use-case.ts`**
+   - ✅ Added `templates_calendario` parameter
+   - ✅ Implemented merge logic (new months replace, untouched preserved)
+
+6. **`src/infrastructure/controllers/paquete.controller.ts`**
+   - ✅ Processing `template_mes_1` through `template_mes_12` in `crearPaquete()`
+   - ✅ Processing `template_mes_1` through `template_mes_12` in `updatePaquete()`
+   - ✅ PNG mimetype validation
+   - ✅ Dimension extraction with sharp
+   - ✅ First template sets `ancho_foto`/`alto_foto`
+   - ✅ Subsequent templates validated against first (400 error on mismatch)
+   - ✅ S3 upload with key: `templates/calendario-mes{N}-{timestamp}.png`
+
+7. **`src/infrastructure/routes/paquete.routes.ts`**
+   - ✅ Added `template_mes_1` through `template_mes_12` to `upload.fields()`
+   - ✅ File size limit increased from 5MB to 10MB (both POST and PUT)
 
 ---
 
 ## 📊 DATABASE SCHEMA
 
-### Option 1: JSON Field (Recommended)
+### ✅ Implemented: JSON Field (Prisma)
 
-Add a new field to the `paquetes_predefinidos` table:
+The `paquetes_predefinidos` model now includes:
 
-```sql
-ALTER TABLE paquetes_predefinidos
-ADD COLUMN templates_calendario TEXT; -- Store JSON: {"1": "url1", "2": "url2", ..., "12": "url12"}
+```prisma
+model paquetes_predefinidos {
+  // ... existing fields
+  templates_calendario Json? // Store as JSON: {"1": "url1", "2": "url2", ..., "12": "url12"}
+}
 ```
 
 **Example data:**
@@ -26,18 +70,6 @@ ADD COLUMN templates_calendario TEXT; -- Store JSON: {"1": "url1", "2": "url2", 
   "12": "https://fotogifty.s3.us-east-1.amazonaws.com/templates/calendario-diciembre-xyz789.png"
 }
 ```
-
-### Option 2: Separate Fields (Alternative)
-
-```sql
-ALTER TABLE paquetes_predefinidos
-ADD COLUMN template_mes_1 VARCHAR(500),
-ADD COLUMN template_mes_2 VARCHAR(500),
-...
-ADD COLUMN template_mes_12 VARCHAR(500);
-```
-
-**⚠️ Option 1 (JSON) is recommended** for flexibility and easier maintenance.
 
 ---
 
