@@ -61,13 +61,13 @@ export function SectionEditorForm({
 
   // Character limits for text fields
   const CHAR_LIMITS: Record<string, number> = {
-    titulo: 100,
-    subtitulo: 150,
-    descripcion: 200,
-    textoPrimario: 150,
-    textoSecundario: 200,
-    botonTexto: 50,
-    botonEnlace: 255,
+    titulo: 50,
+    subtitulo: 75,
+    descripcion: 100,
+    textoPrimario: 75,
+    textoSecundario: 100,
+    botonTexto: 25,
+    botonEnlace: 500,
   };
 
   const CharCounter = ({ value, max }: { value: string; max: number }) => (
