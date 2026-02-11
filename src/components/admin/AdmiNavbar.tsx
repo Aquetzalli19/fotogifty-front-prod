@@ -11,16 +11,27 @@ import {
   Tags,
   Users,
   LogOut,
-  ChevronDown,
   BarChart3,
   FileText,
   MapPin,
   LayoutDashboard,
+  ChevronDown,
+  Settings,
+  ShoppingCart,
+  ListOrdered,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePathname } from "next/navigation";
 import { ModeToggle } from "@/components/modeToggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const AdmiNavbar = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -35,16 +46,54 @@ const AdmiNavbar = () => {
     }
   }, [_hasHydrated]);
 
-  const navItems = [
-    { href: "/admin", label: "Pedidos", icon: Package },
-    { href: "/admin/itemcontrol", label: "Paquetes", icon: Boxes },
-    { href: "/admin/categories", label: "Categorías", icon: Tags },
-    { href: "/admin/users", label: "Usuarios", icon: Users },
-    { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-    { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
-    { href: "/admin/landing-content", label: "Landing Page", icon: LayoutDashboard },
-    { href: "/admin/store-settings", label: "Configuración Tienda", icon: MapPin },
-  ];
+  // Grupos de navegación organizados por categoría
+  const navGroups = {
+    operations: {
+      label: "Operaciones",
+      icon: ShoppingCart,
+      items: [
+        { href: "/admin", label: "Pedidos", icon: Package },
+        { href: "/admin/estados-pedido", label: "Estados de Pedido", icon: ListOrdered },
+      ],
+    },
+    catalog: {
+      label: "Catálogo",
+      icon: Boxes,
+      items: [
+        { href: "/admin/itemcontrol", label: "Paquetes", icon: Boxes },
+        { href: "/admin/categories", label: "Categorías", icon: Tags },
+      ],
+    },
+    users: {
+      label: "Usuarios",
+      icon: Users,
+      items: [
+        { href: "/admin/users", label: "Gestión de Usuarios", icon: Users },
+      ],
+    },
+    analytics: {
+      label: "Analítica",
+      icon: BarChart3,
+      items: [
+        { href: "/admin/analytics", label: "Dashboard Analytics", icon: BarChart3 },
+      ],
+    },
+    content: {
+      label: "Contenido",
+      icon: LayoutDashboard,
+      items: [
+        { href: "/admin/landing-content", label: "Landing Page", icon: LayoutDashboard },
+        { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
+      ],
+    },
+    settings: {
+      label: "Configuración",
+      icon: Settings,
+      items: [
+        { href: "/admin/store-settings", label: "Configuración Tienda", icon: MapPin },
+      ],
+    },
+  };
 
   const isActive = (href: string) => {
     if (href === "/admin") {
@@ -53,12 +102,11 @@ const AdmiNavbar = () => {
     return pathname.startsWith(href);
   };
 
+  const isGroupActive = (items: typeof navGroups.operations.items) => {
+    return items.some(item => isActive(item.href));
+  };
+
   const handleLogout = () => {
-    // logout() ahora limpia automáticamente:
-    // - Token de autenticación
-    // - Carrito de compras
-    // - Customizaciones de fotos
-    // - Datos del paso del carrito
     logout();
     window.location.href = '/login/admin';
   };
@@ -95,26 +143,45 @@ const AdmiNavbar = () => {
           )}
         </button>
 
-        {/* Desktop navigation */}
-        <div className="hidden lg:flex flex-row gap-1 xl:gap-2 items-center">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
+        {/* Desktop navigation - Dropdowns agrupados */}
+        <div className="hidden lg:flex flex-row gap-1 items-center">
+          {Object.entries(navGroups).map(([key, group]) => {
+            const GroupIcon = group.icon;
+            const groupActive = isGroupActive(group.items);
+
             return (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={active ? "secondary" : "outline"}
-                  className={`text-sm xl:text-base gap-2 ${
-                    active
-                      ? "bg-primary/10 text-primary border-primary/30"
-                      : "text-foreground border-transparent hover:border-muted-foreground/30 hover:bg-muted"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  <span className="hidden xl:inline">{item.label}</span>
-                  <span className="xl:hidden">{item.label.slice(0, 3)}.</span>
-                </Button>
-              </Link>
+              <DropdownMenu key={key}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={groupActive ? "secondary" : "outline"}
+                    className={`text-sm gap-2 ${
+                      groupActive
+                        ? "bg-primary/10 text-primary border-primary/30"
+                        : "text-foreground border-transparent hover:border-muted-foreground/30 hover:bg-muted"
+                    }`}
+                  >
+                    <GroupIcon className="h-4 w-4" />
+                    <span className="hidden xl:inline">{group.label}</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  <DropdownMenuLabel>{group.label}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {group.items.map((item) => {
+                    const ItemIcon = item.icon;
+                    const active = isActive(item.href);
+                    return (
+                      <Link key={item.href} href={item.href}>
+                        <DropdownMenuItem className={active ? "bg-primary/10 text-primary" : ""}>
+                          <ItemIcon className="h-4 w-4 mr-2" />
+                          <span>{item.label}</span>
+                        </DropdownMenuItem>
+                      </Link>
+                    );
+                  })}
+                </DropdownMenuContent>
+              </DropdownMenu>
             );
           })}
 
@@ -144,36 +211,49 @@ const AdmiNavbar = () => {
         </div>
       </div>
 
-      {/* Mobile navigation menu */}
+      {/* Mobile navigation menu - Grupos expandibles */}
       <div
-        className={`lg:hidden absolute left-0 right-0 top-full bg-background border-b shadow-lg transition-all duration-300 ease-in-out ${
+        className={`lg:hidden absolute left-0 right-0 top-full bg-background border-b shadow-lg transition-all duration-300 ease-in-out max-h-[80vh] overflow-y-auto ${
           mobileMenuOpen
             ? "opacity-100 translate-y-0"
             : "opacity-0 -translate-y-2 pointer-events-none"
         }`}
       >
         <div className="flex flex-col p-3 gap-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
+          {Object.entries(navGroups).map(([key, group]) => {
+            const GroupIcon = group.icon;
+            const groupActive = isGroupActive(group.items);
+
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={closeMobileMenu}
-              >
-                <Button
-                  variant={active ? "secondary" : "outline"}
-                  className={`w-full justify-start gap-3 text-base ${
-                    active
-                      ? "bg-primary/10 text-primary border-primary/30"
-                      : "text-foreground border-transparent hover:bg-muted"
-                  }`}
-                >
-                  <Icon className="h-5 w-5" />
-                  {item.label}
-                </Button>
-              </Link>
+              <div key={key} className="space-y-1">
+                <div className={`flex items-center gap-2 px-3 py-2 text-sm font-medium ${groupActive ? "text-primary" : "text-muted-foreground"}`}>
+                  <GroupIcon className="h-4 w-4" />
+                  {group.label}
+                </div>
+                {group.items.map((item) => {
+                  const ItemIcon = item.icon;
+                  const active = isActive(item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={closeMobileMenu}
+                    >
+                      <Button
+                        variant={active ? "secondary" : "ghost"}
+                        className={`w-full justify-start gap-3 text-sm pl-8 ${
+                          active
+                            ? "bg-primary/10 text-primary"
+                            : "text-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <ItemIcon className="h-4 w-4" />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
 
@@ -192,7 +272,7 @@ const AdmiNavbar = () => {
           )}
 
           {/* Theme toggle and Logout button */}
-          <div className="flex items-center justify-between gap-2 mt-2">
+          <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t">
             <ModeToggle />
             <Button
               onClick={() => {

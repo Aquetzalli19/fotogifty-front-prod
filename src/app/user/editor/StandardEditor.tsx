@@ -678,7 +678,7 @@ export default function StandardEditor() {
           {isCartMode ? (
             <>
               {/* Indicador de progreso */}
-              <div className="text-sm text-center text-muted-foreground">
+              <div className="text-sm text-center font-medium text-foreground">
                 {copiesProjected} / {maxImages} copias
               </div>
               <div className="w-full bg-muted rounded-full h-2">
@@ -688,7 +688,7 @@ export default function StandardEditor() {
                 />
               </div>
               {copiesProjected > maxImages && (
-                <p className="text-xs text-red-500 font-medium text-center">
+                <p className="text-xs text-red-500 dark:text-red-400 font-medium text-center">
                   ⚠️ Excede el límite del paquete
                 </p>
               )}
@@ -696,7 +696,7 @@ export default function StandardEditor() {
               {/* Galería de imágenes guardadas */}
               {savedImages.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs font-medium">Imágenes guardadas:</p>
+                  <p className="text-xs font-medium text-foreground">Imágenes guardadas:</p>
                   <div className="grid grid-cols-3 gap-2 max-h-32 overflow-y-auto">
                     {savedImages.map((img, index) => (
                       <div
@@ -751,7 +751,7 @@ export default function StandardEditor() {
               {imageSrc && (
                 <div className="bg-primary/10 p-3 rounded-lg space-y-2">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="font-medium">Fotos usadas:</span>
+                    <span className="font-medium text-foreground">Fotos usadas:</span>
                     <span className="font-bold text-primary">
                       {copiesProjected}/{maxImages}
                     </span>
@@ -763,7 +763,7 @@ export default function StandardEditor() {
                     />
                   </div>
                   {copiesProjected > maxImages && (
-                    <p className="text-xs text-red-500 font-medium">
+                    <p className="text-xs text-red-500 dark:text-red-400 font-medium">
                       ⚠️ Excede el límite del paquete
                     </p>
                   )}
@@ -773,7 +773,7 @@ export default function StandardEditor() {
               {/* NUEVO: Campo para cantidad de copias */}
               {imageSrc && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">
+                  <label className="text-sm font-medium text-foreground">
                     ¿Cuántas veces quieres imprimir esta foto?
                   </label>
                   <div className="flex items-center gap-2">
@@ -789,11 +789,11 @@ export default function StandardEditor() {
                       }}
                       className="w-24 text-center"
                     />
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-foreground/80">
                       (Disponibles: {maxCopiesAllowed})
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-foreground/70">
                     Total de impresiones: {copiesToSave} {copiesToSave === 1 ? 'foto' : 'fotos'}
                   </p>
                 </div>
@@ -803,8 +803,8 @@ export default function StandardEditor() {
               {copiesProjected >= maxImages && editingImageId === null && (
                 <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-3 text-center">
                   <CheckCircle2 className="h-5 w-5 text-green-500 mx-auto mb-1" />
-                  <p className="text-sm text-green-400">¡Paquete completo!</p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-sm text-green-400 font-medium">¡Paquete completo!</p>
+                  <p className="text-xs text-green-300/90 mt-1">
                     Alcanzaste {copiesProjected} {copiesProjected === 1 ? 'copia' : 'copias'} de {maxImages}
                   </p>
                 </div>
@@ -924,9 +924,9 @@ export default function StandardEditor() {
         className="flex-1 md:flex-2  sm:min-h-1/2 sm:max-h-1/2 md:min-h-full flex flex-col items-center justify-center rounded-md bg-dark p-4 relative overflow-hidden"
       >
         {resolutionWarning && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-400 dark:border-yellow-600 text-yellow-700 dark:text-yellow-300 px-4 py-3 rounded-md flex items-center gap-2 w-full md:max-w-md">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-400 dark:border-yellow-500 text-yellow-800 dark:text-yellow-100 px-4 py-3 rounded-md flex items-center gap-2 w-full md:max-w-md">
             <AlertCircle className="h-5 w-5" />
-            <span className="text-sm">{resolutionWarning}</span>
+            <span className="text-sm font-medium">{resolutionWarning}</span>
           </div>
         )}
 
@@ -981,8 +981,8 @@ export default function StandardEditor() {
             />{" "}
             <div className="w-full flex flex-col gap-4 items-center">
               {" "}
-              <Upload />
-              <p className="text-center px-4">
+              <Upload className="text-foreground/70" />
+              <p className="text-center px-4 text-foreground/80 font-medium">
                 {copiesProjected >= maxImages
                   ? 'Paquete completo - Reduce copias o elimina fotos para agregar más'
                   : 'Sube una foto'
@@ -1045,14 +1045,14 @@ export default function StandardEditor() {
         </div>
 
         {/* Indicador de dimensiones reales del canvas */}
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-900 border-l-4 border-blue-500 rounded-md">
-          <p className="text-sm font-semibold text-blue-700 dark:text-blue-200">
+        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/50 border-l-4 border-blue-500 dark:border-blue-400 rounded-md">
+          <p className="text-sm font-semibold text-blue-700 dark:text-blue-100">
             📐 Canvas a tamaño real: {widthInches}&quot; × {heightInches}&quot; a {exportResolution} DPI
           </p>
-          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+          <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
             Dimensiones: {canvasDimensions.width} × {canvasDimensions.height} px • Vista al {(canvasZoom * 100).toFixed(0)}%
           </p>
-          <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+          <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
             ✓ WYSIWYG: Lo que ves es exactamente lo que se imprimirá
           </p>
         </div>
@@ -1094,7 +1094,7 @@ export default function StandardEditor() {
             {/* Indicador de progreso - móvil */}
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
+                <span className="text-sm font-medium text-foreground">
                   {copiesProjected}/{maxImages}
                 </span>
                 <div className="flex-1 bg-muted rounded-full h-2">
@@ -1105,7 +1105,7 @@ export default function StandardEditor() {
                 </div>
               </div>
               {copiesProjected > maxImages && (
-                <p className="text-xs text-red-500 font-medium">
+                <p className="text-xs text-red-500 dark:text-red-400 font-medium">
                   ⚠️ Excede el límite
                 </p>
               )}
@@ -1159,7 +1159,7 @@ export default function StandardEditor() {
             {/* Mensaje límite alcanzado - móvil */}
             {copiesProjected >= maxImages && editingImageId === null && (
               <div className="bg-green-900/30 border border-green-500/50 rounded-lg p-2 text-center">
-                <p className="text-xs text-green-400 flex items-center justify-center gap-1">
+                <p className="text-xs text-green-400 font-medium flex items-center justify-center gap-1">
                   <CheckCircle2 className="h-3 w-3" />
                   ¡Paquete completo!
                 </p>

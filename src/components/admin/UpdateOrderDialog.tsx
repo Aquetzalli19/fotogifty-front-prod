@@ -6,13 +6,6 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
 import { Button } from "../ui/button";
 import { Download, ImageIcon, Loader2, MapPin, User, Phone, Mail, Calendar, CreditCard, PackageOpen } from "lucide-react";
 import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
@@ -21,6 +14,8 @@ import { actualizarEstadoPedido } from "@/services/pedidos";
 import { descargarPedidoZip } from "@/services/fotos";
 import { Separator } from "../ui/separator";
 import { config } from "@/lib/config";
+import { EstadoBadge } from "../EstadoBadge";
+import { SelectorEstadoPedido } from "./SelectorEstadoPedido";
 
 interface OrderDialogProps {
   order: AdmiOrder;
@@ -176,28 +171,11 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
     }
   };
 
-  const handleSaveChanges = async () => {
-    setIsUpdating(true);
-    try {
-      // Actualizar el estado del pedido usando el servicio
-      // actualizarEstadoPedido devuelve AdmiOrder | null
-      const updatedOrder = await actualizarEstadoPedido(orderId, selectedStatus);
-
-      if (updatedOrder) {
-        console.log("Estado del pedido actualizado exitosamente");
-        setOpen(false);
-        // Notificar al padre para refrescar la lista
-        onOrderUpdated?.();
-      } else {
-        console.error("Error al actualizar el estado del pedido");
-        alert("Error al actualizar el estado del pedido");
-      }
-    } catch (error) {
-      console.error("Error updating order status:", error);
-      alert("Error al actualizar el estado del pedido");
-    } finally {
-      setIsUpdating(false);
-    }
+  // Ya no es necesario: el SelectorEstadoPedido maneja la actualización automáticamente
+  // Mantener esta función vacía para no romper el botón (o podríamos remover el botón)
+  const handleSaveChanges = () => {
+    // Los cambios se guardan automáticamente al cambiar el estado
+    setOpen(false);
   };
 
   // Descargar todas las fotos del pedido en ZIP
@@ -337,18 +315,16 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-xs sm:text-sm font-semibold">Estado del Pedido</Label>
-            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pendiente">Pendiente</SelectItem>
-                <SelectItem value="En Proceso">En Proceso</SelectItem>
-                <SelectItem value="Enviado">Enviado</SelectItem>
-                <SelectItem value="Entregado">Entregado</SelectItem>
-                <SelectItem value="Cancelado">Cancelado</SelectItem>
-              </SelectContent>
-            </Select>
+            <SelectorEstadoPedido
+              pedidoId={orderId}
+              estadoActual={selectedStatus}
+              onEstadoCambiado={(nuevoEstado) => {
+                setSelectedStatus(nuevoEstado);
+                // Opcional: refrescar automáticamente después de cambiar
+                onOrderUpdated?.();
+              }}
+              disabled={isUpdating}
+            />
           </div>
           <div className="space-y-2">
             <Label className="text-xs sm:text-sm font-semibold">Total del Pedido</Label>
@@ -522,11 +498,8 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
         </div>
       </div>
       <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end pt-4">
-        <Button onClick={handleSaveChanges} disabled={isUpdating} className="w-full sm:w-auto text-sm">
-          {isUpdating ? "Actualizando..." : "Guardar cambios"}
-        </Button>
-        <Button variant="outline" onClick={() => setOpen(false)} disabled={isUpdating} className="w-full sm:w-auto text-sm">
-          Cancelar
+        <Button onClick={() => setOpen(false)} className="w-full sm:w-auto text-sm">
+          Cerrar
         </Button>
       </DialogFooter>
     </DialogContent>

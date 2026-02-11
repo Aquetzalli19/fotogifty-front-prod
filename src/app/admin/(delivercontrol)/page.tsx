@@ -11,14 +11,18 @@ import {
 } from "@/components/ui/select";
 import OrderCard from "@/components/admin/OrderCard";
 import { obtenerTodosPedidos } from "@/services/pedidos";
+import { obtenerEstadosPedido } from "@/services/estados-pedido";
 import { AdmiOrder } from "@/interfaces/order-summary";
+import { EstadoPedido } from "@/interfaces/estado-pedido";
 import { config } from "@/lib/config";
 import { mockOrders } from "@/test-data/admi-mockOrders";
 import { Loader2, PackageX } from "lucide-react";
 
 const Page = () => {
   const [allOrders, setAllOrders] = useState<AdmiOrder[]>([]);
+  const [estados, setEstados] = useState<EstadoPedido[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingEstados, setIsLoadingEstados] = useState(true);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [activeTab, setActiveTab] = useState("all");
 
@@ -44,6 +48,26 @@ const Page = () => {
     }
   };
 
+  // Cargar estados disponibles
+  useEffect(() => {
+    const loadEstados = async () => {
+      setIsLoadingEstados(true);
+      try {
+        const response = await obtenerEstadosPedido(false); // Solo activos
+        if (response.success && response.data) {
+          // Ordenar por campo 'orden'
+          const sortedEstados = response.data.sort((a, b) => a.orden - b.orden);
+          setEstados(sortedEstados);
+        }
+      } catch (error) {
+        console.error("Error al cargar estados:", error);
+      } finally {
+        setIsLoadingEstados(false);
+      }
+    };
+    loadEstados();
+  }, []);
+
   // Cargar pedidos al montar
   useEffect(() => {
     loadOrders();
@@ -53,8 +77,8 @@ const Page = () => {
   const getStatus = (order: AdmiOrder) => order.estado ?? order.status;
 
   // COMPUTAR DATOS DERIVADOS DURANTE RENDER usando useMemo
-  // Reemplaza múltiples estados + useEffect (anti-patrón)
-  const { sortedAllOrders, pendingOrders, inProgressOrders, sentOrders, deliveredOrders, cancelledOrders } = useMemo(() => {
+  // Filtros dinámicos basados en estados de la BD
+  const ordersByEstado = useMemo(() => {
     const sortFn = (orders: AdmiOrder[]): AdmiOrder[] => {
       return [...orders].sort((a, b) => {
         const dateA = new Date(a.fecha_pedido).getTime();
@@ -64,15 +88,21 @@ const Page = () => {
       });
     };
 
-    return {
-      sortedAllOrders: sortFn(allOrders),
-      pendingOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Pendiente")),
-      inProgressOrders: sortFn(allOrders.filter((order) => getStatus(order) === "En Proceso")),
-      sentOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Enviado")),
-      deliveredOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Entregado")),
-      cancelledOrders: sortFn(allOrders.filter((order) => getStatus(order) === "Cancelado")),
+    // Crear objeto con "all" + un filtro por cada estado
+    const result: Record<string, AdmiOrder[]> = {
+      all: sortFn(allOrders),
     };
-  }, [allOrders, sortOrder]);
+
+    // Generar filtros dinámicos para cada estado
+    estados.forEach((estado) => {
+      const tabKey = estado.nombre.toLowerCase().replace(/\s+/g, "-");
+      result[tabKey] = sortFn(
+        allOrders.filter((order) => getStatus(order) === estado.nombre)
+      );
+    });
+
+    return result;
+  }, [allOrders, estados, sortOrder]);
 
   return (
     <div className="p-2 md:p-4">
@@ -109,21 +139,14 @@ const Page = () => {
               <SelectItem value="all" className="text-base sm:text-lg">
                 Todos los pedidos
               </SelectItem>
-              <SelectItem value="pending" className="text-base sm:text-lg">
-                Pendientes
-              </SelectItem>
-              <SelectItem value="inprogress" className="text-base sm:text-lg">
-                En Proceso
-              </SelectItem>
-              <SelectItem value="sent" className="text-base sm:text-lg">
-                Enviados
-              </SelectItem>
-              <SelectItem value="delivered" className="text-base sm:text-lg">
-                Entregados
-              </SelectItem>
-              <SelectItem value="cancelled" className="text-base sm:text-lg">
-                Cancelados
-              </SelectItem>
+              {estados.map((estado) => {
+                const tabKey = estado.nombre.toLowerCase().replace(/\s+/g, "-");
+                return (
+                  <SelectItem key={estado.id} value={tabKey} className="text-base sm:text-lg">
+                    {estado.nombre}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
@@ -132,108 +155,71 @@ const Page = () => {
           <div className="overflow-x-auto scrollbar-hide">
             <TabsList className="w-full min-w-max flex space-x-2 pb-0 transition-all">
               <TabsTrigger value="all">Todos</TabsTrigger>
-              <TabsTrigger value="pending">Pendientes</TabsTrigger>
-              <TabsTrigger value="inprogress">En Proceso</TabsTrigger>
-              <TabsTrigger value="sent">Enviados</TabsTrigger>
-              <TabsTrigger value="delivered">Entregados</TabsTrigger>
-              <TabsTrigger value="cancelled">Cancelados</TabsTrigger>
+              {estados.map((estado) => {
+                const tabKey = estado.nombre.toLowerCase().replace(/\s+/g, "-");
+                return (
+                  <TabsTrigger key={estado.id} value={tabKey}>
+                    {estado.nombre}
+                  </TabsTrigger>
+                );
+              })}
             </TabsList>
           </div>
         </div>
 
         <div className="w-full md:-mt-2">
           <div className="w-full min-h-[60vh] sm:min-h-[70vh] md:min-h-[80vh] bg-dark rounded-2xl rounded-t-none p-2 sm:p-4">
-            {isLoading ? (
+            {isLoading || isLoadingEstados ? (
               <div className="flex flex-col items-center justify-center py-12 sm:py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <p className="text-sm text-muted-foreground mt-4">Cargando pedidos...</p>
               </div>
             ) : (
               <>
+                {/* Tab "Todos" */}
                 <TabsContent value="all" className="m-0">
-                  {sortedAllOrders.length === 0 ? (
+                  {ordersByEstado.all?.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
                       <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
                       <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos registrados</p>
                     </div>
                   ) : (
                     <div className="space-y-2 sm:space-y-4">
-                      {sortedAllOrders.map((order, index) => (
+                      {ordersByEstado.all?.map((order, index) => (
                         <OrderCard key={order.orderId ?? `order-${index}`} order={order} onOrderUpdated={loadOrders} />
                       ))}
                     </div>
                   )}
                 </TabsContent>
-                <TabsContent value="pending" className="m-0">
-                  {pendingOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
-                      <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos pendientes</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 sm:space-y-4">
-                      {pendingOrders.map((order, index) => (
-                        <OrderCard key={order.orderId ?? `pending-${index}`} order={order} onOrderUpdated={loadOrders} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent value="inprogress" className="m-0">
-                  {inProgressOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
-                      <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos en proceso</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 sm:space-y-4">
-                      {inProgressOrders.map((order, index) => (
-                        <OrderCard key={order.orderId ?? `inprogress-${index}`} order={order} onOrderUpdated={loadOrders} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent value="sent" className="m-0">
-                  {sentOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
-                      <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos enviados</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 sm:space-y-4">
-                      {sentOrders.map((order, index) => (
-                        <OrderCard key={order.orderId ?? `sent-${index}`} order={order} onOrderUpdated={loadOrders} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent value="delivered" className="m-0">
-                  {deliveredOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
-                      <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos entregados</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 sm:space-y-4">
-                      {deliveredOrders.map((order, index) => (
-                        <OrderCard key={order.orderId ?? `delivered-${index}`} order={order} onOrderUpdated={loadOrders} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-                <TabsContent value="cancelled" className="m-0">
-                  {cancelledOrders.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
-                      <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-base sm:text-lg text-muted-foreground">No hay pedidos cancelados</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 sm:space-y-4">
-                      {cancelledOrders.map((order, index) => (
-                        <OrderCard key={order.orderId ?? `cancelled-${index}`} order={order} onOrderUpdated={loadOrders} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
+
+                {/* Tabs dinámicos por cada estado */}
+                {estados.map((estado) => {
+                  const tabKey = estado.nombre.toLowerCase().replace(/\s+/g, "-");
+                  const orders = ordersByEstado[tabKey] || [];
+
+                  return (
+                    <TabsContent key={estado.id} value={tabKey} className="m-0">
+                      {orders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 sm:py-20 text-center">
+                          <PackageX className="h-12 w-12 text-muted-foreground mb-4" />
+                          <p className="text-base sm:text-lg text-muted-foreground">
+                            No hay pedidos con estado &quot;{estado.nombre}&quot;
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 sm:space-y-4">
+                          {orders.map((order, index) => (
+                            <OrderCard
+                              key={order.orderId ?? `${tabKey}-${index}`}
+                              order={order}
+                              onOrderUpdated={loadOrders}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </TabsContent>
+                  );
+                })}
               </>
             )}
           </div>

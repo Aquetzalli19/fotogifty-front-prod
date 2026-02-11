@@ -18,13 +18,15 @@ interface CalendarTemplateUploaderProps {
   onChange: (templates: Record<number, File | null>, dimensions: { width: number; height: number }) => void;
   resolution?: number; // DPI default 300
   disabled?: boolean;
+  currentTemplates?: Record<number, string>; // URLs de los templates existentes en el backend (modo edición)
 }
 
 export function CalendarTemplateUploader({
   value,
   onChange,
   resolution = 300,
-  disabled = false
+  disabled = false,
+  currentTemplates = {}
 }: CalendarTemplateUploaderProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +38,38 @@ export function CalendarTemplateUploader({
     heightPx: number;
   } | null>(null);
   const [isExpanded, setIsExpanded] = useState(true);
-  const [uploadedCount, setUploadedCount] = useState(0);
+  const [uploadedCount, setUploadedCount] = useState(() => {
+    // Contar templates existentes al inicio
+    return Object.keys(currentTemplates).length + Object.values(value).filter(f => f !== null).length;
+  });
+
+  // Cargar dimensiones de los templates existentes (ahora con URLs frescas del backend)
+  useState(() => {
+    const existingKeys = Object.keys(currentTemplates);
+    if (existingKeys.length > 0 && !dimensions) {
+      // Tomar el primer template existente para obtener dimensiones
+      const firstUrl = currentTemplates[Number(existingKeys[0])];
+      if (firstUrl) {
+        const img = document.createElement('img');
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const widthInches = Number((img.width / resolution).toFixed(2));
+          const heightInches = Number((img.height / resolution).toFixed(2));
+          setDimensions({
+            width: widthInches,
+            height: heightInches,
+            widthPx: img.width,
+            heightPx: img.height
+          });
+        };
+        img.onerror = (e) => {
+          console.error('Error cargando template existente:', e);
+          // Si falla, no es crítico - el backend tiene las dimensiones
+        };
+        img.src = firstUrl;
+      }
+    }
+  });
 
   const handleFileSelect = async (monthNumber: number, file: File | null) => {
     if (!file) return;
@@ -199,7 +232,7 @@ export function CalendarTemplateUploader({
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">
                 {uploadedCount === 12 ? '✅' : uploadedCount > 0 ? '⚠️' : '📅'}
-                {' '}Templates cargados: <strong>{uploadedCount}/12</strong>
+                {' '}Templates disponibles: <strong>{uploadedCount}/12</strong>
               </p>
               {uploadedCount > 0 && (
                 <Button
@@ -228,12 +261,14 @@ export function CalendarTemplateUploader({
               const monthName = MONTH_NAMES[i];
               const hasFile = value[monthNumber] !== null;
               const preview = previews[monthNumber];
+              const existingUrl = currentTemplates[monthNumber];
+              const hasExisting = existingUrl && !hasFile;
 
               return (
                 <div key={monthNumber} className="border rounded-lg p-3 space-y-2">
                   <Label className="text-sm font-medium">{monthName}</Label>
 
-                  {!hasFile ? (
+                  {!hasFile && !hasExisting ? (
                     <div className="border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
                       <Input
                         id={`template-upload-${monthNumber}`}
@@ -256,7 +291,51 @@ export function CalendarTemplateUploader({
                         </span>
                       </Label>
                     </div>
+                  ) : hasExisting ? (
+                    // Mostrar template existente del backend con botón de reemplazo
+                    <div className="relative border rounded-lg overflow-hidden bg-white">
+                      <div className="relative w-full h-24">
+                        <Image
+                          src={existingUrl}
+                          alt={`Template ${monthName}`}
+                          fill
+                          className="object-cover"
+                          unoptimized
+                        />
+                      </div>
+                      <div className="absolute top-1 right-1">
+                        <Input
+                          id={`template-upload-replace-${monthNumber}`}
+                          type="file"
+                          accept=".png,image/png"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileSelect(monthNumber, file);
+                          }}
+                          disabled={disabled || isProcessing}
+                          className="hidden"
+                        />
+                        <Label htmlFor={`template-upload-replace-${monthNumber}`} asChild>
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="icon"
+                            className="h-6 w-6"
+                            disabled={disabled || isProcessing}
+                            title="Reemplazar template"
+                          >
+                            <Upload className="h-3 w-3" />
+                          </Button>
+                        </Label>
+                      </div>
+                      <div className="absolute bottom-1 left-1">
+                        <div className="bg-blue-600 text-white px-2 py-0.5 rounded text-xs font-medium">
+                          Actual
+                        </div>
+                      </div>
+                    </div>
                   ) : (
+                    // Mostrar template nuevo cargado
                     <div className="relative border rounded-lg overflow-hidden bg-white">
                       <div className="relative w-full h-24">
                         {preview && (
@@ -285,7 +364,7 @@ export function CalendarTemplateUploader({
                       <div className="absolute bottom-1 left-1">
                         <div className="bg-green-600 text-white px-2 py-0.5 rounded text-xs font-medium">
                           <CheckCircle2 className="h-3 w-3 inline mr-1" />
-                          OK
+                          Nuevo
                         </div>
                       </div>
                     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { itemPackages } from "@/interfaces/admi-items";
@@ -41,6 +41,10 @@ import {
 } from "@/components/ui/select";
 import { Upload, X, ImageIcon } from "lucide-react";
 import Image from "next/image";
+import { getEditorType } from "@/lib/category-utils";
+import { TemplateUploader } from "@/components/admin/TemplateUploader";
+import { CalendarTemplateUploader } from "@/components/admin/CalendarTemplateUploader";
+import { Badge } from "@/components/ui/badge";
 
 interface EditItemDialogProps {
   item: itemPackages;
@@ -57,6 +61,12 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
   const [nuevaImagen, setNuevaImagen] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [imagenActual, setImagenActual] = useState<string | null>(null);
+
+  // Estados para templates (Polaroid y Calendar)
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [currentTemplateUrl, setCurrentTemplateUrl] = useState<string | null>(null);
+  const [calendarTemplates, setCalendarTemplates] = useState<Record<number, File | null>>({});
+  const [currentCalendarTemplates, setCurrentCalendarTemplates] = useState<Record<number, string>>({});
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -75,6 +85,16 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
       photoHeight: item.photoHeight || 15,
     },
   });
+
+  // Detectar el tipo de editor basándose en la categoría seleccionada
+  const selectedCategory = form.watch('productClasification');
+  const editorType = useMemo(() => {
+    if (!selectedCategory) return 'standard';
+    return getEditorType(selectedCategory);
+  }, [selectedCategory]);
+
+  // Determinar si se debe mostrar el template uploader
+  const showTemplateUploader = editorType === 'calendar' || editorType === 'polaroid';
 
   // Cargar categorías
   useEffect(() => {
@@ -115,6 +135,13 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
       setImagenActual(item.imagen_url || null);
       setPreview(null);
       setNuevaImagen(null);
+
+      // Cargar templates existentes
+      setCurrentTemplateUrl(item.template_url || null);
+      setTemplateFile(null);
+
+      setCurrentCalendarTemplates(item.templates_calendario || {});
+      setCalendarTemplates({});
     }
   }, [item, form]);
 
@@ -149,6 +176,7 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
     setPreview(null);
   };
 
+
   const onSubmit = async (data: ItemPackageSchemaType) => {
     setIsUpdating(true);
 
@@ -179,9 +207,17 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
 
       console.log("Datos a actualizar:", JSON.stringify(paqueteData, null, 2));
       console.log("Nueva imagen:", nuevaImagen ? nuevaImagen.name : "Sin cambios en imagen");
+      console.log("Template Polaroid:", templateFile ? templateFile.name : "Sin cambios");
+      console.log("Templates Calendar:", Object.keys(calendarTemplates).length > 0 ? `${Object.keys(calendarTemplates).length} archivos` : "Sin cambios");
 
-      // Usar actualizarPaqueteConImagen en lugar de actualizarPaquete
-      const response = await actualizarPaqueteConImagen(item.id, paqueteData, nuevaImagen || undefined);
+      // Usar actualizarPaqueteConImagen con templates
+      const response = await actualizarPaqueteConImagen(
+        item.id,
+        paqueteData,
+        nuevaImagen || undefined,
+        templateFile || undefined,
+        Object.keys(calendarTemplates).length > 0 ? calendarTemplates : undefined
+      );
 
       if (response.success) {
         success(`Paquete "${data.packageName}" actualizado exitosamente`);
@@ -219,6 +255,26 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
             <DialogDescription>
               Modifica la información del paquete aquí.
             </DialogDescription>
+            {/* Badge indicador del tipo de editor */}
+            {selectedCategory && (
+              <div className="flex gap-2 pt-2">
+                {editorType === 'standard' && (
+                  <Badge variant="outline" className="bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                    📐 Tipo de editor: Estándar (dimensiones personalizables)
+                  </Badge>
+                )}
+                {editorType === 'calendar' && (
+                  <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700">
+                    📝 Tipo de editor: Calendario (12 meses)
+                  </Badge>
+                )}
+                {editorType === 'polaroid' && (
+                  <Badge variant="outline" className="bg-pink-100 dark:bg-pink-900/50 text-pink-800 dark:text-pink-300 border-pink-300 dark:border-pink-700">
+                    📷 Tipo de editor: Polaroid (marco fotográfico)
+                  </Badge>
+                )}
+              </div>
+            )}
           </DialogHeader>
           <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -297,6 +353,41 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
                 )}
               </div>
             </div>
+
+            {/* Sección de Template Uploader - SOLO para Polaroid */}
+            {showTemplateUploader && editorType === 'polaroid' && (
+              <TemplateUploader
+                value={templateFile}
+                onChange={(file, dimensions) => {
+                  setTemplateFile(file);
+                  // Actualizar automáticamente los campos de dimensiones
+                  if (dimensions.width > 0) {
+                    form.setValue('photoWidth', dimensions.width);
+                    form.setValue('photoHeight', dimensions.height);
+                  }
+                }}
+                resolution={form.watch('photoResolution') || 300}
+                currentTemplateUrl={currentTemplateUrl}
+              />
+            )}
+
+            {/* Sección de Templates de Calendario - SOLO para Calendar */}
+            {showTemplateUploader && editorType === 'calendar' && (
+              <CalendarTemplateUploader
+                value={calendarTemplates}
+                onChange={(templates, dimensions) => {
+                  setCalendarTemplates(templates);
+                  // Actualizar automáticamente los campos de dimensiones
+                  const hasAny = Object.values(templates).some(f => f !== null);
+                  if (hasAny && dimensions.width > 0) {
+                    form.setValue('photoWidth', dimensions.width);
+                    form.setValue('photoHeight', dimensions.height);
+                  }
+                }}
+                resolution={form.watch('photoResolution') || 300}
+                currentTemplates={currentCalendarTemplates}
+              />
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
@@ -409,51 +500,64 @@ const EditItemDialog = ({ item, open, setClose }: EditItemDialogProps) => {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="photoWidth"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ancho de foto (pulgadas)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        step="0.1"
-                        placeholder="Ej. 10.5"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* SOLO visible para Standard (impresiones/ampliaciones) */}
+              {editorType === 'standard' && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="photoWidth"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Ancho de foto (pulgadas)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            placeholder="Ej. 10.5"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseFloat(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="photoHeight"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Alto de foto (pulgadas)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="1"
-                        step="0.1"
-                        placeholder="Ej. 15.2"
-                        {...field}
-                        onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value))
-                        }
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="photoHeight"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Alto de foto (pulgadas)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="0.1"
+                            placeholder="Ej. 15.2"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(parseFloat(e.target.value))
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+
+              {/* Campos hidden para Calendar y Polaroid */}
+              {editorType !== 'standard' && (
+                <>
+                  <input type="hidden" {...form.register('photoWidth')} />
+                  <input type="hidden" {...form.register('photoHeight')} />
+                </>
+              )}
 
               <FormField
                 control={form.control}

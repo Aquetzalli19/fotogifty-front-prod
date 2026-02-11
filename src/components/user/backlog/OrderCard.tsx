@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -7,7 +7,6 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -20,6 +19,9 @@ import {
 import { AdmiOrder } from "@/interfaces/order-summary";
 import { Package, Calendar, Hash, Image as ImageIcon } from "lucide-react";
 import Image from "next/image";
+import { EstadoBadge } from "@/components/EstadoBadge";
+import { obtenerEstadosPedido } from "@/services/estados-pedido";
+import { EstadoPedido } from "@/interfaces/estado-pedido";
 
 interface OrderCardProps {
   order: AdmiOrder;
@@ -27,6 +29,27 @@ interface OrderCardProps {
 
 export function OrderCard({ order }: OrderCardProps) {
   const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
+  const [estados, setEstados] = useState<EstadoPedido[]>([]);
+
+  // Cargar estados dinámicos desde la API
+  useEffect(() => {
+    const cargarEstados = async () => {
+      try {
+        const response = await obtenerEstadosPedido(false);
+        if (response.success && response.data) {
+          setEstados(response.data);
+        }
+      } catch (error) {
+        console.error("Error cargando estados:", error);
+      }
+    };
+
+    cargarEstados();
+  }, []);
+
+  // Encontrar el color del estado actual
+  const estadoActual = estados.find((e) => e.nombre === order.estado);
+  const colorEstado = estadoActual?.color;
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-MX", {
@@ -53,20 +76,6 @@ export function OrderCard({ order }: OrderCardProps) {
     }
   };
 
-  // Estilos para diferentes estados con soporte para modo oscuro
-  const statusStyles: Record<string, string> = {
-    "Pendiente": "bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600",
-    "En Proceso": "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700",
-    "Enviado": "bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700",
-    "En reparto": "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700",
-    "Entregado": "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300 border-green-300 dark:border-green-700",
-    "Cancelado": "bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-300 border-red-300 dark:border-red-700",
-  };
-
-  const getStatusStyle = (status: string) => {
-    return statusStyles[status] || "bg-gray-100 dark:bg-gray-800/50 text-gray-800 dark:text-gray-300 border-gray-300 dark:border-gray-600";
-  };
-
   return (
     <Card className="w-full max-w-2xl mx-auto border gap-2">
       <CardHeader className="pb-2">
@@ -75,12 +84,7 @@ export function OrderCard({ order }: OrderCardProps) {
             <Hash className="h-4 w-4" />
             Pedido #{order.id}
           </CardTitle>
-          <Badge
-            variant="outline"
-            className={`border ${getStatusStyle(order.estado)} text-sm`}
-          >
-            {order.estado}
-          </Badge>
+          <EstadoBadge nombre={order.estado} color={colorEstado} />
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />

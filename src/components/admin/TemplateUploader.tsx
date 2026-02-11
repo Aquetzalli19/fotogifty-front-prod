@@ -14,6 +14,7 @@ interface TemplateUploaderProps {
   onChange: (file: File | null, dimensions: { width: number; height: number }) => void;
   resolution?: number; // DPI default 300
   disabled?: boolean;
+  currentTemplateUrl?: string | null; // URL del template existente en el backend (modo edición)
 }
 
 export function TemplateUploader({
@@ -21,7 +22,8 @@ export function TemplateUploader({
   preview,
   onChange,
   resolution = 300,
-  disabled = false
+  disabled = false,
+  currentTemplateUrl = null
 }: TemplateUploaderProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,33 @@ export function TemplateUploader({
     widthPx: number;
     heightPx: number;
   } | null>(null);
+
+  // Cargar dimensiones del template existente (ahora con URLs frescas del backend)
+  useState(() => {
+    if (currentTemplateUrl && !value && !preview) {
+      setPreviewUrl(currentTemplateUrl);
+
+      // Cargar imagen para obtener dimensiones
+      // El backend ahora genera URLs firmadas frescas en cada request
+      const img = document.createElement('img');
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const widthInches = Number((img.width / resolution).toFixed(2));
+        const heightInches = Number((img.height / resolution).toFixed(2));
+        setDimensions({
+          width: widthInches,
+          height: heightInches,
+          widthPx: img.width,
+          heightPx: img.height
+        });
+      };
+      img.onerror = (e) => {
+        console.error('Error cargando template existente:', e);
+        // Si falla, no es crítico - el backend tiene las dimensiones
+      };
+      img.src = currentTemplateUrl;
+    }
+  });
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -171,7 +200,9 @@ export function TemplateUploader({
                 <div className="flex-1 space-y-3">
                   <div className="flex items-center gap-2 text-green-600">
                     <CheckCircle2 className="h-5 w-5" />
-                    <span className="text-sm font-semibold">Template cargado exitosamente</span>
+                    <span className="text-sm font-semibold">
+                      {value ? 'Template cargado exitosamente' : 'Template actual del paquete'}
+                    </span>
                   </div>
                   {dimensions && (
                     <div className="grid grid-cols-2 gap-3 text-sm">
@@ -192,17 +223,41 @@ export function TemplateUploader({
                   <p className="text-xs text-muted-foreground italic">
                     Este template se usará como base para el editor. Los usuarios podrán colocar sus fotos sobre él.
                   </p>
+                  {/* Botones para reemplazar o eliminar */}
+                  <div className="flex gap-2">
+                    <Input
+                      id="template-upload-replace"
+                      type="file"
+                      accept=".png,image/png"
+                      onChange={handleFileSelect}
+                      disabled={disabled || isProcessing}
+                      className="hidden"
+                    />
+                    <Label htmlFor="template-upload-replace" asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || isProcessing}
+                        className="cursor-pointer"
+                      >
+                        <Upload className="h-3 w-3 mr-2" />
+                        Reemplazar
+                      </Button>
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemove}
+                      disabled={disabled}
+                      title="Eliminar template"
+                    >
+                      <X className="h-3 w-3 mr-2" />
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleRemove}
-                  disabled={disabled}
-                  className="shrink-0"
-                  title="Eliminar template"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </div>
           </div>
