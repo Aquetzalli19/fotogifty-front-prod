@@ -125,6 +125,21 @@ export const useAuthStore = create<AuthState>()(
         userType: state.userType,
       }),
       onRehydrateStorage: () => (state) => {
+        // Validar que el token realmente exista en localStorage
+        // Si isAuthenticated es true pero no hay token, limpiar el estado
+        if (state && typeof window !== 'undefined') {
+          const storedToken = localStorage.getItem('auth_token');
+
+          if (state.isAuthenticated && !storedToken) {
+            // Token no existe pero isAuthenticated es true - limpiar estado
+            console.warn('🔒 Token no encontrado - limpiando estado de autenticación');
+            state.user = null;
+            state.token = null;
+            state.isAuthenticated = false;
+            state.userType = null;
+          }
+        }
+
         state?.setHasHydrated(true);
       }
     }

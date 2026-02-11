@@ -71,7 +71,7 @@ const BackgroundTab = ({
       )}
 
       <div className="relative">
-        <label className="text-xs">Color de fondo</label>
+        <label className="text-xs font-medium text-foreground">Color de fondo</label>
         <div
           className="p-2 border border-gray-300 dark:border-gray-600 rounded-md cursor-pointer"
           onClick={() => setDisplayColorPicker(!displayColorPicker)}

@@ -25,7 +25,15 @@ interface navBarProps {
 
 const NavBar = ({ sections }: navBarProps) => {
   const [opened, setOpened] = useState(false);
-  const { isAuthenticated, user, logout } = useAuthStore();
+  const { isAuthenticated, user, logout, _hasHydrated } = useAuthStore();
+  const [isReady, setIsReady] = useState(false);
+
+  // Esperar a que el store se hidrate antes de mostrar los datos del usuario
+  useEffect(() => {
+    if (_hasHydrated) {
+      setIsReady(true);
+    }
+  }, [_hasHydrated]);
 
   // Cerrar menú cuando cambia el tamaño de pantalla a desktop
   useEffect(() => {
@@ -107,7 +115,7 @@ const NavBar = ({ sections }: navBarProps) => {
             ))}
           </div>
 
-          {isAuthenticated ? (
+          {isReady && isAuthenticated ? (
             // Usuario logueado - mostrar menú de usuario
             <div className="flex flex-row items-center gap-3 ml-4">
               <Link
@@ -162,14 +170,8 @@ const NavBar = ({ sections }: navBarProps) => {
               </DropdownMenu>
             </div>
           ) : (
-            // Usuario no logueado - mostrar botón Ordenar + login/registro
+            // Usuario no logueado - mostrar solo login/registro
             <div className="flex flex-row gap-3 text-primary-foreground text-sm font-medium ml-4">
-              <Link
-                className="bg-accent text-accent-foreground rounded-lg px-4 py-2 hover:bg-accent/80 transition-colors border border-border"
-                href={"/user"}
-              >
-                Ordenar
-              </Link>
               <Link
                 className="bg-primary rounded-lg px-4 py-2 hover:bg-primary/80 transition-colors"
                 href={"/login"}
@@ -234,7 +236,7 @@ const NavBar = ({ sections }: navBarProps) => {
             ))}
           </div>
 
-          {isAuthenticated ? (
+          {isReady && isAuthenticated ? (
             // Usuario logueado - menú mobile
             <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
               <div className="flex items-center gap-3 px-4 py-2 mb-2">
@@ -293,13 +295,6 @@ const NavBar = ({ sections }: navBarProps) => {
           ) : (
             // Usuario no logueado - botones mobile
             <div className="flex flex-col gap-3 mt-4 pt-4 border-t border-border">
-              <Link
-                className="bg-accent text-accent-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-accent/80 transition-colors border border-border"
-                href={"/user"}
-                onClick={closeMenu}
-              >
-                Ordenar
-              </Link>
               <Link
                 className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
                 href={"/login"}

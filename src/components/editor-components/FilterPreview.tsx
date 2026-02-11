@@ -60,7 +60,7 @@ const FilterPreview: React.FC<FilterPreviewProps> = ({
 
   return (
     <div className="flex flex-col space-y-4">
-      <h3 className="text-sm font-medium">Filtros</h3>
+      <h3 className="text-sm font-medium text-foreground">Filtros</h3>
       <div className="flex space-x-2  py-2">
         {filters.map((filter) => (
           <div key={filter.id} className="flex flex-col items-center">
@@ -88,12 +88,12 @@ const FilterPreview: React.FC<FilterPreviewProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                    <span className="text-xs">No image</span>
+                    <span className="text-xs text-foreground/70">No image</span>
                   </div>
                 )}
               </div>
             </Button>
-            <span className="text-xs mt-1">{filter.name}</span>
+            <span className="text-xs mt-1 text-foreground">{filter.name}</span>
           </div>
         ))}
       </div>

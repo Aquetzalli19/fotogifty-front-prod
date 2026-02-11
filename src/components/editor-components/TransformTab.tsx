@@ -118,7 +118,7 @@ const TransformTab = ({
       {/* Orientación del Canvas - Solo mostrar si se proporciona el callback */}
       {canvasOrientation && onCanvasOrientationChange && (
         <div className="space-y-2">
-          <label className="text-sm font-medium text-primary">Orientación del Canvas</label>
+          <label className="text-sm font-medium text-foreground">Orientación del Canvas</label>
           <div className="flex gap-2">
             <Button
               type="button"
@@ -143,7 +143,7 @@ const TransformTab = ({
               <span className="hidden sm:inline">Horizontal</span>
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-foreground/70">
             Cambia la orientación de todo el lienzo de impresión
           </p>
         </div>
@@ -162,7 +162,7 @@ const TransformTab = ({
 
       {/* Rotación de imagen */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-primary">Rotación de Imagen</label>
+        <label className="text-sm font-medium text-foreground">Rotación de Imagen</label>
 
         {/* Botones de rotación rápida y input numérico */}
         <div className="flex gap-2 items-center">
@@ -191,7 +191,7 @@ const TransformTab = ({
               min="-180"
               max="180"
             />
-            <span className="text-xs text-muted-foreground">°</span>
+            <span className="text-xs text-foreground/70">°</span>
           </div>
 
           <Button
@@ -207,7 +207,7 @@ const TransformTab = ({
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-foreground/70">
           Rota solo la imagen dentro del canvas
         </p>
       </div>
