@@ -4,6 +4,38 @@
 
 This document describes the complete implementation of the **Custom PNG Template System** for FotoGifty, which allows administrators to upload custom templates instead of using hardcoded ones.
 
+**⚠️ IMPORTANT RESTRICTION**: The template upload feature is **ONLY available for Polaroid and Calendar editors**. For Standard editors (prints/enlargements), administrators must manually specify canvas dimensions.
+
+---
+
+## 📌 EDITOR TYPE RESTRICTIONS
+
+The template upload feature behaves differently based on the product category:
+
+### **Standard Editor** (Prints/Enlargements)
+- ❌ **NO template upload available**
+- ✅ Dimension fields (width/height) are **always visible and required**
+- 🎨 Used for: Print photos, enlargements, standard products
+- 📐 Canvas size: Manually specified by admin
+
+### **Calendar Editor**
+- ✅ **Template upload available (optional)**
+- 📁 If template uploaded: dimensions auto-calculated, fields hidden
+- 📏 If NO template: uses default calendar templates, fields visible
+- 🎨 Used for: Calendar products (12-month layouts)
+
+### **Polaroid Editor**
+- ✅ **Template upload available (optional)**
+- 📁 If template uploaded: dimensions auto-calculated, fields hidden
+- 📏 If NO template: uses default polaroid frame, fields visible
+- 🎨 Used for: Polaroid-style prints with frames
+
+### **Visual Indicator**
+When creating a package, admins see a colored badge indicating the detected editor type:
+- 🔵 **Blue**: Standard (Impresiones/Ampliaciones)
+- 🟣 **Purple**: Calendar
+- 🩷 **Pink**: Polaroid
+
 ---
 
 ## ✅ COMPLETED FEATURES
@@ -243,6 +275,17 @@ useEffect(() => {
 
 ## 🧪 TESTING GUIDE
 
+### Test Case 0: Editor Type Detection
+**Expected:** Correct editor type detected and appropriate UI shown
+1. Go to `/admin/addItem`
+2. Select category "Impresiones" → Should show blue badge "Estándar"
+3. Template uploader should be HIDDEN
+4. Dimension fields should be VISIBLE
+5. Select category "Calendario" → Should show purple badge "Calendario"
+6. Template uploader should be VISIBLE
+7. Select category "Polaroid" → Should show pink badge "Polaroid"
+8. Template uploader should be VISIBLE
+
 ### Test Case 1: Create Package Without Template
 **Expected:** Uses default hardcoded templates
 1. Go to `/admin/addItem`
@@ -279,6 +322,17 @@ useEffect(() => {
 2. Open calendar editor
 3. Switch between months
 4. All months should use same custom template
+
+### Test Case 6: Standard Editor (No Template Feature)
+**Expected:** Template uploader never appears for standard products
+1. Go to `/admin/addItem`
+2. Select category "Impresiones" or "Ampliaciones"
+3. Verify blue badge shows "Estándar (Impresiones/Ampliaciones)"
+4. Template uploader should NOT be visible
+5. Width and height fields should ALWAYS be visible
+6. Fill in dimensions manually (e.g., 4x6 inches)
+7. Save package
+8. Verify package works with standard editor
 
 ---
 
@@ -330,6 +384,19 @@ fotogifty-bucket/
 - Check `/calendarios2026/` folder exists
 - Ensure default templates are not deleted
 
+### Issue: Template uploader not showing
+**Solution:**
+- Check the selected category name
+- Only "Calendario", "Calendar", and "Polaroid" categories show the uploader
+- For "Impresiones", "Ampliaciones", or other categories: template feature is disabled by design
+- Verify category name matches pattern in `getEditorType()` function
+
+### Issue: Dimension fields not visible for Standard editor
+**Solution:**
+- This is correct behavior - dimensions should ALWAYS be visible for Standard editor
+- If they're hidden, check that editorType is correctly detected
+- Verify the conditional logic: `(editorType === 'standard' || !hasTemplate)`
+
 ---
 
 ## 📈 FUTURE ENHANCEMENTS
@@ -362,7 +429,19 @@ fotogifty-bucket/
 
 ## 📝 CHANGELOG
 
-### Version 1.0.0 (Current)
+### Version 1.2.0 (Current - 2026-02-11)
+- ✅ **CRITICAL FIX**: Changed from base64 data URLs to actual S3 file upload
+- ✅ **FEATURE**: Template uploader now conditional based on editor type
+- ✅ Visual indicator for detected editor type (color-coded badges)
+- ✅ Restricted template feature to Polaroid and Calendar only
+- ✅ Standard editor always shows dimension fields (no template support)
+
+### Version 1.1.0 (2026-02-11)
+- ✅ Fixed template upload to use File objects instead of base64
+- ✅ Added proper FormData multi-file upload (imagen + template)
+- ✅ Backend integration verified and working
+
+### Version 1.0.0 (Initial Release)
 - ✅ Initial implementation of custom template system
 - ✅ PNG upload with validation
 - ✅ Automatic dimension calculation
