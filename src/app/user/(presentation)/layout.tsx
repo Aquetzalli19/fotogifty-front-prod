@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import UserNavBar from "@/components/user/navbar/UserNavBar";
+import NavBar from "@/components/landing-page/navbar/NavBar";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { navbarLinks } from "@/interfaces/navbar";
 
 export const metadata: Metadata = {
   title: "FotoGifty",
@@ -15,13 +16,17 @@ export default function UserMainLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const sections: navbarLinks[] = [
+    { label: "Productos", href: "/user" },
+    { label: "Mi Carrito", href: "/user/cart" },
+    { label: "Mis Pedidos", href: "/user/backlog" },
+  ];
+
   return (
     <ProtectedRoute redirectTo="/login">
-      <div>
-        <div className="flex w-full flex-row bg-background">
-          <UserNavBar />
-          <main className="w-full lg:pl-64">{children}</main>
-        </div>
+      <div className="min-h-screen flex flex-col">
+        <NavBar sections={sections} />
+        <main className="flex-1 w-full">{children}</main>
       </div>
     </ProtectedRoute>
   );

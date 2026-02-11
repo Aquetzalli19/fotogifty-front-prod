@@ -7,6 +7,8 @@ import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
+import { useCartStore } from "@/stores/cart-store";
+import { useCustomizationStore } from "@/stores/customization-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,9 +52,27 @@ const NavBar = ({ sections }: navBarProps) => {
 
   const closeMenu = () => setOpened(false);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Sincronizar datos pendientes con el backend antes de limpiar
+    const validCustomizations = useCustomizationStore.getState().customizations
+      .filter((c) => c.cartItemId != null && !isNaN(c.cartItemId) && c.instanceIndex != null && !isNaN(c.instanceIndex));
+    try {
+      await Promise.all([
+        useCartStore.getState().syncToBackend(),
+        ...validCustomizations.map((c) =>
+          useCustomizationStore.getState().syncCustomizationToBackend(c.cartItemId, c.instanceIndex)
+        ),
+      ]);
+    } catch (e) {
+      console.warn('Error sincronizando antes de logout:', e);
+    }
+
+    // logout() limpia todos los datos locales
     logout();
     closeMenu();
+
+    // Redirigir al login
+    window.location.href = '/login';
   };
 
   return (
