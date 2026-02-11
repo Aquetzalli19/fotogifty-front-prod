@@ -539,10 +539,9 @@ const AddItemPage = () => {
             />
 
             {/* Campos de dimensiones */}
-            {/* Para Standard: siempre visible */}
-            {/* Para Polaroid: oculto si hay template */}
-            {/* Para Calendar: oculto si hay templates de calendario */}
-            {(editorType === 'standard' || (editorType === 'polaroid' && !hasTemplate) || (editorType === 'calendar' && !hasCalendarTemplates)) && (
+            {/* SOLO visible para Standard (impresiones/ampliaciones) */}
+            {/* Para Polaroid y Calendar: SIEMPRE ocultos (se auto-calculan del template o usan defaults) */}
+            {editorType === 'standard' && (
               <>
                 <FormField
                   control={form.control}
@@ -594,8 +593,10 @@ const AddItemPage = () => {
               </>
             )}
 
-            {/* Campos hidden para enviar al backend cuando hay template (solo para Calendar/Polaroid) */}
-            {((editorType === 'polaroid' && hasTemplate) || (editorType === 'calendar' && hasCalendarTemplates)) && (
+            {/* Campos hidden para Calendar y Polaroid */}
+            {/* Los valores se auto-completan cuando se sube template */}
+            {/* Si no hay template, se usan valores por defecto del sistema */}
+            {editorType !== 'standard' && (
               <>
                 <input type="hidden" {...form.register('photoWidth')} />
                 <input type="hidden" {...form.register('photoHeight')} />
