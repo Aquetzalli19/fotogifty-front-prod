@@ -31,6 +31,7 @@ import { useCustomizationStore, PolaroidCustomization } from "@/stores/customiza
 import { getEditorType } from "@/lib/category-utils";
 import { compressCanvas } from "@/lib/canvas-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import { obtenerPaquetePorId } from "@/services/packages";
 import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
 import EditorDisclaimer from "@/components/editor-components/EditorDisclaimer";
@@ -85,15 +86,17 @@ export default function PolaroidEditor() {
   const category = searchParams.get("category");
   const cartItemId = searchParams.get("cartItemId");
   const instanceIndex = searchParams.get("instanceIndex");
+  const packageId = searchParams.get("packageId");
   const maxPolaroids = parseInt(searchParams.get("quantity") || "10");
 
-  // Dimensiones del template PNG (fijas: 1200x1800)
-  const POLAROID_WIDTH = 1200;
-  const POLAROID_HEIGHT = 1800;
+  // Dimensiones del template PNG (dinámicas, se cargan del paquete)
+  const [POLAROID_WIDTH, setPolaroidWidth] = useState(1200); // Default 1200x1800
+  const [POLAROID_HEIGHT, setPolaroidHeight] = useState(1800);
+  const [templateUrl, setTemplateUrl] = useState<string>("/polaroid/Polaroid.png"); // Fallback al template por defecto
 
-  // Para metadatos de exportación
-  const widthInches = parseFloat(searchParams.get("width") || "4");
-  const heightInches = parseFloat(searchParams.get("height") || "5");
+  // Para metadatos de exportación (se cargan del paquete)
+  const [widthInches, setWidthInches] = useState(parseFloat(searchParams.get("width") || "4"));
+  const [heightInches, setHeightInches] = useState(parseFloat(searchParams.get("height") || "5"));
   const exportResolution = parseInt(searchParams.get("resolution") || "300"); // DPI
 
   // Detectar si estamos en modo "carrito"
@@ -198,18 +201,56 @@ export default function PolaroidEditor() {
     return total;
   }, [copiesUsed, currentImageSrc, editingPolaroidId, copiesToSave, currentCopiesWhenEditing]);
 
-  // Cargar template PNG al montar
+  // Cargar configuración del paquete (template + dimensiones)
   useEffect(() => {
-    const img = new Image();
-    img.src = "/polaroid/Polaroid.png";
+    const loadPackageTemplate = async () => {
+      if (!packageId) {
+        console.warn("No packageId provided, using default template");
+        return;
+      }
+
+      try {
+        const response = await obtenerPaquetePorId(parseInt(packageId));
+        if (response.success && response.data) {
+          const paquete = response.data;
+
+          // Si el paquete tiene template personalizado, usarlo
+          if (paquete.template_url) {
+            setTemplateUrl(paquete.template_url);
+          }
+
+          // Calcular dimensiones en píxeles desde inches y DPI
+          const widthPx = Math.round(paquete.ancho_foto * paquete.resolucion_foto);
+          const heightPx = Math.round(paquete.alto_foto * paquete.resolucion_foto);
+
+          setPolaroidWidth(widthPx);
+          setPolaroidHeight(heightPx);
+          setWidthInches(paquete.ancho_foto);
+          setHeightInches(paquete.alto_foto);
+
+          console.log(`Template cargado: ${widthPx}x${heightPx}px (${paquete.ancho_foto}x${paquete.alto_foto} inches @ ${paquete.resolucion_foto} DPI)`);
+        }
+      } catch (error) {
+        console.error("Error cargando configuración del paquete:", error);
+        // Usar valores por defecto
+      }
+    };
+
+    loadPackageTemplate();
+  }, [packageId]);
+
+  // Cargar template PNG (después de que templateUrl esté listo)
+  useEffect(() => {
+    const img = document.createElement('img');
+    img.src = templateUrl;
     img.onload = () => {
       templateImageRef.current = img;
       setTemplateLoaded(true);
     };
     img.onerror = () => {
-      console.error("Error cargando template de polaroid");
+      console.error("Error cargando template de polaroid desde:", templateUrl);
     };
-  }, []);
+  }, [templateUrl]);
 
   // Renderizar el canvas con el polaroid (patrón: foto → template overlay)
   const renderCanvas = () => {

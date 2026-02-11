@@ -42,6 +42,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCustomizationStore, CalendarCustomization } from "@/stores/customization-store";
 import { getEditorType } from "@/lib/category-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import { obtenerPaquetePorId } from "@/services/packages";
 import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
 import BackgroundTab from "@/components/editor-components/BackgroundTab";
@@ -84,8 +85,8 @@ const MONTHS_SHORT = [
   "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
 ];
 
-// Mapeo de mes (1-12) a archivo de calendario
-const MONTH_CALENDAR_FILES: Record<number, string> = {
+// Mapeo de mes (1-12) a archivo de calendario (FALLBACK - templates por defecto)
+const DEFAULT_MONTH_CALENDAR_FILES: Record<number, string> = {
   1: "/calendarios2026/1-ENERO 2026.png",
   2: "/calendarios2026/Calendario Febrero 2026.png",
   3: "/calendarios2026/3-MARZO 2026.png",
@@ -121,8 +122,13 @@ export default function CalendarEditor() {
   const category = searchParams.get("category");
   const cartItemId = searchParams.get("cartItemId");
   const instanceIndex = searchParams.get("instanceIndex");
+  const packageId = searchParams.get("packageId");
 
   const isCartMode = cartItemId !== null && instanceIndex !== null;
+
+  // Template dinámico del paquete (se usa para todos los meses si existe)
+  const [customTemplateUrl, setCustomTemplateUrl] = useState<string | null>(null);
+  const [monthCalendarFiles, setMonthCalendarFiles] = useState<Record<number, string>>(DEFAULT_MONTH_CALENDAR_FILES);
 
   // 📐 DIMENSIONES DEL CALENDARIO
   // Las dimensiones se obtienen del template cargado, NO del paquete
@@ -201,10 +207,43 @@ export default function CalendarEditor() {
 
   const { execute, undo, redo, canUndo, canRedo } = useHistory();
 
+  // Cargar template personalizado del paquete (si existe)
+  useEffect(() => {
+    const loadPackageTemplate = async () => {
+      if (!packageId) {
+        console.warn("No packageId provided, using default templates");
+        return;
+      }
+
+      try {
+        const response = await obtenerPaquetePorId(parseInt(packageId));
+        if (response.success && response.data && response.data.template_url) {
+          const templateUrl = response.data.template_url;
+          setCustomTemplateUrl(templateUrl);
+
+          // Usar el mismo template para todos los meses
+          const templates: Record<number, string> = {};
+          for (let i = 1; i <= 12; i++) {
+            templates[i] = templateUrl;
+          }
+          setMonthCalendarFiles(templates);
+
+          console.log(`✅ Template personalizado cargado para todos los meses: ${templateUrl}`);
+        } else {
+          console.log("ℹ️ No custom template found, using default calendar templates");
+        }
+      } catch (error) {
+        console.error("Error loading package template:", error);
+      }
+    };
+
+    loadPackageTemplate();
+  }, [packageId]);
+
   // Cargar imagen del template según el mes seleccionado
   useEffect(() => {
-    const img = new Image();
-    const calendarFile = MONTH_CALENDAR_FILES[selectedMonth];
+    const img = document.createElement('img');
+    const calendarFile = monthCalendarFiles[selectedMonth];
     img.src = calendarFile;
     img.onload = () => {
       templateImageRef.current = img;
@@ -1624,8 +1663,8 @@ export default function CalendarEditor() {
       }
 
       // 3. Cargar y dibujar el template del calendario encima
-      const templateImg = new Image();
-      const calendarFile = MONTH_CALENDAR_FILES[monthData.month];
+      const templateImg = document.createElement('img');
+      const calendarFile = monthCalendarFiles[monthData.month];
 
       await new Promise<void>((resolve, reject) => {
         templateImg.onload = () => resolve();
