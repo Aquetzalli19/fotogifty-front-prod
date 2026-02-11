@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
-import Slider from "react-slick";
+import useEmblaCarousel from "embla-carousel-react";
+import Autoplay from "embla-carousel-autoplay";
 import { LandingSectionComplete } from "@/interfaces/landing-content";
 
 interface heroProps {
@@ -16,16 +17,17 @@ const Hero = ({ slides, data }: heroProps) => {
   const section = data?.section;
   const carouselConfig = section?.configuracionExtra;
 
-  const settings = {
-    dots: false,
-    arrows: false,
-    autoplay: carouselConfig?.autoplay ?? true,
-    autoplaySpeed: carouselConfig?.autoplaySpeed ?? 3000,
-    infinite: carouselConfig?.infinite ?? true,
-    speed: carouselConfig?.transitionSpeed ?? 3000,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-  };
+  const autoplayEnabled = carouselConfig?.autoplay ?? true;
+  const autoplayDelay = carouselConfig?.autoplaySpeed ?? 3000;
+  const loopEnabled = carouselConfig?.infinite ?? true;
+
+  const [emblaRef] = useEmblaCarousel(
+    {
+      loop: loopEnabled,
+      duration: carouselConfig?.transitionSpeed ?? 3000,
+    },
+    autoplayEnabled ? [Autoplay({ delay: autoplayDelay, stopOnInteraction: false })] : []
+  );
 
   const titulo = section?.titulo || "Imprime y recibe tus fotos";
   const subtitulo = section?.subtitulo || "en pocos clics";
@@ -50,19 +52,22 @@ const Hero = ({ slides, data }: heroProps) => {
           </Button>
         </Link>
       </div>
-      <Slider {...settings}>
-        {slides.map((el, index) => (
-          <Image
-            src={el}
-            key={index}
-            alt="slide"
-            width={1440}
-            height={706}
-            unoptimized
-            className="w-full h-[60vh] md:h-[70vh] lg:h-screen max-w-full object-cover"
-          />
-        ))}
-      </Slider>
+      <div className="embla overflow-hidden h-[60vh] md:h-[70vh] lg:h-screen" ref={emblaRef}>
+        <div className="embla__container flex h-full">
+          {slides.map((el, index) => (
+            <div key={index} className="embla__slide flex-[0_0_100%] min-w-0 relative h-full">
+              <Image
+                src={el}
+                alt={`Slide ${index + 1}`}
+                fill
+                unoptimized
+                className="object-cover"
+                priority={index === 0}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 };
