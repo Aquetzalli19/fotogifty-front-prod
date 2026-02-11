@@ -30,6 +30,7 @@ import {
 import { Plus, Undo2, Loader2, Upload, X } from "lucide-react";
 import { AddCategoryDialog } from "@/components/admin/AddCategoryDialog";
 import { TemplateUploader } from "@/components/admin/TemplateUploader";
+import { CalendarTemplateUploader } from "@/components/admin/CalendarTemplateUploader";
 import { obtenerTodasCategorias, type Categoria } from "@/services/categories";
 import { crearPaqueteConImagen } from "@/services/packages";
 import { mockCategories } from "@/test-data/categories-mockdata";
@@ -52,9 +53,16 @@ const AddItemPage = () => {
   const [imagen, setImagen] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  // Estados para template
+  // Estados para template (Polaroid)
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [hasTemplate, setHasTemplate] = useState(false);
+
+  // Estados para templates de calendario (12 meses)
+  const [calendarTemplates, setCalendarTemplates] = useState<Record<number, File | null>>({
+    1: null, 2: null, 3: null, 4: null, 5: null, 6: null,
+    7: null, 8: null, 9: null, 10: null, 11: null, 12: null
+  });
+  const [hasCalendarTemplates, setHasCalendarTemplates] = useState(false);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -146,10 +154,22 @@ const AddItemPage = () => {
       // Log para debugging
       console.log("Datos a enviar:", JSON.stringify(paqueteData, null, 2));
       console.log("Imagen:", imagen ? imagen.name : "Sin imagen");
-      console.log("Template:", templateFile ? templateFile.name : "Sin template");
+      console.log("Editor type:", editorType);
 
-      // Usar crearPaqueteConImagen con imagen y template
-      const response = await crearPaqueteConImagen(paqueteData, imagen || undefined, templateFile || undefined);
+      if (editorType === 'polaroid') {
+        console.log("Template Polaroid:", templateFile ? templateFile.name : "Sin template");
+      } else if (editorType === 'calendar') {
+        const calendarCount = Object.values(calendarTemplates).filter(f => f !== null).length;
+        console.log("Templates Calendario:", calendarCount, "/12");
+      }
+
+      // Usar crearPaqueteConImagen con imagen y template/templates
+      const response = await crearPaqueteConImagen(
+        paqueteData,
+        imagen || undefined,
+        editorType === 'polaroid' ? templateFile || undefined : undefined,
+        editorType === 'calendar' ? calendarTemplates : undefined
+      );
 
       if (response.success) {
         success(`Paquete "${data.packageName}" creado exitosamente`);
@@ -285,7 +305,7 @@ const AddItemPage = () => {
           </div>
 
           {/* Sección de Template PNG - Solo para Polaroid y Calendar */}
-          {showTemplateUploader && (
+          {showTemplateUploader && editorType === 'polaroid' && (
             <TemplateUploader
               value={templateFile}
               onChange={(file, dimensions) => {
@@ -294,6 +314,24 @@ const AddItemPage = () => {
                 // Actualizar automáticamente los campos de dimensiones
                 form.setValue('photoWidth', dimensions.width);
                 form.setValue('photoHeight', dimensions.height);
+              }}
+              resolution={form.watch('photoResolution') || 300}
+            />
+          )}
+
+          {/* Sección de Templates de Calendario (12 meses) */}
+          {showTemplateUploader && editorType === 'calendar' && (
+            <CalendarTemplateUploader
+              value={calendarTemplates}
+              onChange={(templates, dimensions) => {
+                setCalendarTemplates(templates);
+                const hasAny = Object.values(templates).some(f => f !== null);
+                setHasCalendarTemplates(hasAny);
+                // Actualizar automáticamente los campos de dimensiones
+                if (hasAny) {
+                  form.setValue('photoWidth', dimensions.width);
+                  form.setValue('photoHeight', dimensions.height);
+                }
               }}
               resolution={form.watch('photoResolution') || 300}
             />
@@ -502,8 +540,9 @@ const AddItemPage = () => {
 
             {/* Campos de dimensiones */}
             {/* Para Standard: siempre visible */}
-            {/* Para Calendar/Polaroid: oculto si hay template */}
-            {(editorType === 'standard' || !hasTemplate) && (
+            {/* Para Polaroid: oculto si hay template */}
+            {/* Para Calendar: oculto si hay templates de calendario */}
+            {(editorType === 'standard' || (editorType === 'polaroid' && !hasTemplate) || (editorType === 'calendar' && !hasCalendarTemplates)) && (
               <>
                 <FormField
                   control={form.control}
@@ -556,7 +595,7 @@ const AddItemPage = () => {
             )}
 
             {/* Campos hidden para enviar al backend cuando hay template (solo para Calendar/Polaroid) */}
-            {hasTemplate && editorType !== 'standard' && (
+            {((editorType === 'polaroid' && hasTemplate) || (editorType === 'calendar' && hasCalendarTemplates)) && (
               <>
                 <input type="hidden" {...form.register('photoWidth')} />
                 <input type="hidden" {...form.register('photoHeight')} />

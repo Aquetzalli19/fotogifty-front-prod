@@ -22,7 +22,8 @@ export interface Paquete {
   ancho_foto: number;
   alto_foto: number;
   imagen_url?: string; // URL de la imagen del paquete en S3
-  template_url?: string; // URL del template PNG personalizado en S3
+  template_url?: string; // URL del template PNG personalizado para Polaroid
+  templates_calendario?: Record<number, string>; // URLs de los 12 templates de calendario (1-12)
 }
 
 /**
@@ -91,13 +92,19 @@ export async function crearPaquete(paquete: CrearPaqueteDTO) {
 }
 
 /**
- * Crea un nuevo paquete con imagen y template
+ * Crea un nuevo paquete con imagen y template(s)
  * @param paquete - Datos del paquete
  * @param imagen - Archivo de imagen del producto (opcional)
- * @param template - Archivo PNG del template (opcional)
- * @returns Paquete creado con imagen_url y template_url
+ * @param template - Archivo PNG del template para Polaroid (opcional)
+ * @param calendarTemplates - 12 archivos PNG para Calendar (opcional, uno por mes)
+ * @returns Paquete creado con imagen_url y template_url/templates_calendario
  */
-export async function crearPaqueteConImagen(paquete: CrearPaqueteDTO, imagen?: File, template?: File) {
+export async function crearPaqueteConImagen(
+  paquete: CrearPaqueteDTO,
+  imagen?: File,
+  template?: File,
+  calendarTemplates?: Record<number, File | null>
+) {
   const formData = new FormData();
 
   // Agregar imagen si existe
@@ -105,9 +112,19 @@ export async function crearPaqueteConImagen(paquete: CrearPaqueteDTO, imagen?: F
     formData.append('imagen', imagen);
   }
 
-  // Agregar template si existe
+  // Agregar template de Polaroid si existe
   if (template) {
     formData.append('template', template);
+  }
+
+  // Agregar templates de calendario si existen (12 archivos)
+  if (calendarTemplates) {
+    for (let mes = 1; mes <= 12; mes++) {
+      const file = calendarTemplates[mes];
+      if (file) {
+        formData.append(`template_mes_${mes}`, file);
+      }
+    }
   }
 
   // Agregar todos los campos del paquete
@@ -147,14 +164,21 @@ export async function actualizarPaquete(id: number, paquete: ActualizarPaqueteDT
 }
 
 /**
- * Actualiza un paquete existente con imagen y template
+ * Actualiza un paquete existente con imagen y template(s)
  * @param id - ID del paquete
  * @param paquete - Datos a actualizar
  * @param imagen - Archivo de imagen del producto (opcional) - si se provee, actualiza la imagen
- * @param template - Archivo PNG del template (opcional) - si se provee, actualiza el template
- * @returns Paquete actualizado con imagen_url y template_url
+ * @param template - Archivo PNG del template para Polaroid (opcional) - si se provee, actualiza el template
+ * @param calendarTemplates - 12 archivos PNG para Calendar (opcional, uno por mes)
+ * @returns Paquete actualizado con imagen_url y template_url/templates_calendario
  */
-export async function actualizarPaqueteConImagen(id: number, paquete: ActualizarPaqueteDTO, imagen?: File, template?: File) {
+export async function actualizarPaqueteConImagen(
+  id: number,
+  paquete: ActualizarPaqueteDTO,
+  imagen?: File,
+  template?: File,
+  calendarTemplates?: Record<number, File | null>
+) {
   const formData = new FormData();
 
   // Agregar imagen si existe
@@ -162,9 +186,19 @@ export async function actualizarPaqueteConImagen(id: number, paquete: Actualizar
     formData.append('imagen', imagen);
   }
 
-  // Agregar template si existe
+  // Agregar template de Polaroid si existe
   if (template) {
     formData.append('template', template);
+  }
+
+  // Agregar templates de calendario si existen (12 archivos)
+  if (calendarTemplates) {
+    for (let mes = 1; mes <= 12; mes++) {
+      const file = calendarTemplates[mes];
+      if (file) {
+        formData.append(`template_mes_${mes}`, file);
+      }
+    }
   }
 
   // Agregar todos los campos del paquete que estén definidos
