@@ -12,6 +12,7 @@ interface PolaroidsProps {
 const Polaroids = ({ bannerData, singleData, collageData }: PolaroidsProps) => {
   // Banner section data
   const bannerSection = bannerData?.section;
+  const bannerDescripcion = bannerSection?.descripcion || "Cada fotografía es impresa en";
   const bannerTextoPrimario = bannerSection?.textoPrimario || "papel lustre profesional";
   const bannerTextoSecundario = bannerSection?.textoSecundario || ", que realza los colores y los detalles con un acabado elegante y duradero.";
   const bannerColor = bannerSection?.colorPrimario || "#F5A524";
@@ -48,7 +49,7 @@ const Polaroids = ({ bannerData, singleData, collageData }: PolaroidsProps) => {
           style={{ backgroundColor: bannerColor }}
         >
           <p className="text-white">
-            Cada fotografía es impresa en{" "}
+            {bannerDescripcion}{" "}
             <span className="font-bold">{bannerTextoPrimario}</span>
             {bannerTextoSecundario.startsWith(",") ? bannerTextoSecundario : ` ${bannerTextoSecundario}`}
           </p>

@@ -11,6 +11,7 @@ const ProductSlider = ({ data }: ProductSliderProps) => {
   const section = data?.section;
   const slides = data?.slides || [];
 
+  const descripcion = section?.descripcion || "Cada fotografía es impresa en";
   const textoPrimario = section?.textoPrimario || "papel lustre profesional";
   const textoSecundario = section?.textoSecundario || ", que realza los colores y los detalles con un acabado elegante y duradero.";
 
@@ -48,7 +49,7 @@ const ProductSlider = ({ data }: ProductSliderProps) => {
     <section className=" w-full mb-10">
       <div className="w-full text-3xl text-center pr-12 pl-12 p-2 mt-6">
         <p>
-          Cada fotografía es impresa en{" "}
+          {descripcion}{" "}
           <span className=" text-primary font-bold">
             {textoPrimario}
           </span>{" "}

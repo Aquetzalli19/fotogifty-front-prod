@@ -225,6 +225,7 @@ function ProductSliderPreview({ values, slides }: { values: LandingSectionDTO; s
   return (
     <div className="space-y-4 p-4 bg-background rounded-lg">
       <p className="text-center text-lg">
+        {values.descripcion || "Cada fotografía es impresa en"}{" "}
         {values.textoPrimario && (
           <span style={{ color: values.colorPrimario || "#E04F8B" }} className="font-bold">
             {values.textoPrimario}
@@ -374,6 +375,7 @@ function PolaroidsBannerPreview({ values }: { values: LandingSectionDTO }) {
       style={{ backgroundColor: values.colorPrimario || "#F5A524" }}
     >
       <p className="text-white text-lg">
+        {values.descripcion || "Cada fotografía es impresa en"}{" "}
         <span className="font-bold">{values.textoPrimario}</span>
         {values.textoSecundario}
       </p>

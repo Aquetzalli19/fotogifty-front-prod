@@ -246,7 +246,7 @@ export const SECTION_METADATA: Record<SectionKey, SectionMetadata> = {
     hasOptions: false,
     slideType: 'product_slide',
     maxSlides: 10,
-    editableFields: ['textoPrimario', 'textoSecundario', 'configuracionExtra'],
+    editableFields: ['descripcion', 'textoPrimario', 'textoSecundario', 'configuracionExtra'],
   },
   legend: {
     key: 'legend',
@@ -288,7 +288,7 @@ export const SECTION_METADATA: Record<SectionKey, SectionMetadata> = {
     description: 'Banner de texto para sección Polaroids',
     hasSlides: false,
     hasOptions: false,
-    editableFields: ['textoPrimario', 'textoSecundario', 'colorPrimario'],
+    editableFields: ['descripcion', 'textoPrimario', 'textoSecundario', 'colorPrimario'],
   },
   polaroids_single: {
     key: 'polaroids_single',

@@ -59,6 +59,23 @@ export function SectionEditorForm({
     });
   };
 
+  // Character limits for text fields
+  const CHAR_LIMITS: Record<string, number> = {
+    titulo: 100,
+    subtitulo: 150,
+    descripcion: 200,
+    textoPrimario: 150,
+    textoSecundario: 200,
+    botonTexto: 50,
+    botonEnlace: 255,
+  };
+
+  const CharCounter = ({ value, max }: { value: string; max: number }) => (
+    <p className={`text-xs text-right ${value.length > max * 0.9 ? "text-amber-500" : "text-muted-foreground"}`}>
+      {value.length}/{max}
+    </p>
+  );
+
   const renderField = (field: keyof LandingSection) => {
     switch (field) {
       case "titulo":
@@ -71,8 +88,9 @@ export function SectionEditorForm({
               onChange={(e) => updateField("titulo", e.target.value || null)}
               placeholder="Título de la sección"
               disabled={disabled}
-              maxLength={255}
+              maxLength={CHAR_LIMITS.titulo}
             />
+            <CharCounter value={values.titulo || ""} max={CHAR_LIMITS.titulo} />
           </div>
         );
 
@@ -86,8 +104,10 @@ export function SectionEditorForm({
               onChange={(e) => updateField("subtitulo", e.target.value || null)}
               placeholder="Subtítulo de la sección"
               disabled={disabled}
+              maxLength={CHAR_LIMITS.subtitulo}
               rows={2}
             />
+            <CharCounter value={values.subtitulo || ""} max={CHAR_LIMITS.subtitulo} />
           </div>
         );
 
@@ -101,8 +121,10 @@ export function SectionEditorForm({
               onChange={(e) => updateField("descripcion", e.target.value || null)}
               placeholder="Descripción detallada"
               disabled={disabled}
+              maxLength={CHAR_LIMITS.descripcion}
               rows={3}
             />
+            <CharCounter value={values.descripcion || ""} max={CHAR_LIMITS.descripcion} />
           </div>
         );
 
@@ -116,8 +138,10 @@ export function SectionEditorForm({
               onChange={(e) => updateField("textoPrimario", e.target.value || null)}
               placeholder="Texto principal"
               disabled={disabled}
+              maxLength={CHAR_LIMITS.textoPrimario}
               rows={2}
             />
+            <CharCounter value={values.textoPrimario || ""} max={CHAR_LIMITS.textoPrimario} />
           </div>
         );
 
@@ -131,8 +155,10 @@ export function SectionEditorForm({
               onChange={(e) => updateField("textoSecundario", e.target.value || null)}
               placeholder="Texto secundario"
               disabled={disabled}
+              maxLength={CHAR_LIMITS.textoSecundario}
               rows={2}
             />
+            <CharCounter value={values.textoSecundario || ""} max={CHAR_LIMITS.textoSecundario} />
           </div>
         );
 
@@ -228,8 +254,9 @@ export function SectionEditorForm({
               onChange={(e) => updateField("botonTexto", e.target.value || null)}
               placeholder="Ordenar"
               disabled={disabled}
-              maxLength={100}
+              maxLength={CHAR_LIMITS.botonTexto}
             />
+            <CharCounter value={values.botonTexto || ""} max={CHAR_LIMITS.botonTexto} />
           </div>
         );
 
@@ -254,11 +281,14 @@ export function SectionEditorForm({
               onChange={(e) => updateField("botonEnlace", e.target.value || null)}
               placeholder="/login"
               disabled={disabled}
-              maxLength={255}
+              maxLength={CHAR_LIMITS.botonEnlace}
             />
-            <p className="text-xs text-muted-foreground">
-              URL relativa (ej: /login) o absoluta (ej: https://...)
-            </p>
+            <div className="flex justify-between">
+              <p className="text-xs text-muted-foreground">
+                URL relativa (ej: /login) o absoluta (ej: https://...)
+              </p>
+              <CharCounter value={values.botonEnlace || ""} max={CHAR_LIMITS.botonEnlace} />
+            </div>
           </div>
         );
 
