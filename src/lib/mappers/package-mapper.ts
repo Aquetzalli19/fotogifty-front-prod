@@ -17,6 +17,7 @@ export function mapPaqueteToItemPackage(paquete: Paquete, categoriaNombre?: stri
     photoWidth: paquete.ancho_foto,
     photoHeight: paquete.alto_foto,
     imagen_url: paquete.imagen_url, // Incluir la URL de la imagen
+    template_url: paquete.template_url, // Incluir la URL del template
   };
 }
 

@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/select";
 import { Plus, Undo2, Loader2, Upload, X } from "lucide-react";
 import { AddCategoryDialog } from "@/components/admin/AddCategoryDialog";
+import { TemplateUploader } from "@/components/admin/TemplateUploader";
 import { obtenerTodasCategorias, type Categoria } from "@/services/categories";
 import { crearPaqueteConImagen } from "@/services/packages";
 import { mockCategories } from "@/test-data/categories-mockdata";
@@ -49,6 +50,10 @@ const AddItemPage = () => {
   // Estados para imagen
   const [imagen, setImagen] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  // Estados para template
+  const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+  const [hasTemplate, setHasTemplate] = useState(false);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -267,6 +272,19 @@ const AddItemPage = () => {
             </div>
           </div>
 
+          {/* Sección de Template PNG */}
+          <TemplateUploader
+            value={templateUrl}
+            onChange={(url, dimensions) => {
+              setTemplateUrl(url);
+              setHasTemplate(url !== '');
+              // Actualizar automáticamente los campos de dimensiones
+              form.setValue('photoWidth', dimensions.width);
+              form.setValue('photoHeight', dimensions.height);
+            }}
+            resolution={form.watch('photoResolution') || 300}
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             <FormField
               control={form.control}
@@ -432,53 +450,66 @@ const AddItemPage = () => {
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="photoWidth"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Ancho de foto (pulgadas)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      placeholder="Ej. 10.5"
-                      value={field.value}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        field.onChange(value === "" ? "" : parseFloat(value));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Campos de dimensiones - Ocultos si hay template, pero aún se envían */}
+            {!hasTemplate && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="photoWidth"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Ancho de foto (pulgadas)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          placeholder="Ej. 10.5"
+                          value={field.value}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? "" : parseFloat(value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-            <FormField
-              control={form.control}
-              name="photoHeight"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Alto de foto (pulgadas)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      placeholder="Ej. 15.2"
-                      value={field.value}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        field.onChange(value === "" ? "" : parseFloat(value));
-                      }}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="photoHeight"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alto de foto (pulgadas)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0.01"
+                          step="any"
+                          placeholder="Ej. 15.2"
+                          value={field.value}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value === "" ? "" : parseFloat(value));
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </>
+            )}
+
+            {/* Campos hidden para enviar al backend cuando hay template */}
+            {hasTemplate && (
+              <>
+                <input type="hidden" {...form.register('photoWidth')} />
+                <input type="hidden" {...form.register('photoHeight')} />
+              </>
+            )}
 
             <FormField
               control={form.control}

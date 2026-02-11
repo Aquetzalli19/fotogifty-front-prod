@@ -10,4 +10,5 @@ export interface itemPackages {
   photoWidth: number;
   photoHeight: number;
   imagen_url?: string; // URL de la imagen del paquete en S3
+  template_url?: string; // URL del template PNG personalizado en S3
 }

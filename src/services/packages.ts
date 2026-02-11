@@ -22,6 +22,7 @@ export interface Paquete {
   ancho_foto: number;
   alto_foto: number;
   imagen_url?: string; // URL de la imagen del paquete en S3
+  template_url?: string; // URL del template PNG personalizado en S3
 }
 
 /**
