@@ -50,8 +50,8 @@ const ProductSlides = ({ slides, href = "/user" }: productSlidesProps) => {
               className="embla__slide flex-[0_0_100%] md:flex-[0_0_50%] lg:flex-[0_0_33.333%] min-w-0 px-2 md:px-3"
             >
               <Link href={href} className="group block">
-                <div className="flex flex-col items-center h-[400px] md:h-[420px] lg:h-[460px] py-6 px-4 bg-neutral-300/10 dark:bg-neutral-300/20 rounded-xl shadow-[0px_4px_6.70px_2px_rgba(0,0,0,0.15)] text-center transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1 cursor-pointer overflow-hidden">
-                  <div className="relative overflow-hidden rounded-2xl shrink-0 w-52 h-52 lg:w-64 lg:h-64">
+                <div className="flex flex-col items-center h-[450px] md:h-[420px] lg:h-[460px] py-6 px-4 bg-neutral-300/10 dark:bg-neutral-300/20 rounded-xl shadow-[0px_4px_6.70px_2px_rgba(0,0,0,0.15)] text-center transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1 cursor-pointer overflow-hidden">
+                  <div className="relative overflow-hidden rounded-2xl shrink-0 w-64 h-64 md:w-52 md:h-52 lg:w-64 lg:h-64">
                     <Image
                       alt={el.title}
                       src={el.image}
