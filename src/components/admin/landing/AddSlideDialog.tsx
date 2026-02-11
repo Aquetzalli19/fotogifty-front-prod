@@ -109,8 +109,11 @@ export function AddSlideDialog({
                 value={titulo}
                 onChange={(e) => setTitulo(e.target.value)}
                 placeholder="Título del producto"
-                maxLength={255}
+                maxLength={50}
               />
+              <p className={`text-xs text-right ${titulo.length > 45 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {titulo.length}/50
+              </p>
             </div>
           )}
 
@@ -122,9 +125,12 @@ export function AddSlideDialog({
                 value={descripcion}
                 onChange={(e) => setDescripcion(e.target.value)}
                 placeholder="Descripción del producto"
-                maxLength={500}
+                maxLength={100}
                 rows={3}
               />
+              <p className={`text-xs text-right ${descripcion.length > 90 ? "text-amber-500" : "text-muted-foreground"}`}>
+                {descripcion.length}/100
+              </p>
             </div>
           )}
 
