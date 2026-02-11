@@ -52,7 +52,7 @@ const AddItemPage = () => {
   const [preview, setPreview] = useState<string | null>(null);
 
   // Estados para template
-  const [templateUrl, setTemplateUrl] = useState<string | null>(null);
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [hasTemplate, setHasTemplate] = useState(false);
 
   // Toast notifications
@@ -135,9 +135,10 @@ const AddItemPage = () => {
       // Log para debugging
       console.log("Datos a enviar:", JSON.stringify(paqueteData, null, 2));
       console.log("Imagen:", imagen ? imagen.name : "Sin imagen");
+      console.log("Template:", templateFile ? templateFile.name : "Sin template");
 
-      // Usar crearPaqueteConImagen en lugar de crearPaquete
-      const response = await crearPaqueteConImagen(paqueteData, imagen || undefined);
+      // Usar crearPaqueteConImagen con imagen y template
+      const response = await crearPaqueteConImagen(paqueteData, imagen || undefined, templateFile || undefined);
 
       if (response.success) {
         success(`Paquete "${data.packageName}" creado exitosamente`);
@@ -274,10 +275,10 @@ const AddItemPage = () => {
 
           {/* Sección de Template PNG */}
           <TemplateUploader
-            value={templateUrl}
-            onChange={(url, dimensions) => {
-              setTemplateUrl(url);
-              setHasTemplate(url !== '');
+            value={templateFile}
+            onChange={(file, dimensions) => {
+              setTemplateFile(file);
+              setHasTemplate(file !== null);
               // Actualizar automáticamente los campos de dimensiones
               form.setValue('photoWidth', dimensions.width);
               form.setValue('photoHeight', dimensions.height);

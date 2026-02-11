@@ -91,17 +91,23 @@ export async function crearPaquete(paquete: CrearPaqueteDTO) {
 }
 
 /**
- * Crea un nuevo paquete con imagen
+ * Crea un nuevo paquete con imagen y template
  * @param paquete - Datos del paquete
- * @param imagen - Archivo de imagen (opcional)
- * @returns Paquete creado con imagen_url
+ * @param imagen - Archivo de imagen del producto (opcional)
+ * @param template - Archivo PNG del template (opcional)
+ * @returns Paquete creado con imagen_url y template_url
  */
-export async function crearPaqueteConImagen(paquete: CrearPaqueteDTO, imagen?: File) {
+export async function crearPaqueteConImagen(paquete: CrearPaqueteDTO, imagen?: File, template?: File) {
   const formData = new FormData();
 
   // Agregar imagen si existe
   if (imagen) {
     formData.append('imagen', imagen);
+  }
+
+  // Agregar template si existe
+  if (template) {
+    formData.append('template', template);
   }
 
   // Agregar todos los campos del paquete
@@ -141,18 +147,24 @@ export async function actualizarPaquete(id: number, paquete: ActualizarPaqueteDT
 }
 
 /**
- * Actualiza un paquete existente con imagen
+ * Actualiza un paquete existente con imagen y template
  * @param id - ID del paquete
  * @param paquete - Datos a actualizar
- * @param imagen - Archivo de imagen (opcional) - si se provee, actualiza la imagen
- * @returns Paquete actualizado con imagen_url
+ * @param imagen - Archivo de imagen del producto (opcional) - si se provee, actualiza la imagen
+ * @param template - Archivo PNG del template (opcional) - si se provee, actualiza el template
+ * @returns Paquete actualizado con imagen_url y template_url
  */
-export async function actualizarPaqueteConImagen(id: number, paquete: ActualizarPaqueteDTO, imagen?: File) {
+export async function actualizarPaqueteConImagen(id: number, paquete: ActualizarPaqueteDTO, imagen?: File, template?: File) {
   const formData = new FormData();
 
   // Agregar imagen si existe
   if (imagen) {
     formData.append('imagen', imagen);
+  }
+
+  // Agregar template si existe
+  if (template) {
+    formData.append('template', template);
   }
 
   // Agregar todos los campos del paquete que estén definidos

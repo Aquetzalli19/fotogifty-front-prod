@@ -9,20 +9,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import Image from 'next/image';
 
 interface TemplateUploaderProps {
-  value: string | null; // URL del template actual
-  onChange: (url: string, dimensions: { width: number; height: number }) => void;
+  value: File | null; // Archivo del template (File object)
+  preview?: string | null; // Preview URL (opcional, para mostrar templates existentes)
+  onChange: (file: File | null, dimensions: { width: number; height: number }) => void;
   resolution?: number; // DPI default 300
   disabled?: boolean;
 }
 
 export function TemplateUploader({
   value,
+  preview,
   onChange,
   resolution = 300,
   disabled = false
 }: TemplateUploaderProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(preview || null);
   const [dimensions, setDimensions] = useState<{
     width: number;
     height: number;
@@ -71,9 +74,12 @@ export function TemplateUploader({
           };
           setDimensions(dims);
 
-          // En producción, aquí subirías a S3 vía backend
-          const templateUrl = event.target?.result as string;
-          onChange(templateUrl, { width: widthInches, height: heightInches });
+          // Guardar preview URL para mostrar en UI
+          const dataUrl = event.target?.result as string;
+          setPreviewUrl(dataUrl);
+
+          // Pasar el File object (no el data URL) para que se suba al backend
+          onChange(file, { width: widthInches, height: heightInches });
           setIsProcessing(false);
         };
 
@@ -98,7 +104,8 @@ export function TemplateUploader({
   };
 
   const handleRemove = () => {
-    onChange('', { width: 0, height: 0 });
+    onChange(null, { width: 0, height: 0 });
+    setPreviewUrl(null);
     setDimensions(null);
     setError(null);
     // Reset file input
@@ -118,7 +125,7 @@ export function TemplateUploader({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!value ? (
+        {!value && !previewUrl ? (
           <div className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors">
             <Input
               id="template-upload"
@@ -154,7 +161,7 @@ export function TemplateUploader({
               <div className="flex items-start gap-4">
                 <div className="relative w-32 h-32 border rounded bg-white shrink-0">
                   <Image
-                    src={value}
+                    src={previewUrl || ''}
                     alt="Template preview"
                     fill
                     className="object-contain"
@@ -170,7 +177,7 @@ export function TemplateUploader({
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div className="space-y-1">
                         <p className="text-muted-foreground">Dimensiones en pulgadas:</p>
-                        <p className="font-medium">{dimensions.width}" × {dimensions.height}"</p>
+                        <p className="font-medium">{dimensions.width}&quot; × {dimensions.height}&quot;</p>
                       </div>
                       <div className="space-y-1">
                         <p className="text-muted-foreground">Dimensiones en píxeles:</p>
@@ -208,7 +215,7 @@ export function TemplateUploader({
           </div>
         )}
 
-        {value && (
+        {(value || previewUrl) && (
           <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
             <p className="text-sm text-blue-800 dark:text-blue-200">
               <strong>Nota:</strong> Las dimensiones calculadas se guardarán automáticamente. No necesitas ingresar manualmente el ancho y alto.
