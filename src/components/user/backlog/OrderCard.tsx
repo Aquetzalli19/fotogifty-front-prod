@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,14 +10,24 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AdmiOrder } from "@/interfaces/order-summary";
-import { Package, Calendar, Hash } from "lucide-react";
+import { Package, Calendar, Hash, Image as ImageIcon } from "lucide-react";
+import Image from "next/image";
 
 interface OrderCardProps {
   order: AdmiOrder;
 }
 
 export function OrderCard({ order }: OrderCardProps) {
+  const [isPhotosDialogOpen, setIsPhotosDialogOpen] = useState(false);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-MX", {
       style: "currency",
@@ -133,15 +144,77 @@ export function OrderCard({ order }: OrderCardProps) {
           </div>
         )}
 
-        {order.imagenes && order.imagenes.length > 0 && (
+        {(order.imagenes && order.imagenes.length > 0) || (order.fotos && order.fotos.length > 0) ? (
           <Button
             variant="secondary"
             className="bg-secondary/40 border border-secondary text-secondary hover:text-secondary-foreground w-full sm:w-auto"
+            onClick={() => setIsPhotosDialogOpen(true)}
           >
-            Ver fotos ({order.imagenes.length})
+            <ImageIcon className="h-4 w-4 mr-2" />
+            Ver fotos ({order.fotos?.length || order.imagenes?.length || 0})
           </Button>
-        )}
+        ) : null}
       </CardFooter>
+
+      {/* Dialog para ver fotos */}
+      <Dialog open={isPhotosDialogOpen} onOpenChange={setIsPhotosDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Fotos del Pedido #{order.id}</DialogTitle>
+            <DialogDescription>
+              {order.fotos?.length || order.imagenes?.length || 0} {(order.fotos?.length || order.imagenes?.length || 0) === 1 ? 'foto' : 'fotos'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+            {/* Priorizar fotos con metadata completa */}
+            {order.fotos && order.fotos.length > 0 ? (
+              order.fotos.map((foto, index) => (
+                <div key={foto.id || index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted">
+                  <Image
+                    src={foto.url}
+                    alt={foto.nombre_archivo || `Foto ${index + 1}`}
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                  {foto.cantidad_copias && foto.cantidad_copias > 1 && (
+                    <div className="absolute top-2 right-2 bg-primary text-primary-foreground px-2 py-1 rounded-md text-xs font-medium">
+                      {foto.cantidad_copias} copias
+                    </div>
+                  )}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs">
+                    <p className="truncate">{foto.nombre_archivo}</p>
+                    <p className="text-[10px] text-gray-300">
+                      {foto.ancho_foto}&quot; × {foto.alto_foto}&quot; • {foto.resolucion_foto} DPI
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : order.imagenes && order.imagenes.length > 0 ? (
+              // Fallback a imagenes (solo URLs)
+              order.imagenes.map((url, index) => (
+                <div key={index} className="relative aspect-square rounded-lg overflow-hidden border bg-muted">
+                  <Image
+                    src={url}
+                    alt={`Foto ${index + 1}`}
+                    fill
+                    className="object-contain"
+                    unoptimized
+                  />
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white p-2 text-xs text-center">
+                    Foto {index + 1}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="col-span-full text-center text-muted-foreground py-8">
+                No hay fotos disponibles
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
