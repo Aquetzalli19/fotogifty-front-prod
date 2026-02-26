@@ -542,7 +542,7 @@ export default function StandardEditor() {
 
       {/* Editor principal - solo visible después de aceptar disclaimer */}
       <div className="flex flex-col md:flex-row h-screen gap-2 p-4">
-      <div className="w-full h-fit md:w-72 md:h-full bg-dark rounded-md px-4 text-primary-foreground py-4 md:order-first order-last overflow-y-auto flex flex-col">
+      <div className="w-full h-fit md:w-72 md:h-full bg-muted rounded-md px-4 text-foreground py-4 md:order-first order-last overflow-y-auto flex flex-col">
         {/* Controles */}
         <div className="flex-1">
           <Accordion
@@ -553,7 +553,7 @@ export default function StandardEditor() {
           >
             <div className="flex flex-col">
             <AccordionItem value="transform">
-              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md text-foreground">
                 <Expand /> Transformar
               </AccordionTrigger>
               <AccordionContent>
@@ -597,7 +597,7 @@ export default function StandardEditor() {
             </AccordionItem>
 
             <AccordionItem value="adjust">
-              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md text-foreground">
                 <Settings2 /> Ajustar
               </AccordionTrigger>
               <AccordionContent>
@@ -635,7 +635,7 @@ export default function StandardEditor() {
             </AccordionItem>
 
             <AccordionItem value="colorize">
-              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md">
+              <AccordionTrigger className="py-2 flex flex-row justify-between items-center gap-6 text-md text-foreground">
                 <Paintbrush /> Lienzo
               </AccordionTrigger>
               <AccordionContent>
@@ -921,7 +921,7 @@ export default function StandardEditor() {
 
       <div
         id="canvas-container"
-        className="flex-1 md:flex-2  sm:min-h-1/2 sm:max-h-1/2 md:min-h-full flex flex-col items-center justify-center rounded-md bg-dark p-4 relative overflow-hidden"
+        className="flex-1 md:flex-2  sm:min-h-1/2 sm:max-h-1/2 md:min-h-full flex flex-col items-center justify-center rounded-md bg-muted p-4 relative overflow-hidden"
       >
         {resolutionWarning && (
           <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 bg-yellow-100 dark:bg-yellow-900/40 border border-yellow-400 dark:border-yellow-500 text-yellow-800 dark:text-yellow-100 px-4 py-3 rounded-md flex items-center gap-2 w-full md:max-w-md">
@@ -1044,19 +1044,6 @@ export default function StandardEditor() {
           </div>
         </div>
 
-        {/* Indicador de dimensiones reales del canvas */}
-        <div className="px-4 py-2 bg-blue-50 dark:bg-blue-950/50 border-l-4 border-blue-500 dark:border-blue-400 rounded-md">
-          <p className="text-sm font-semibold text-blue-700 dark:text-blue-100">
-            📐 Canvas a tamaño real: {widthInches}&quot; × {heightInches}&quot; a {exportResolution} DPI
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
-            Dimensiones: {canvasDimensions.width} × {canvasDimensions.height} px • Vista al {(canvasZoom * 100).toFixed(0)}%
-          </p>
-          <p className="text-xs text-blue-600 dark:text-blue-200 mt-1">
-            ✓ WYSIWYG: Lo que ves es exactamente lo que se imprimirá
-          </p>
-        </div>
-
         <div className="w-full h-full flex items-center justify-center rounded-md max-w-full overflow-hidden">
           <canvas
             ref={canvasRef}
@@ -1088,7 +1075,7 @@ export default function StandardEditor() {
       />
 
       {/* Botones móviles - Sección fija en la parte inferior */}
-      <div className="flex flex-col gap-3 md:hidden px-4 py-3 bg-dark rounded-lg">
+      <div className="flex flex-col gap-3 md:hidden px-4 py-3 bg-muted rounded-lg">
         {isCartMode ? (
           <>
             {/* Indicador de progreso - móvil */}

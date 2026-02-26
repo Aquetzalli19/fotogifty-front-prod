@@ -118,26 +118,13 @@ const NavBar = ({ sections }: navBarProps) => {
           {isReady && isAuthenticated ? (
             // Usuario logueado - mostrar menú de usuario
             <div className="flex flex-row items-center gap-3 ml-4">
-              <Link
-                href="/user"
-                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium"
-              >
-                Ordenar
-              </Link>
-              <Link
-                href="/user/cart"
-                className="p-2 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-              </Link>
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="w-5 h-5 text-primary" />
                     </div>
-                    <span className="font-medium">{user?.nombre || "Usuario"}</span>
+                    <span className="font-medium text-foreground">{user?.nombre || "Usuario"}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
@@ -147,18 +134,6 @@ const NavBar = ({ sections }: navBarProps) => {
                     <Link href="/user/profile" className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Perfil
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/user/backlog" className="cursor-pointer">
-                      <Package className="mr-2 h-4 w-4" />
-                      Mis Pedidos
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href="/user/cart" className="cursor-pointer">
-                      <ShoppingCart className="mr-2 h-4 w-4" />
-                      Carrito
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -244,18 +219,10 @@ const NavBar = ({ sections }: navBarProps) => {
                   <User className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="font-medium">{user?.nombre || "Usuario"}</p>
+                  <p className="font-medium text-foreground">{user?.nombre || "Usuario"}</p>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
-
-              <Link
-                href="/user"
-                onClick={closeMenu}
-                className="bg-primary text-primary-foreground text-center rounded-lg py-3 px-4 font-medium hover:bg-primary/80 transition-colors"
-              >
-                Ordenar
-              </Link>
 
               <Link
                 href="/user/profile"
@@ -264,24 +231,6 @@ const NavBar = ({ sections }: navBarProps) => {
               >
                 <User className="w-5 h-5" />
                 <span>Mi Perfil</span>
-              </Link>
-
-              <Link
-                href="/user/backlog"
-                onClick={closeMenu}
-                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
-              >
-                <Package className="w-5 h-5" />
-                <span>Mis Pedidos</span>
-              </Link>
-
-              <Link
-                href="/user/cart"
-                onClick={closeMenu}
-                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                <span>Carrito</span>
               </Link>
 
               <button

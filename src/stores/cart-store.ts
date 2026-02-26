@@ -85,6 +85,12 @@ export const useCartStore = create<CartState>()(
           const newItems = state.items.filter((item) => item.id !== itemId);
           // Sincronizar con backend después de eliminar
           debouncedSync(newItems);
+
+          // IMPORTANTE: Limpiar customizaciones asociadas del customization-store
+          // para evitar que se reutilicen cuando se agrega el mismo paquete otra vez
+          const { useCustomizationStore } = require('./customization-store');
+          useCustomizationStore.getState().removeAllForCartItem(itemId);
+
           return { items: newItems };
         });
       },
@@ -204,6 +210,11 @@ export const useCartStore = create<CartState>()(
         set({ items: [], isSyncing: true, lastSyncError: null });
         try {
           await eliminarCarritoTemporal();
+
+          // IMPORTANTE: También limpiar todas las customizaciones
+          const { useCustomizationStore } = require('./customization-store');
+          useCustomizationStore.getState().clearAll();
+
           set({ isSyncing: false });
         } catch (error) {
           console.error('Error eliminando carrito en backend:', error);

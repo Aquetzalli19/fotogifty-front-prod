@@ -235,7 +235,7 @@ const CartPage = () => {
     setCurrentStep(2);
 
     router.push(
-      `/user/editor?category=${encodeURIComponent(category)}&width=${width}&height=${height}&resolution=${resolution}&quantity=${quantity}&cartItemId=${cartItem.id}&instanceIndex=${instanceIndex}`
+      `/user/editor?category=${encodeURIComponent(category)}&packageId=${itemDetails.id}&width=${width}&height=${height}&resolution=${resolution}&quantity=${quantity}&cartItemId=${cartItem.id}&instanceIndex=${instanceIndex}`
     );
   };
 

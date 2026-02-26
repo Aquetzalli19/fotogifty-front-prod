@@ -242,6 +242,7 @@ export default function PolaroidEditor() {
   // Cargar template PNG (después de que templateUrl esté listo)
   useEffect(() => {
     const img = document.createElement('img');
+    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
     img.src = templateUrl;
     img.onload = () => {
       templateImageRef.current = img;
@@ -252,7 +253,7 @@ export default function PolaroidEditor() {
     };
   }, [templateUrl]);
 
-  // Renderizar el canvas con el polaroid (patrón: foto → template overlay)
+  // Renderizar el canvas: foto primero (completa), template encima (sus áreas opacas cubren, transparencias muestran foto)
   const renderCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -264,23 +265,13 @@ export default function PolaroidEditor() {
     // Limpiar canvas
     ctx.clearRect(0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
 
-    // 1. Dibujar la foto del usuario con transformaciones (clipped al photo area)
+    // 1. Dibujar la foto del usuario con transformaciones (SIN clip - cubre toda el área necesaria)
     if (currentImageSrc) {
       const img = currentImageRef.current;
       if (img) {
         ctx.save();
 
-        // Crear clipping path para que la foto no se salga del área
-        ctx.beginPath();
-        ctx.rect(
-          PHOTO_AREA.left,
-          PHOTO_AREA.top,
-          PHOTO_AREA.width,
-          PHOTO_AREA.height
-        );
-        ctx.clip();
-
-        // Aplicar transformaciones
+        // Aplicar transformaciones centradas en el área de foto
         const { scale, rotation, posX, posY } = currentTransformations;
 
         // Calcular centro del área de foto
@@ -316,35 +307,14 @@ export default function PolaroidEditor() {
       }
     }
 
-    // 2. Dibujar el template PNG encima (las áreas opacas cubren todo excepto la zona de foto)
+    // 2. Dibujar el template PNG encima - sus partes opacas cubren la foto, sus partes transparentes la dejan ver
     if (templateImageRef.current) {
       ctx.drawImage(templateImageRef.current, 0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
     }
 
-    // 3. Si no hay foto, mostrar indicador en el área de foto
-    if (!currentImageSrc) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(156, 163, 175, 0.8)";
-      ctx.lineWidth = 2;
-      ctx.setLineDash([10, 5]);
-      ctx.strokeRect(
-        PHOTO_AREA.left,
-        PHOTO_AREA.top,
-        PHOTO_AREA.width,
-        PHOTO_AREA.height
-      );
-      ctx.restore();
-
-      ctx.save();
-      ctx.fillStyle = "#6B7280";
-      ctx.font = "24px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Sube una foto",
-        POLAROID_WIDTH / 2,
-        PHOTO_AREA.top + PHOTO_AREA.height / 2
-      );
-      ctx.restore();
+    // 3. Si no hay foto, solo mostrar el template (sin indicadores visuales)
+    if (!currentImageSrc && templateImageRef.current) {
+      ctx.drawImage(templateImageRef.current, 0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
     }
   };
 
@@ -616,8 +586,64 @@ export default function PolaroidEditor() {
   const handleZoomOut = () => setCanvasZoom((prev) => Math.max(prev - 0.1, 0.1));
   const handleResetZoom = () => setCanvasZoom(0.5);
 
+  // Función para renderizar polaroid final a tamaño completo (para enviar al backend)
+  const renderPolaroidToDataURL = (
+    imageSrc: string,
+    transformations: { scale: number; rotation: number; posX: number; posY: number },
+    effects: Effect,
+    selectedFilter: string
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      try {
+        // Crear canvas temporal con dimensiones finales
+        const exportCanvas = document.createElement('canvas');
+        exportCanvas.width = POLAROID_WIDTH;
+        exportCanvas.height = POLAROID_HEIGHT;
+        const ctx = exportCanvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('No se pudo obtener contexto 2D'));
+          return;
+        }
+
+        // Cargar imagen de usuario
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = () => {
+          // 1. Dibujar la foto con transformaciones
+          ctx.save();
+          const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
+          const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
+          ctx.translate(centerX + transformations.posX, centerY + transformations.posY);
+          ctx.rotate((transformations.rotation * Math.PI) / 180);
+          ctx.scale(transformations.scale, transformations.scale);
+
+          // Aplicar filtros CSS
+          const filterString = `brightness(${100 + effects.brightness}%) contrast(${100 + effects.contrast}%) saturate(${100 + effects.saturation}%) sepia(${effects.sepia}%)`;
+          ctx.filter = selectedFilter !== "none" ? selectedFilter : filterString;
+
+          ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
+          ctx.restore();
+
+          // 2. Dibujar template encima
+          if (templateImageRef.current) {
+            ctx.filter = "none";
+            ctx.drawImage(templateImageRef.current, 0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
+          }
+
+          // 3. Exportar como PNG de alta calidad
+          const renderedDataUrl = exportCanvas.toDataURL('image/png');
+          resolve(renderedDataUrl);
+        };
+        img.onerror = () => reject(new Error('Error al cargar imagen'));
+        img.src = imageSrc;
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+
   // Guardar polaroid actual en la colección
-  const handleSavePolaroid = () => {
+  const handleSavePolaroid = async () => {
     if (!currentImageSrc) return;
 
     // NUEVO: Validar cantidad de copias
@@ -640,8 +666,8 @@ export default function PolaroidEditor() {
     const thumbnailDataUrl = compressCanvas(canvas, 500, 500, 0.92);
 
     // IMPORTANTE: NO generamos renderedImageSrc aquí para evitar QuotaExceededError
-    // La imagen renderizada se generará SOLO al subir al backend
-    console.log(`💾 Guardando polaroid (solo original + transformaciones, sin renderizar)`);
+    // El backend usará templateUrl + imageSrc + transformations para generar la imagen final
+    console.log(`💾 Guardando polaroid con templateUrl: ${templateUrl}`);
 
     if (editingPolaroidId !== null) {
       // Actualizar polaroid existente
@@ -656,7 +682,7 @@ export default function PolaroidEditor() {
                 selectedFilter,
                 canvasStyle: { ...canvasStyle },
                 thumbnailDataUrl,
-                copies: copiesToSave, // NUEVO
+                copies: copiesToSave,
               }
             : p
         )
@@ -672,7 +698,7 @@ export default function PolaroidEditor() {
         selectedFilter,
         canvasStyle: { ...canvasStyle },
         thumbnailDataUrl,
-        copies: copiesToSave, // NUEVO
+        copies: copiesToSave,
       };
       setSavedPolaroids((prev) => [...prev, newPolaroid]);
       setNextId((prev) => prev + 1);
@@ -768,7 +794,14 @@ export default function PolaroidEditor() {
       widthInches,
       heightInches,
       exportResolution,
-      photoArea: PHOTO_AREA,
+      // Convertir photoArea al formato que espera el backend (x, y en lugar de left, top)
+      photoArea: {
+        x: PHOTO_AREA.left,
+        y: PHOTO_AREA.top,
+        width: PHOTO_AREA.width,
+        height: PHOTO_AREA.height,
+      },
+      templateUrl, // NUEVO: URL del template PNG usado (para que el backend use el mismo)
       polaroids: savedPolaroids,
       maxPolaroids,
     };

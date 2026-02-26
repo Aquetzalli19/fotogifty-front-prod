@@ -64,9 +64,12 @@ export interface RenderOptions {
   widthInches: number; // Ancho en pulgadas (para metadatos de impresión)
   heightInches: number; // Alto en pulgadas (para metadatos de impresión)
   exportResolution: number; // DPI (300)
+  templateUrl?: string; // URL del template PNG a usar (si no se proporciona, usa /polaroid/Polaroid.png)
   photoArea: {
-    top: number;
-    left: number;
+    x?: number; // Nuevo formato (coincide con backend)
+    y?: number; // Nuevo formato (coincide con backend)
+    top?: number; // Formato antiguo (compatibilidad)
+    left?: number; // Formato antiguo (compatibilidad)
     width: number;
     height: number;
   };
@@ -78,6 +81,7 @@ export interface RenderOptions {
 async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Error cargando imagen`));
     img.src = src;
@@ -110,10 +114,18 @@ export async function renderPolaroid(
   // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
   const canvasWidth = options?.canvasWidth ?? POLAROID_WIDTH;
   const canvasHeight = options?.canvasHeight ?? POLAROID_HEIGHT;
-  const photoArea = options?.photoArea ?? PHOTO_AREA;
+  const photoAreaRaw = options?.photoArea ?? PHOTO_AREA;
   const exportResolution = options?.exportResolution ?? 300;
   const widthInches = options?.widthInches ?? (canvasWidth / exportResolution);
   const heightInches = options?.heightInches ?? (canvasHeight / exportResolution);
+
+  // Normalizar photoArea para soportar ambos formatos (x/y y left/top)
+  const photoArea = {
+    left: photoAreaRaw.x ?? photoAreaRaw.left ?? 0,
+    top: photoAreaRaw.y ?? photoAreaRaw.top ?? 0,
+    width: photoAreaRaw.width,
+    height: photoAreaRaw.height,
+  };
 
   const canvas = document.createElement("canvas");
   canvas.width = canvasWidth;
@@ -122,17 +134,16 @@ export async function renderPolaroid(
   if (!ctx) return undefined;
 
   try {
+    // Usar templateUrl de options o fallback al template por defecto
+    const templateUrl = options?.templateUrl ?? "/polaroid/Polaroid.png";
+
     const [img, templateImg] = await Promise.all([
       loadImage(polaroidData.imageSrc),
-      loadImage("/polaroid/Polaroid.png"),
+      loadImage(templateUrl),
     ]);
 
-    // 1. Dibujar la foto del usuario con transformaciones (clipped al photo area)
+    // 1. Dibujar la foto del usuario con transformaciones (SIN CLIP - cubre toda el área necesaria)
     ctx.save();
-
-    ctx.beginPath();
-    ctx.rect(photoArea.left, photoArea.top, photoArea.width, photoArea.height);
-    ctx.clip();
 
     const { scale, rotation = 0, posX, posY } = polaroidData.transformations;
     const centerX = photoArea.left + photoArea.width / 2;
@@ -166,7 +177,7 @@ export async function renderPolaroid(
 
     ctx.restore();
 
-    // 2. Dibujar el template PNG encima como overlay (el marco tapa los bordes de la foto)
+    // 2. Dibujar el template PNG encima - sus partes opacas cubren la foto, transparencias la dejan ver
     ctx.drawImage(templateImg, 0, 0, canvasWidth, canvasHeight);
 
     // 3. Convertir a PNG con DPI y metadatos de impresión
@@ -195,7 +206,16 @@ export async function renderPolaroidCropped(
   if (!polaroidData.imageSrc) return undefined;
 
   // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
-  const photoArea = options?.photoArea ?? PHOTO_AREA;
+  const photoAreaRaw = options?.photoArea ?? PHOTO_AREA;
+
+  // Normalizar photoArea para soportar ambos formatos (x/y y left/top)
+  const photoArea = {
+    left: photoAreaRaw.x ?? photoAreaRaw.left ?? 0,
+    top: photoAreaRaw.y ?? photoAreaRaw.top ?? 0,
+    width: photoAreaRaw.width,
+    height: photoAreaRaw.height,
+  };
+
   const exportResolution = options?.exportResolution ?? 300;
   const widthInches = options?.widthInches ?? (photoArea.width / exportResolution);
   const heightInches = options?.heightInches ?? (photoArea.height / exportResolution);

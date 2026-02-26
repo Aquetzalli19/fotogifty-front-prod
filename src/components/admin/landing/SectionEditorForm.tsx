@@ -46,8 +46,8 @@ export function SectionEditorForm({
   const updateCarouselConfig = (key: keyof CarouselConfig, value: boolean | number) => {
     const currentConfig = values.configuracionExtra || {
       autoplay: true,
-      autoplaySpeed: 3000,
-      transitionSpeed: 500,
+      autoplaySpeed: 3,
+      transitionSpeed: 0.5,
       infinite: true,
     };
     onChange({
@@ -295,8 +295,8 @@ export function SectionEditorForm({
       case "configuracionExtra":
         const config = values.configuracionExtra || {
           autoplay: true,
-          autoplaySpeed: 3000,
-          transitionSpeed: 500,
+          autoplaySpeed: 3,
+          transitionSpeed: 0.5,
           infinite: true,
         };
         return (
@@ -329,15 +329,15 @@ export function SectionEditorForm({
                 <div className="flex justify-between">
                   <Label>Velocidad Autoplay</Label>
                   <span className="text-sm text-muted-foreground">
-                    {config.autoplaySpeed}ms
+                    {config.autoplaySpeed}s
                   </span>
                 </div>
                 <Slider
                   value={[config.autoplaySpeed]}
                   onValueChange={([value]) => updateCarouselConfig("autoplaySpeed", value)}
-                  min={1000}
-                  max={10000}
-                  step={500}
+                  min={1}
+                  max={10}
+                  step={0.5}
                   disabled={disabled || !config.autoplay}
                 />
               </div>
@@ -346,15 +346,15 @@ export function SectionEditorForm({
                 <div className="flex justify-between">
                   <Label>Velocidad Transición</Label>
                   <span className="text-sm text-muted-foreground">
-                    {config.transitionSpeed}ms
+                    {config.transitionSpeed}s
                   </span>
                 </div>
                 <Slider
                   value={[config.transitionSpeed]}
                   onValueChange={([value]) => updateCarouselConfig("transitionSpeed", value)}
-                  min={100}
-                  max={5000}
-                  step={100}
+                  min={0.1}
+                  max={5}
+                  step={0.1}
                   disabled={disabled}
                 />
               </div>

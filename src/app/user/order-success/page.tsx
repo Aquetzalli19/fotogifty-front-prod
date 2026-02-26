@@ -225,8 +225,16 @@ export default function OrderSuccessPage() {
                   // Importar dinámicamente las funciones de renderizado
                   const { renderCalendarMonth } = await import('@/lib/calendar-render-utils');
 
+                  // Obtener template del mes (del paquete o default)
+                  const monthTemplateUrl = data.monthTemplates?.[month.month];
+
                   // Solo subir visualización completa (CON TEMPLATE) - Para impresión
-                  const fullCalendar = await renderCalendarMonth(month);
+                  const fullCalendar = await renderCalendarMonth(
+                    month,
+                    2400, // calendarWidth
+                    3600, // calendarHeight
+                    monthTemplateUrl // NUEVO: Pasar template del paquete
+                  );
                   if (fullCalendar) {
                     images.push({
                       url: fullCalendar,
@@ -266,6 +274,7 @@ export default function OrderSuccessPage() {
               widthInches: data.widthInches,
               heightInches: data.heightInches,
               exportResolution: data.exportResolution,
+              templateUrl: data.templateUrl, // IMPORTANTE: Usar el template del paquete
               photoArea: data.photoArea,
             };
 

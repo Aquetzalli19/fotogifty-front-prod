@@ -43,6 +43,7 @@ import { useCustomizationStore, CalendarCustomization } from "@/stores/customiza
 import { getEditorType } from "@/lib/category-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
 import { obtenerPaquetePorId } from "@/services/packages";
+import { renderCalendarMonth } from "@/lib/calendar-render-utils";
 import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
 import BackgroundTab from "@/components/editor-components/BackgroundTab";
@@ -196,6 +197,7 @@ export default function CalendarEditor() {
   const [showMonthGrid, setShowMonthGrid] = useState(false);
   const [previewThumbnail, setPreviewThumbnail] = useState<string | null>(null);
   const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [templateLoaded, setTemplateLoaded] = useState(false); // NUEVO: Estado para rastrear carga del template
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const [copyFromMonth, setCopyFromMonth] = useState<string>("");
 
@@ -217,20 +219,43 @@ export default function CalendarEditor() {
 
       try {
         const response = await obtenerPaquetePorId(parseInt(packageId));
-        if (response.success && response.data && response.data.template_url) {
-          const templateUrl = response.data.template_url;
-          setCustomTemplateUrl(templateUrl);
+        if (response.success && response.data) {
+          const paquete = response.data;
 
-          // Usar el mismo template para todos los meses
-          const templates: Record<number, string> = {};
-          for (let i = 1; i <= 12; i++) {
-            templates[i] = templateUrl;
+          // Opción 1: Usar templates_calendario (12 templates diferentes, uno por mes)
+          if (paquete.templates_calendario) {
+            const customTemplates: Record<number, string> = {};
+
+            // Convertir el objeto templates_calendario a Record<number, string>
+            for (let i = 1; i <= 12; i++) {
+              const templateUrl = paquete.templates_calendario[i.toString()];
+              if (templateUrl) {
+                customTemplates[i] = templateUrl;
+              } else {
+                // Si falta un mes, usar el default
+                customTemplates[i] = DEFAULT_MONTH_CALENDAR_FILES[i];
+              }
+            }
+
+            setMonthCalendarFiles(customTemplates);
+            console.log(`✅ Templates personalizados cargados (12 meses):`, customTemplates);
           }
-          setMonthCalendarFiles(templates);
+          // Opción 2: Usar template_url único para todos los meses (fallback)
+          else if (paquete.template_url) {
+            const templateUrl = paquete.template_url;
+            setCustomTemplateUrl(templateUrl);
 
-          console.log(`✅ Template personalizado cargado para todos los meses: ${templateUrl}`);
-        } else {
-          console.log("ℹ️ No custom template found, using default calendar templates");
+            // Usar el mismo template para todos los meses
+            const templates: Record<number, string> = {};
+            for (let i = 1; i <= 12; i++) {
+              templates[i] = templateUrl;
+            }
+            setMonthCalendarFiles(templates);
+
+            console.log(`✅ Template único cargado para todos los meses: ${templateUrl}`);
+          } else {
+            console.log("ℹ️ No custom templates found, using default calendar templates");
+          }
         }
       } catch (error) {
         console.error("Error loading package template:", error);
@@ -242,7 +267,9 @@ export default function CalendarEditor() {
 
   // Cargar imagen del template según el mes seleccionado
   useEffect(() => {
+    setTemplateLoaded(false); // NUEVO: Marcar como no cargado al empezar
     const img = document.createElement('img');
+    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
     const calendarFile = monthCalendarFiles[selectedMonth];
     img.src = calendarFile;
     img.onload = () => {
@@ -259,12 +286,13 @@ export default function CalendarEditor() {
       console.log(`   - Dimensiones: ${img.width}px × ${img.height}px`);
       console.log(`   - Área de foto: ${Math.round(img.width)}px × ${Math.round(img.height * PHOTO_AREA_HEIGHT_PERCENT)}px (${(PHOTO_AREA_HEIGHT_PERCENT * 100).toFixed(0)}%)`);
 
+      setTemplateLoaded(true); // NUEVO: Marcar como cargado
       renderCanvas();
     };
     img.onerror = () => {
       console.error(`Error cargando calendario para mes ${selectedMonth}: ${calendarFile}`);
     };
-  }, [selectedMonth]);
+  }, [selectedMonth, monthCalendarFiles]); // IMPORTANTE: También depende de monthCalendarFiles
 
   // Ajustar zoom inicial basado en el tamaño de pantalla
   useEffect(() => {
@@ -432,8 +460,8 @@ export default function CalendarEditor() {
     // Resetear filtro
     ctx.filter = 'none';
 
-    // Oscurecer un poco para que la foto principal destaque más
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+    // Capa semi-transparente muy sutil para mejorar contraste (opacidad reducida de 0.2 a 0.05)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
     ctx.fillRect(areaLeft, areaTop, areaWidth, areaHeight);
 
     ctx.restore();
@@ -496,7 +524,7 @@ export default function CalendarEditor() {
     ctx.restore();
   };
 
-  // Renderizar el canvas
+  // Renderizar el canvas: foto primero (completa con blur), template encima (transparencias muestran foto)
   const renderCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -504,32 +532,22 @@ export default function CalendarEditor() {
 
     ctx.clearRect(0, 0, calendarDimensions.width, calendarDimensions.height);
 
-    // 1. Dibujar fondo difuminado si hay imagen
+    // 1. Dibujar fondo difuminado si hay imagen (SIN clip - puede cubrir más área)
     if (currentMonthPhoto.imageSrc) {
       const img = photoImageRefs.current.get(selectedMonth);
       if (img) {
         ctx.save();
-        // Clip al área de la foto
-        ctx.beginPath();
-        ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-        ctx.clip();
-
-        // Dibujar fondo blur con offset correcto
+        // Dibujar fondo blur (puede extenderse más allá del área de foto)
         drawBlurredBackground(ctx, img, PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
         ctx.restore();
       }
     }
 
-    // 2. Dibujar la foto del usuario ENCIMA del blur (CON CLIP para que no se salga del área)
+    // 2. Dibujar la foto del usuario ENCIMA del blur (SIN CLIP - el template hará de máscara natural)
     if (currentMonthPhoto.imageSrc) {
       const img = photoImageRefs.current.get(selectedMonth);
       if (img) {
         ctx.save();
-
-        // IMPORTANTE: Aplicar clip para que la imagen NO se salga del área de foto
-        ctx.beginPath();
-        ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-        ctx.clip();
 
         const { scale, rotation, posX, posY } = currentMonthPhoto.transformations;
         // Centro del ÁREA de foto (no del canvas completo)
@@ -551,39 +569,35 @@ export default function CalendarEditor() {
       }
     }
 
-    // 3. Dibujar el template del calendario ENCIMA (con transparencia)
+    // 3. Dibujar el template del calendario ENCIMA - sus partes opacas cubren la foto, transparencias la dejan ver
     if (templateImageRef.current) {
       ctx.drawImage(templateImageRef.current, 0, 0, calendarDimensions.width, calendarDimensions.height);
     }
 
-    // 4. Si no hay foto, mostrar el área de foto con indicador
-    if (!currentMonthPhoto.imageSrc) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(59, 130, 246, 0.5)";
-      ctx.lineWidth = 4;
-      ctx.setLineDash([20, 10]);
-      ctx.strokeRect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-      ctx.restore();
-
-      ctx.save();
-      ctx.fillStyle = "rgba(59, 130, 246, 0.7)";
-      ctx.font = "bold 60px Arial";
-      ctx.textAlign = "center";
-      ctx.fillText("ÁREA DE FOTO", calendarDimensions.width / 2, PHOTO_AREA.height / 2);
-      ctx.restore();
+    // 4. Si no hay foto, solo mostrar el template (sin indicadores visuales)
+    if (!currentMonthPhoto.imageSrc && templateImageRef.current) {
+      ctx.drawImage(templateImageRef.current, 0, 0, calendarDimensions.width, calendarDimensions.height);
     }
-
-    // 5. Resaltar el área de la foto SIEMPRE (encima de todo)
-    drawPhotoAreaHighlight(ctx);
   };
 
   useEffect(() => {
     renderCanvas();
-  }, [currentMonthPhoto, selectedMonth, calendarDimensions, canvasOrientation, imagesLoaded]);
+  }, [currentMonthPhoto, selectedMonth, calendarDimensions, canvasOrientation, imagesLoaded, templateLoaded]);
 
   // Generar vista previa del calendario renderizado
   const generatePreview = async () => {
-    if (!currentMonthPhoto.imageSrc || !templateImageRef.current) {
+    console.log('🔍 === INICIANDO GENERACIÓN DE PREVIEW ===');
+
+    if (!currentMonthPhoto.imageSrc) {
+      console.log('⚠️ No hay imageSrc, cancelando preview');
+      setPreviewThumbnail(null);
+      return;
+    }
+
+    // Verificar que el canvas principal existe
+    const mainCanvas = canvasRef.current;
+    if (!mainCanvas) {
+      console.error('❌ Canvas principal no existe');
       setPreviewThumbnail(null);
       return;
     }
@@ -591,92 +605,44 @@ export default function CalendarEditor() {
     setIsGeneratingPreview(true);
 
     try {
-      // Crear canvas temporal para la vista previa de alta calidad
+      console.log('📐 Canvas principal:', mainCanvas.width, 'x', mainCanvas.height);
+
+      // SOLUCIÓN SIMPLE: Copiar directamente del canvas principal y escalarlo
+      // IMPORTANTE: Mantener el mismo aspect ratio que el canvas principal
+      const aspectRatio = mainCanvas.height / mainCanvas.width;
+      const previewWidth = 600;
+      const previewHeight = Math.round(previewWidth * aspectRatio);
+
+      console.log('📐 Aspect ratio del canvas principal:', aspectRatio);
+
       const previewCanvas = document.createElement('canvas');
-      const previewWidth = 600;  // Aumentado de 300
-      const previewHeight = 900; // Aumentado de 450
       previewCanvas.width = previewWidth;
       previewCanvas.height = previewHeight;
+
       const ctx = previewCanvas.getContext('2d');
-      if (!ctx) return;
-
-      // Escalar las dimensiones
-      const scale = previewWidth / calendarDimensions.width;
-      const scaledPhotoAreaHeight = PHOTO_AREA.height * scale;
-
-      const img = photoImageRefs.current.get(selectedMonth);
-      if (img) {
-        // 1. Dibujar fondo difuminado
-        ctx.save();
-
-        // Coordenadas del área de foto escaladas
-        const scaledPhotoAreaLeft = PHOTO_AREA.left * scale;
-        const scaledPhotoAreaTop = PHOTO_AREA.top * scale;
-        const scaledPhotoAreaWidth = PHOTO_AREA.width * scale;
-        const scaledPhotoAreaHeight_blur = PHOTO_AREA.height * scale;
-
-        // Clip al área de la foto en la preview
-        ctx.beginPath();
-        ctx.rect(scaledPhotoAreaLeft, scaledPhotoAreaTop, scaledPhotoAreaWidth, scaledPhotoAreaHeight_blur);
-        ctx.clip();
-
-        // Calcular escala para cubrir toda el área de la foto
-        const imgRatio = img.width / img.height;
-        const areaRatio = scaledPhotoAreaWidth / scaledPhotoAreaHeight_blur;
-
-        let drawWidth, drawHeight, offsetX, offsetY;
-
-        if (imgRatio > areaRatio) {
-          drawHeight = scaledPhotoAreaHeight_blur;
-          drawWidth = img.width * (scaledPhotoAreaHeight_blur / img.height);
-          offsetX = scaledPhotoAreaLeft - (drawWidth - scaledPhotoAreaWidth) / 2;
-          offsetY = scaledPhotoAreaTop;
-        } else {
-          drawWidth = scaledPhotoAreaWidth;
-          drawHeight = img.height * (scaledPhotoAreaWidth / img.width);
-          offsetX = scaledPhotoAreaLeft;
-          offsetY = scaledPhotoAreaTop - (drawHeight - scaledPhotoAreaHeight_blur) / 2;
-        }
-
-        // Aplicar blur
-        ctx.filter = 'blur(10px)';
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-        ctx.filter = 'none';
-
-        // Oscurecer un poco
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
-        ctx.fillRect(scaledPhotoAreaLeft, scaledPhotoAreaTop, scaledPhotoAreaWidth, scaledPhotoAreaHeight_blur);
-
-        ctx.restore();
-
-        // 2. Dibujar la foto del usuario encima del blur (CON CLIP)
-        ctx.save();
-
-        // IMPORTANTE: Aplicar clip para que la imagen NO se salga del área (en escala de preview)
-        ctx.beginPath();
-        ctx.rect(scaledPhotoAreaLeft, scaledPhotoAreaTop, scaledPhotoAreaWidth, scaledPhotoAreaHeight_blur);
-        ctx.clip();
-
-        const { scale: photoScale, posX, posY } = currentMonthPhoto.transformations;
-
-        // Centro del ÁREA de foto en la vista previa (escalado) - reutilizando variables ya declaradas
-        const centerX = scaledPhotoAreaLeft + (scaledPhotoAreaWidth / 2);
-        const centerY = scaledPhotoAreaTop + (scaledPhotoAreaHeight_blur / 2);
-
-        ctx.translate(centerX + (posX * scale), centerY + (posY * scale));
-        ctx.scale(photoScale * scale, photoScale * scale);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
-        ctx.restore();
+      if (!ctx) {
+        console.error('❌ No se pudo obtener contexto 2d del canvas preview');
+        setIsGeneratingPreview(false);
+        return;
       }
 
-      // 3. Dibujar el template del calendario encima
-      ctx.drawImage(templateImageRef.current, 0, 0, previewWidth, previewHeight);
+      console.log('📐 Preview canvas:', previewWidth, 'x', previewHeight);
+
+      // Copiar el canvas principal al preview canvas (escalado)
+      console.log('🎨 Copiando canvas principal a preview...');
+      ctx.drawImage(mainCanvas, 0, 0, mainCanvas.width, mainCanvas.height, 0, 0, previewWidth, previewHeight);
+      console.log('✅ Canvas copiado exitosamente');
 
       // Convertir a data URL con alta calidad
+      console.log('📸 Convirtiendo canvas a data URL...');
       const thumbnailDataUrl = previewCanvas.toDataURL('image/jpeg', 0.92);
+      console.log('✅ Data URL generado, tamaño:', (thumbnailDataUrl.length / 1024).toFixed(2), 'KB');
+
       setPreviewThumbnail(thumbnailDataUrl);
+      console.log('✅ === PREVIEW COMPLETADO EXITOSAMENTE ===');
     } catch (error) {
-      console.error('Error generando vista previa:', error);
+      console.error('❌ === ERROR GENERANDO VISTA PREVIA ===');
+      console.error(error);
       setPreviewThumbnail(null);
     } finally {
       setIsGeneratingPreview(false);
@@ -685,12 +651,12 @@ export default function CalendarEditor() {
 
   // Actualizar vista previa cuando cambian las transformaciones o la imagen
   useEffect(() => {
-    if (currentMonthPhoto.imageSrc) {
+    if (currentMonthPhoto.imageSrc && templateLoaded) {
       generatePreview();
     } else {
       setPreviewThumbnail(null);
     }
-  }, [currentMonthPhoto, selectedMonth]);
+  }, [currentMonthPhoto, selectedMonth, templateLoaded]); // IMPORTANTE: También depende de templateLoaded
 
   // Manejar carga de imagen
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1408,47 +1374,11 @@ export default function CalendarEditor() {
     setMonthPhotos((prev) => {
       const newPhotos = [...prev];
       const currentPhoto = newPhotos[selectedMonth - 1];
-      let newPosX = currentPhoto.transformations.posX + deltaX;
-      let newPosY = currentPhoto.transformations.posY + deltaY;
 
-      const { scale } = currentPhoto.transformations;
-      const img = photoImageRefs.current.get(selectedMonth);
-
-      if (img) {
-        const scaledImgWidth = img.width * scale;
-        const scaledImgHeight = img.height * scale;
-
-        // LÓGICA CORREGIDA: Permitir panear cuando la imagen es más grande que el área
-        // Si la imagen es más grande, puedes moverla para ver diferentes partes
-        // Si la imagen es más pequeña, se mantiene centrada
-
-        let maxPosX, minPosX, maxPosY, minPosY;
-
-        if (scaledImgWidth > PHOTO_AREA.width) {
-          // Imagen más ancha que el área: permitir mover horizontalmente
-          const halfOverflow = (scaledImgWidth - PHOTO_AREA.width) / 2;
-          maxPosX = halfOverflow;   // Puedes mover a la derecha
-          minPosX = -halfOverflow;  // Puedes mover a la izquierda
-        } else {
-          // Imagen más pequeña: mantener centrada, no permitir movimiento
-          maxPosX = 0;
-          minPosX = 0;
-        }
-
-        if (scaledImgHeight > PHOTO_AREA.height) {
-          // Imagen más alta que el área: permitir mover verticalmente
-          const halfOverflow = (scaledImgHeight - PHOTO_AREA.height) / 2;
-          maxPosY = halfOverflow;   // Puedes mover hacia abajo
-          minPosY = -halfOverflow;  // Puedes mover hacia arriba
-        } else {
-          // Imagen más pequeña: mantener centrada, no permitir movimiento
-          maxPosY = 0;
-          minPosY = 0;
-        }
-
-        newPosX = Math.max(minPosX, Math.min(maxPosX, newPosX));
-        newPosY = Math.max(minPosY, Math.min(maxPosY, newPosY));
-      }
+      // MOVIMIENTO LIBRE: Sin límites, el usuario puede mover la imagen libremente
+      // El template naturalmente enmascarará las partes que están fuera del área
+      const newPosX = currentPhoto.transformations.posX + deltaX;
+      const newPosY = currentPhoto.transformations.posY + deltaY;
 
       newPhotos[selectedMonth - 1] = {
         ...currentPhoto,
@@ -1618,7 +1548,7 @@ export default function CalendarEditor() {
     link.click();
   };
 
-  // Función auxiliar para renderizar un mes específico y obtener el canvas como JPEG
+  // Función auxiliar para renderizar un mes específico (foto completa + template encima)
   const renderMonthToDataURL = async (monthData: MonthPhoto): Promise<string | undefined> => {
     if (!monthData.imageSrc) return undefined;
 
@@ -1633,26 +1563,16 @@ export default function CalendarEditor() {
       const photoImg = photoImageRefs.current.get(monthData.month);
 
       if (photoImg) {
-        // 1. Dibujar fondo difuminado
+        // 1. Dibujar fondo difuminado (sin clip)
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-        ctx.clip();
-
-        // Dibujar fondo blur usando la función auxiliar con offset correcto
         drawBlurredBackground(ctx, photoImg, PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
         ctx.restore();
 
-        // 2. Dibujar la foto del usuario encima del blur (CON CLIP)
+        // 2. Dibujar la foto del usuario encima del blur (SIN CLIP)
         ctx.save();
 
-        // IMPORTANTE: Aplicar clip para que la imagen NO se salga del área
-        ctx.beginPath();
-        ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-        ctx.clip();
-
         const { scale, posX, posY } = monthData.transformations;
-        // Centro del ÁREA de foto (no del canvas completo)
+        // Centro del ÁREA de foto
         const centerX = PHOTO_AREA.left + (PHOTO_AREA.width / 2);
         const centerY = PHOTO_AREA.top + (PHOTO_AREA.height / 2);
 
@@ -1662,7 +1582,7 @@ export default function CalendarEditor() {
         ctx.restore();
       }
 
-      // 3. Cargar y dibujar el template del calendario encima
+      // 3. Cargar y dibujar el template del calendario encima (cubre con sus partes opacas)
       const templateImg = document.createElement('img');
       const calendarFile = monthCalendarFiles[monthData.month];
 
@@ -1742,13 +1662,79 @@ export default function CalendarEditor() {
   };
 
   // Guardar y volver al carrito
-  const saveProgress = () => {
+  const saveProgress = async () => {
     if (!isCartMode || !cartItemId || !instanceIndex) return;
 
-    const customizationData: CalendarCustomization = {
+    console.log('💾 Generando imágenes renderizadas antes de guardar...');
+
+    // IMPORTANTE: Generar imágenes renderizadas para TODOS los meses antes de guardar
+    const monthsWithRenderedImages = await Promise.all(
+      monthPhotos.map(async (monthData) => {
+        // Si no hay foto, no renderizar
+        if (!monthData.imageSrc) {
+          return {
+            month: monthData.month,
+            imageSrc: monthData.imageSrc,
+            transformations: monthData.transformations,
+            effects: monthData.effects,
+            selectedFilter: monthData.selectedFilter,
+            canvasStyle: monthData.canvasStyle,
+          };
+        }
+
+        try {
+          // Generar imagen renderizada con template usando la utilidad
+          console.log(`🎨 Renderizando mes ${monthData.month}...`);
+          const renderedImageSrc = await renderCalendarMonth(
+            {
+              month: monthData.month,
+              imageSrc: monthData.imageSrc,
+              transformations: monthData.transformations,
+            },
+            2400, // Alta resolución
+            3600,
+            monthCalendarFiles[monthData.month] // Template URL
+          );
+
+          console.log(`✅ Mes ${monthData.month} renderizado`);
+
+          return {
+            month: monthData.month,
+            imageSrc: monthData.imageSrc,
+            renderedImageSrc, // NUEVO: Imagen renderizada con template
+            transformations: monthData.transformations,
+            effects: monthData.effects,
+            selectedFilter: monthData.selectedFilter,
+            canvasStyle: monthData.canvasStyle,
+          };
+        } catch (error) {
+          console.error(`❌ Error renderizando mes ${monthData.month}:`, error);
+          // Si falla el rendering, guardar sin renderedImageSrc
+          return {
+            month: monthData.month,
+            imageSrc: monthData.imageSrc,
+            transformations: monthData.transformations,
+            effects: monthData.effects,
+            selectedFilter: monthData.selectedFilter,
+            canvasStyle: monthData.canvasStyle,
+          };
+        }
+      })
+    );
+
+    console.log('✅ Todas las imágenes renderizadas generadas');
+
+    const cId = parseInt(cartItemId);
+    const iIdx = parseInt(instanceIndex);
+    const editorType = category ? getEditorType(category) : "calendar";
+
+    // 1. Guardar en localStorage SIN renderedImageSrc (evita QuotaExceededError)
+    const customizationDataForLocalStorage: CalendarCustomization = {
+      monthTemplates: monthCalendarFiles,
       months: monthPhotos.map((monthData) => ({
         month: monthData.month,
         imageSrc: monthData.imageSrc,
+        // NO incluir renderedImageSrc aquí para evitar exceder cuota de localStorage
         transformations: monthData.transformations,
         effects: monthData.effects,
         selectedFilter: monthData.selectedFilter,
@@ -1756,33 +1742,55 @@ export default function CalendarEditor() {
       })),
     };
 
-    const editorType = category ? getEditorType(category) : "calendar";
-
-    const cId = parseInt(cartItemId);
-    const iIdx = parseInt(instanceIndex);
-
     saveCustomization({
       cartItemId: cId,
       instanceIndex: iIdx,
       editorType,
-      data: customizationData,
+      data: customizationDataForLocalStorage,
       completed: completedMonths >= 12,
     });
 
-    // Sincronizar inmediatamente con backend (no esperar debounce)
-    syncCustomizationToBackend(cId, iIdx);
+    // 2. Enviar al backend CON renderedImageSrc (directamente, sin pasar por localStorage)
+    const customizationDataForBackend: CalendarCustomization = {
+      monthTemplates: monthCalendarFiles,
+      months: monthsWithRenderedImages, // Incluye renderedImageSrc
+    };
+
+    // Importar la función de servicio para enviar directamente
+    const { guardarCustomizacionTemporal } = await import('@/services/temp-cart');
+
+    try {
+      console.log('📤 Enviando al backend con imágenes renderizadas...');
+      const result = await guardarCustomizacionTemporal(
+        String(cId),
+        iIdx,
+        editorType,
+        customizationDataForBackend as unknown as Record<string, unknown>,
+        completedMonths >= 12
+      );
+      if (result.success) {
+        console.log('✅ Customización con imágenes renderizadas enviada al backend');
+      } else {
+        console.warn('⚠️ Error enviando al backend:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error enviando customización al backend:', error);
+    }
   };
 
   const handleSaveToCart = async () => {
     if (!isCartMode || !cartItemId || !instanceIndex) return;
-    saveProgress();
+    await saveProgress(); // Esperar a que termine de renderizar y guardar
     router.push("/user/cart");
   };
 
   const [showSavedMessage, setShowSavedMessage] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleSaveProgress = () => {
-    saveProgress();
+  const handleSaveProgress = async () => {
+    setIsSaving(true);
+    await saveProgress(); // Esperar a que termine de renderizar y guardar
+    setIsSaving(false);
     setShowSavedMessage(true);
     setTimeout(() => setShowSavedMessage(false), 3000);
   };
@@ -2139,9 +2147,19 @@ export default function CalendarEditor() {
                 onClick={handleSaveProgress}
                 variant="outline"
                 className="w-full h-10 text-sm"
+                disabled={isSaving}
               >
-                <Save className="mr-2 h-4 w-4" />
-                {showSavedMessage ? "Progreso guardado" : "Guardar progreso"}
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generando imágenes...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    {showSavedMessage ? "Progreso guardado" : "Guardar progreso"}
+                  </>
+                )}
               </Button>
               {showSavedMessage && (
                 <p className="text-xs text-green-600 text-center">

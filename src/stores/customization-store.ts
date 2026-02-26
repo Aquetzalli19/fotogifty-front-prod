@@ -47,6 +47,7 @@ export interface StandardCustomization {
 }
 
 export interface CalendarCustomization {
+  monthTemplates?: Record<number, string>; // NUEVO: Templates por mes (1-12) del paquete
   months: Array<{
     month: number;
     imageSrc: string | null; // Imagen ORIGINAL para permitir edición posterior (SE GUARDA EN LOCALSTORAGE)
@@ -82,11 +83,12 @@ export interface PolaroidCustomization {
   heightInches: number; // Alto en pulgadas del paquete
   exportResolution: number; // DPI para exportar (300)
   photoArea: {
-    top: number;
-    left: number;
+    x: number; // Antes era "left", ahora "x" para coincidir con backend
+    y: number; // Antes era "top", ahora "y" para coincidir con backend
     width: number;
     height: number;
   };
+  templateUrl?: string; // URL del template PNG usado (para que el backend use el mismo)
   polaroids: Array<{
     id: number;
     imageSrc: string; // Imagen ORIGINAL para permitir edición posterior
@@ -407,12 +409,26 @@ export const useCustomizationStore = create<CustomizationState>()(
                 const cid = raw.cartItemId ?? raw.cart_item_id ?? raw.cartitemid;
                 const iidx = raw.instanceIndex ?? raw.instance_index;
                 const etype = (raw.editorType ?? raw.editor_type) as string;
+                const rawData = (raw.data ?? raw.datos) as unknown as StandardCustomization | CalendarCustomization | PolaroidCustomization;
+
+                // IMPORTANTE: Limpiar renderedImageSrc para evitar QuotaExceededError
+                let cleanedData = rawData;
+                if (etype === 'calendar' && rawData && typeof rawData === 'object' && 'months' in rawData) {
+                  const calendarData = rawData as CalendarCustomization;
+                  cleanedData = {
+                    ...calendarData,
+                    months: calendarData.months?.map((m) => {
+                      const { renderedImageSrc, ...rest } = m as { renderedImageSrc?: string; [key: string]: unknown };
+                      return rest;
+                    }) ?? [],
+                  } as CalendarCustomization;
+                }
 
                 return {
                   cartItemId: typeof cid === 'string' ? parseInt(cid, 10) : Number(cid),
                   instanceIndex: typeof iidx === 'string' ? parseInt(iidx as string, 10) : Number(iidx),
                   editorType: etype as EditorType,
-                  data: (raw.data ?? raw.datos) as unknown as StandardCustomization | CalendarCustomization | PolaroidCustomization,
+                  data: cleanedData,
                   completed: item.completed,
                   lastModified: Date.now(),
                 };

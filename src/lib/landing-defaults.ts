@@ -35,8 +35,8 @@ const heroDefaults: LandingSectionComplete = {
     botonEnlace: '/login',
     configuracionExtra: {
       autoplay: true,
-      autoplaySpeed: 3000,
-      transitionSpeed: 3000,
+      autoplaySpeed: 3,
+      transitionSpeed: 3,
       infinite: true,
     },
     orden: 1,
@@ -109,8 +109,8 @@ const productSliderDefaults: LandingSectionComplete = {
     botonEnlace: null,
     configuracionExtra: {
       autoplay: true,
-      autoplaySpeed: 3000,
-      transitionSpeed: 500,
+      autoplaySpeed: 3,
+      transitionSpeed: 0.5,
       infinite: true,
     },
     orden: 3,

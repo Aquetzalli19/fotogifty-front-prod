@@ -22,6 +22,15 @@ No test framework is configured. There are manual test pages at `/test` and `/te
 Copy `.env.example` to `.env.local`:
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:3001/api   # Backend API URL (proxied via next.config.ts rewrites)
+
+# Optional store info shown in delivery method UI:
+NEXT_PUBLIC_STORE_NAME=
+NEXT_PUBLIC_STORE_ADDRESS=
+NEXT_PUBLIC_STORE_CITY=
+NEXT_PUBLIC_STORE_STATE=
+NEXT_PUBLIC_STORE_ZIP=
+NEXT_PUBLIC_STORE_PHONE=
+NEXT_PUBLIC_STORE_HOURS=
 ```
 
 All frontend code uses `/api` as the base URL (see `src/lib/config.ts`). Next.js rewrites in `next.config.ts` proxy `/api/*` requests to the backend, avoiding CORS issues and hiding the backend URL from the client.
@@ -54,6 +63,10 @@ All stores are in `src/stores/` and persist to localStorage:
 | `cart-step-store.ts` | — | Checkout flow step tracking |
 | `order-success-store.ts` | — | Temporary post-payment order display |
 
+**Sync-before-logout pattern**: NavBar calls explicit backend sync on both cart and customizations _before_ calling `logout()`. Always use this pattern when clearing stores.
+
+**Hydration pattern**: `auth-store` exposes `_hasHydrated` flag. Components that render auth-dependent content must wait for it via `useEffect` to avoid SSR/hydration mismatch.
+
 ### API Layer
 
 - **HTTP client**: `src/lib/api-client.ts` — Class-based `ApiClient` with auto auth headers from `localStorage('auth_token')`, JSON handling, error handling, FormData support
@@ -74,9 +87,43 @@ All editors share `TransformTab`, `AdjustTab`, `BackgroundTab` components from `
 - Effects: brightness, contrast, saturation, sepia (pixel manipulation)
 - Canvas styling: background color, border color/width
 - Export: PNG with 300 DPI metadata via `src/lib/png-dpi.ts`
-- Undo/redo: Command pattern via `useHistory` hook
+- Undo/redo: Command pattern via `useHistory` hook (`execute()`, `undo()`, `redo()`, `canUndo`, `canRedo`, `reset()`)
 
 **Canvas orientation vs image rotation**: Canvas orientation swaps the print dimensions (portrait ↔ landscape). Image rotation only rotates the photo within the canvas.
+
+**Live vs committed state**: Editor components use two callbacks — `onLiveChange` (slider drag → direct state, no undo entry) and `onCommit` (slider release → `execute()` adds to undo history). This prevents bloating the undo stack with intermediate drag values.
+
+**Canvas rendering pipeline** (`src/lib/canvas-operations.ts`):
+1. Draw template/background
+2. `ctx.clip()` to photo area
+3. Draw blurred background fill within clip region (Calendar: done on canvas, not CSS)
+4. Draw sharp photo on top within clip
+5. Draw template _again_ on top for overlay effect (calendar text/borders over photo)
+6. Apply CSS filters (effects)
+
+**WYSIWYG / export accuracy**: Preview zoom is separate from export canvas size. A `scaleFactor` (`exportDimensions / previewDimensions`) scales position transforms for high-res output; scale itself is NOT multiplied by the factor. Always export at 300 DPI regardless of preview zoom.
+
+#### Copy/Instance Management
+
+- Each package has a `maxCopies` limit (e.g., 5 prints of 4×6).
+- `getTotalCopiesUsed(cartItemId)` in `customization-store` validates the running total.
+- Standard/Polaroid: each saved image slot counts toward the limit; copy count badges shown in cart previews.
+- Calendar: 12 months = 1 complete calendar; copy count is irrelevant for calendars.
+- `getInstanceProgress(cartItemId)` returns completion percentage across all instances for a cart item.
+
+#### Image Memory Management
+
+- Original images stored as data URLs in localStorage.
+- Thumbnails: 500×500px JPEG at 0.92 quality, stored as base64 (cart previews only).
+- `renderedImageSrc` is **never** stored in localStorage to prevent `QuotaExceededError`.
+- Rendered canvases are generated on-demand when uploading to the backend.
+
+### Terms & Conditions Blocking
+
+- `useTermsAcceptance` hook (`checkTermsStatus()`, `acceptTerms()`) handles all terms state.
+- Cart checkout is blocked until the user accepts the current version.
+- Backend returns 400/403 if terms version is outdated; the cart page parses the error and surfaces the acceptance modal.
+- The modal receives `termsStatus.termsDocument` for inline display.
 
 ### Key Patterns
 
@@ -89,6 +136,18 @@ All editors share `TransformTab`, `AdjustTab`, `BackgroundTab` components from `
 - **Backward compatibility**: When loading persisted data, always provide defaults for fields that may not exist in older stored data (e.g., `transformations?.rotation || 0`)
 - **Image processing order**: translate to center → rotate → scale → draw → apply CSS filters
 - **Thumbnails**: 500x500px JPEG at 0.92 quality for cart previews, stored as base64 in localStorage
+
+### Key Libraries
+
+- **Stripe**: `@stripe/react-stripe-js` + `@stripe/stripe-js` for payment
+- **Recharts**: Admin analytics charts
+- **xlsx**: Admin spreadsheet export
+- **Embla Carousel**: Product/landing carousels
+- **Sonner**: Toast notifications
+- **react-color** + **color**: Color pickers and manipulation in editor
+- **isomorphic-dompurify**: XSS protection for user-generated content
+- **lenis**: Smooth scroll on landing pages
+- **motion**: Animations
 
 ### Images
 

@@ -56,7 +56,11 @@ const ProductSlider = ({ data }: ProductSliderProps) => {
           {textoSecundario.startsWith(",") ? textoSecundario : `, ${textoSecundario}`}
         </p>
       </div>
-      <ProductSlides slides={productSlider} />
+      <ProductSlides
+        slides={productSlider}
+        autoplaySpeed={section?.configuracionExtra?.autoplaySpeed}
+        transitionSpeed={section?.configuracionExtra?.transitionSpeed}
+      />
     </section>
   );
 };

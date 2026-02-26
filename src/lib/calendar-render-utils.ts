@@ -1,10 +1,8 @@
 /**
  * Utilidades para renderizar calendarios
  * Funciones compartidas entre CalendarEditor y order-success
- * IMPORTANTE: Exporta PNG con 300 DPI embebido para impresión de calidad
+ * IMPORTANTE: Exporta JPEG con alta compresión para reducir tamaño de payload
  */
-
-import { canvasToBlobWithDPI } from "@/lib/png-dpi";
 
 // Archivos de templates de calendarios por mes
 export const MONTH_CALENDAR_FILES = {
@@ -74,7 +72,8 @@ function drawBlurredBackground(
   ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
   ctx.filter = "none";
 
-  ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+  // Capa semi-transparente muy sutil para mejorar contraste (opacidad reducida de 0.2 a 0.05)
+  ctx.fillStyle = "rgba(0, 0, 0, 0.05)";
   ctx.fillRect(areaLeft, areaTop, areaWidth, areaHeight);
 
   ctx.restore();
@@ -86,6 +85,7 @@ function drawBlurredBackground(
 async function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Error cargando imagen: ${src.substring(0, 50)}...`));
     img.src = src;
@@ -105,32 +105,83 @@ async function blobToDataURL(blob: Blob): Promise<string> {
 }
 
 /**
+ * Convierte un canvas a Blob JPEG con compresión
+ * @param canvas - Canvas element
+ * @param quality - Calidad de compresión (0-1, default: 0.75)
+ * @returns Promise<Blob> JPEG comprimido
+ */
+async function canvasToJPEGBlob(
+  canvas: HTMLCanvasElement,
+  quality: number = 0.75
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) {
+          reject(new Error('Failed to create JPEG blob from canvas'));
+          return;
+        }
+        resolve(blob);
+      },
+      'image/jpeg',
+      quality
+    );
+  });
+}
+
+/**
  * Renderiza un mes del calendario completo (con template)
  */
 export async function renderCalendarMonth(
   monthData: MonthData,
   calendarWidth: number = 2400,
-  calendarHeight: number = 3600
+  calendarHeight: number = 3600,
+  templateUrl?: string // NUEVO: Template URL opcional (usa hardcoded si no se proporciona)
 ): Promise<string | undefined> {
   if (!monthData.imageSrc) return undefined;
 
-  const PHOTO_AREA = {
-    left: Math.round(calendarWidth * PHOTO_AREA_CONFIG.LEFT_PERCENT),
-    top: Math.round(calendarHeight * PHOTO_AREA_CONFIG.TOP_PERCENT),
-    width: Math.round(calendarWidth * PHOTO_AREA_CONFIG.WIDTH_PERCENT),
-    height: Math.round(calendarHeight * PHOTO_AREA_CONFIG.HEIGHT_PERCENT),
-  };
-
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = calendarWidth;
-  tempCanvas.height = calendarHeight;
-  const ctx = tempCanvas.getContext("2d");
-  if (!ctx) return undefined;
-
   try {
-    const photoImg = await loadImage(monthData.imageSrc);
+    // 1. Cargar template PRIMERO para obtener sus dimensiones reales
+    const finalTemplateUrl = templateUrl ?? MONTH_CALENDAR_FILES[monthData.month as keyof typeof MONTH_CALENDAR_FILES];
+    console.log(`🔗 Cargando template mes ${monthData.month}: ${finalTemplateUrl.substring(0, 80)}...`);
+    const templateImg = await loadImage(finalTemplateUrl);
 
-    // 1. Dibujar fondo difuminado
+    // IMPORTANTE: Usar dimensiones reales del template (no hardcoded)
+    const actualWidth = templateImg.naturalWidth || templateImg.width;
+    const actualHeight = templateImg.naturalHeight || templateImg.height;
+
+    console.log(`📐 Template mes ${monthData.month} cargado:`);
+    console.log(`   - Dimensiones reales: ${actualWidth}x${actualHeight}`);
+    console.log(`   - Dimensiones solicitadas: ${calendarWidth}x${calendarHeight}`);
+    console.log(`   - Template completo: ${templateImg.complete ? 'SÍ' : 'NO'}`);
+
+    // Calcular PHOTO_AREA basado en dimensiones reales del template
+    const PHOTO_AREA = {
+      left: Math.round(actualWidth * PHOTO_AREA_CONFIG.LEFT_PERCENT),
+      top: Math.round(actualHeight * PHOTO_AREA_CONFIG.TOP_PERCENT),
+      width: Math.round(actualWidth * PHOTO_AREA_CONFIG.WIDTH_PERCENT),
+      height: Math.round(actualHeight * PHOTO_AREA_CONFIG.HEIGHT_PERCENT),
+    };
+
+    console.log(`📏 Área de foto calculada:`);
+    console.log(`   - Posición: (${PHOTO_AREA.left}, ${PHOTO_AREA.top})`);
+    console.log(`   - Dimensiones: ${PHOTO_AREA.width}x${PHOTO_AREA.height}`);
+    console.log(`   - Porcentajes: top=${(PHOTO_AREA.top/actualHeight*100).toFixed(1)}%, height=${(PHOTO_AREA.height/actualHeight*100).toFixed(1)}%`);
+
+    // Crear canvas con las dimensiones REALES del template
+    const tempCanvas = document.createElement("canvas");
+    tempCanvas.width = actualWidth;
+    tempCanvas.height = actualHeight;
+    const ctx = tempCanvas.getContext("2d");
+    if (!ctx) return undefined;
+
+    console.log(`🎨 Canvas creado: ${tempCanvas.width}x${tempCanvas.height}`);
+
+    const photoImg = await loadImage(monthData.imageSrc);
+    console.log(`📷 Foto cargada: ${photoImg.width}x${photoImg.height}`);
+
+    // 2. Dibujar fondo difuminado
+    console.log(`🌫️  Dibujando fondo blur...`);
     ctx.save();
     ctx.beginPath();
     ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
@@ -138,7 +189,8 @@ export async function renderCalendarMonth(
     drawBlurredBackground(ctx, photoImg, PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
     ctx.restore();
 
-    // 2. Dibujar la foto del usuario encima del blur (CON CLIP)
+    // 3. Dibujar la foto del usuario encima del blur (CON CLIP)
+    console.log(`🖼️  Dibujando foto principal...`);
     ctx.save();
     ctx.beginPath();
     ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
@@ -153,15 +205,18 @@ export async function renderCalendarMonth(
     ctx.drawImage(photoImg, -photoImg.width / 2, -photoImg.height / 2, photoImg.width, photoImg.height);
     ctx.restore();
 
-    // 3. Cargar y dibujar el template del calendario encima
-    const templateImg = await loadImage(MONTH_CALENDAR_FILES[monthData.month as keyof typeof MONTH_CALENDAR_FILES]);
-    ctx.drawImage(templateImg, 0, 0, calendarWidth, calendarHeight);
+    // 4. Dibujar el template del calendario encima (SIN escalar, ya tiene las dimensiones correctas)
+    console.log(`📅 Dibujando template encima...`);
+    console.log(`   - Template a dibujar: ${templateImg.width}x${templateImg.height}`);
+    console.log(`   - En canvas: ${tempCanvas.width}x${tempCanvas.height}`);
+    ctx.drawImage(templateImg, 0, 0);
+    console.log(`✅ Template dibujado`);
 
-    // 4. Convertir a PNG con 300 DPI para impresión de calidad
-    const blob = await canvasToBlobWithDPI(tempCanvas, 300, 0.95);
+    // 5. Convertir a JPEG con compresión (0.75 quality = ~400-500 KB por imagen)
+    const blob = await canvasToJPEGBlob(tempCanvas, 0.75);
     const dataURL = await blobToDataURL(blob);
 
-    console.log(`✅ Calendario mes ${monthData.month} renderizado como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`✅ Calendario mes ${monthData.month} renderizado como JPEG comprimido (${(blob.size / 1024).toFixed(0)} KB)`);
 
     return dataURL;
   } catch (error) {
@@ -214,11 +269,11 @@ export async function renderCroppedPhoto(
     ctx.drawImage(photoImg, -photoImg.width / 2, -photoImg.height / 2, photoImg.width, photoImg.height);
     ctx.restore();
 
-    // 3. Convertir a PNG con 300 DPI para impresión de calidad
-    const blob = await canvasToBlobWithDPI(tempCanvas, 300, 0.95);
+    // 3. Convertir a JPEG con compresión
+    const blob = await canvasToJPEGBlob(tempCanvas, 0.75);
     const dataURL = await blobToDataURL(blob);
 
-    console.log(`✅ Área recortada mes ${monthData.month} renderizada como PNG con 300 DPI (${(blob.size / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`✅ Área recortada mes ${monthData.month} renderizada como JPEG comprimido (${(blob.size / 1024).toFixed(0)} KB)`);
 
     return dataURL;
   } catch (error) {
