@@ -16,7 +16,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
-import { verificarSesion, subirImagenesPedido, subirFotoConCopias, imageURLtoBlob, ItemPedidoCreado } from "@/services/checkout";
+import { verificarSesion, subirFotoConCopias, imageURLtoBlob, ItemPedidoCreado } from "@/services/checkout";
 import { useCartStore } from "@/stores/cart-store";
 import { useCartStepStore } from "@/stores/cart-step-store";
 import { useAuthStore } from "@/stores/auth-store"; // NUEVO: Para obtener usuarioId
@@ -25,7 +25,6 @@ import {
   CalendarCustomization,
   PolaroidCustomization,
   StandardCustomization,
-  SavedStandardImage,
 } from "@/stores/customization-store";
 
 type PageStatus = "loading" | "uploading" | "success" | "error";
@@ -44,7 +43,7 @@ export default function OrderSuccessPage() {
   const router = useRouter();
   const sessionId = searchParams.get("session_id");
 
-  const { items, clearCart } = useCartStore();
+  const { clearCart } = useCartStore();
   const { resetStep } = useCartStepStore();
   const { customizations, clearAll: clearCustomizations } = useCustomizationStore();
   const { user } = useAuthStore(); // NUEVO: Para obtener usuarioId
@@ -76,6 +75,7 @@ export default function OrderSuccessPage() {
     // Marcar como ejecutado
     hasExecutedRef.current = true;
     verifyAndUpload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   const verifyAndUpload = async (currentRetry = 0) => {

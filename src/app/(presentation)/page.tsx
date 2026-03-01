@@ -18,7 +18,7 @@ import { DEFAULT_LANDING_CONTENT } from "@/lib/landing-defaults";
 
 const Page = () => {
   const [content, setContent] = useState<LandingContent>(DEFAULT_LANDING_CONTENT);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   // Load CMS content
   useEffect(() => {

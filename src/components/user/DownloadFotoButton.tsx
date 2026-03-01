@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, CheckCircle2, AlertCircle, Lock } from "lucide-react";
+import { Download, Loader2, CheckCircle2 } from "lucide-react";
 import { descargarFoto, FotoMetadata } from "@/services/fotos";
 import { useToast } from "@/hooks/useToast";
 import { useAuthStore } from "@/stores/auth-store";

@@ -167,9 +167,6 @@ export default function PolaroidEditor() {
     return savedPolaroids.find(p => p.id === editingPolaroidId)?.copies || 1;
   }, [editingPolaroidId, savedPolaroids]);
 
-  // LEGACY: mantener copiesAvailable para retrocompatibilidad
-  const copiesAvailable = maxPolaroids - copiesUsed;
-
   // Máximo de copias permitidas para el INPUT (sin incluir copiesToSave para evitar círculo vicioso)
   const maxCopiesAllowed = React.useMemo(() => {
     if (editingPolaroidId !== null) {
@@ -321,6 +318,7 @@ export default function PolaroidEditor() {
   // Re-renderizar cuando cambian las transformaciones, efectos o la imagen
   useEffect(() => {
     renderCanvas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentImageSrc, currentTransformations, currentEffects, selectedFilter, templateLoaded, PHOTO_AREA]);
 
   // Cargar personalización existente si estamos en modo carrito
@@ -370,6 +368,7 @@ export default function PolaroidEditor() {
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Manejar carga de imagen
@@ -585,62 +584,6 @@ export default function PolaroidEditor() {
   const handleZoomIn = () => setCanvasZoom((prev) => Math.min(prev + 0.1, 2));
   const handleZoomOut = () => setCanvasZoom((prev) => Math.max(prev - 0.1, 0.1));
   const handleResetZoom = () => setCanvasZoom(0.5);
-
-  // Función para renderizar polaroid final a tamaño completo (para enviar al backend)
-  const renderPolaroidToDataURL = (
-    imageSrc: string,
-    transformations: { scale: number; rotation: number; posX: number; posY: number },
-    effects: Effect,
-    selectedFilter: string
-  ): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      try {
-        // Crear canvas temporal con dimensiones finales
-        const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = POLAROID_WIDTH;
-        exportCanvas.height = POLAROID_HEIGHT;
-        const ctx = exportCanvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('No se pudo obtener contexto 2D'));
-          return;
-        }
-
-        // Cargar imagen de usuario
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          // 1. Dibujar la foto con transformaciones
-          ctx.save();
-          const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
-          const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
-          ctx.translate(centerX + transformations.posX, centerY + transformations.posY);
-          ctx.rotate((transformations.rotation * Math.PI) / 180);
-          ctx.scale(transformations.scale, transformations.scale);
-
-          // Aplicar filtros CSS
-          const filterString = `brightness(${100 + effects.brightness}%) contrast(${100 + effects.contrast}%) saturate(${100 + effects.saturation}%) sepia(${effects.sepia}%)`;
-          ctx.filter = selectedFilter !== "none" ? selectedFilter : filterString;
-
-          ctx.drawImage(img, -img.width / 2, -img.height / 2, img.width, img.height);
-          ctx.restore();
-
-          // 2. Dibujar template encima
-          if (templateImageRef.current) {
-            ctx.filter = "none";
-            ctx.drawImage(templateImageRef.current, 0, 0, POLAROID_WIDTH, POLAROID_HEIGHT);
-          }
-
-          // 3. Exportar como PNG de alta calidad
-          const renderedDataUrl = exportCanvas.toDataURL('image/png');
-          resolve(renderedDataUrl);
-        };
-        img.onerror = () => reject(new Error('Error al cargar imagen'));
-        img.src = imageSrc;
-      } catch (error) {
-        reject(error);
-      }
-    });
-  };
 
   // Guardar polaroid actual en la colección
   const handleSavePolaroid = async () => {
@@ -1071,6 +1014,7 @@ export default function PolaroidEditor() {
                 key={polaroid.id}
                 className="relative group border rounded-lg overflow-hidden bg-muted"
               >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={polaroid.thumbnailDataUrl}
                   alt={`Polaroid ${index + 1}`}

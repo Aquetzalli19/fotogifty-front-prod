@@ -93,6 +93,7 @@ export default function LegalDocumentsPage() {
   // Cargar al montar
   useEffect(() => {
     loadDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Handlers

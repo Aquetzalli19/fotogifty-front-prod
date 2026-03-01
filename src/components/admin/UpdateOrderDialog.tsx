@@ -9,12 +9,10 @@ import { Label } from "../ui/label";
 import { Button } from "../ui/button";
 import { Download, ImageIcon, Loader2, MapPin, User, Phone, Mail, Calendar, CreditCard, PackageOpen } from "lucide-react";
 import { AdmiOrder, OrderItem } from "@/interfaces/order-summary";
-import React, { useState } from "react";
-import { actualizarEstadoPedido } from "@/services/pedidos";
+import React, { useState, useMemo } from "react";
 import { descargarPedidoZip } from "@/services/fotos";
 import { Separator } from "../ui/separator";
 import { config } from "@/lib/config";
-import { EstadoBadge } from "../EstadoBadge";
 import { SelectorEstadoPedido } from "./SelectorEstadoPedido";
 
 interface OrderDialogProps {
@@ -27,7 +25,7 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
   // Usar campos del backend con fallback para compatibilidad
   const status = order.estado ?? order.status ?? "Pendiente";
   const [selectedStatus, setSelectedStatus] = useState(status);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUpdating] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
   // Usar los campos del backend (items_pedido) con fallback a orderItems para compatibilidad
@@ -48,14 +46,16 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
   const clientPhone = order.telefono_cliente;
   const address = order.direccion_envio;
   const paymentStatus = order.estado_pago;
-  const stripeSessionId = order.id_sesion_stripe;
 
   // ✅ NUEVO: Detectar si tenemos objetos de fotos con IDs (mejor opción)
-  const fotos = order.fotos || [];
+  const fotos = useMemo(() => order.fotos || [], [order.fotos]);
   const hasFotosWithIds = fotos.length > 0;
 
   // ⚠️ Fallback: Solo URLs (para pedidos antiguos)
-  const images = order.imagenes || order.images || fotos.map(f => f.url) || [];
+  const images = useMemo(
+    () => order.imagenes || order.images || fotos.map(f => f.url) || [],
+    [order.imagenes, order.images, fotos]
+  );
 
   // NUEVO: Agrupar fotos por URL para mostrar badges de cantidad en lugar de repetir thumbnails
   interface GroupedPhoto {
@@ -169,13 +169,6 @@ const UpdateOrderDialog = ({ order, setOpen, onOrderUpdated }: OrderDialogProps)
     } finally {
       setDownloadingImageIndex(null);
     }
-  };
-
-  // Ya no es necesario: el SelectorEstadoPedido maneja la actualización automáticamente
-  // Mantener esta función vacía para no romper el botón (o podríamos remover el botón)
-  const handleSaveChanges = () => {
-    // Los cambios se guardan automáticamente al cambiar el estado
-    setOpen(false);
   };
 
   // Descargar todas las fotos del pedido en ZIP

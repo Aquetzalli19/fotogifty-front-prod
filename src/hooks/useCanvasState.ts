@@ -438,6 +438,7 @@ export const useCanvasDragging = (
     dragStartPos.current = { x: clientX, y: clientY };
     startTransformations.current = { ...transformations };
     lastDelta.current = { x: 0, y: 0 };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSrc, transformations]);
 
   // Registrar touchstart en el canvas con passive: false
@@ -459,6 +460,7 @@ export const useCanvasDragging = (
     return () => {
       canvas.removeEventListener('touchstart', handleTouchStart);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSrc, startDragging]);
 
   // Handle mouse down on canvas

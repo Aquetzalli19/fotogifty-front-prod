@@ -25,7 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard, Phone } from "lucide-react";
+import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/packages";
 import { addressService } from "@/services/addressService";
@@ -58,7 +58,7 @@ const CartPage = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<'envio_domicilio' | 'recogida_tienda'>('envio_domicilio');
 
   const { items, getTotals, clearCart, removeItem } = useCartStore();
-  const { getCustomization, getInstanceProgress, getTotalCopiesUsed, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
+  const { getCustomization, getTotalCopiesUsed, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
 
   // Hook para verificar términos y condiciones
   const {
@@ -68,7 +68,6 @@ const CartPage = () => {
     setShowModal,
     acceptTerms,
     checkTermsStatus,
-    isChecking: isCheckingTerms,
     isAccepting: isAcceptingTerms,
   } = useTermsAcceptance();
 
@@ -152,6 +151,7 @@ const CartPage = () => {
     } else {
       setHasOrphanItems(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoadingProducts, products, items]);
 
   // Cargar direcciones cuando entramos al paso 3
@@ -593,6 +593,7 @@ const CartPage = () => {
                                 }`}
                               >
                                 {monthData.imageSrc ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={monthData.imageSrc}
                                     alt={months[monthIndex]}
@@ -639,12 +640,14 @@ const CartPage = () => {
                                 className="relative aspect-[3/4] rounded-lg overflow-hidden border-2 border-green-500 dark:border-green-400 bg-white dark:bg-slate-800 shadow-sm"
                               >
                                 {polaroid.thumbnailDataUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={polaroid.thumbnailDataUrl}
                                     alt={`Polaroid ${pIndex + 1}`}
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
                                   <img
                                     src={polaroid.imageSrc}
                                     alt={`Polaroid ${pIndex + 1}`}
@@ -700,6 +703,7 @@ const CartPage = () => {
                                 key={img.id}
                                 className="relative aspect-square rounded-lg overflow-hidden border-2 border-green-500 shadow-sm"
                               >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={img.thumbnailDataUrl || img.imageSrc}
                                   alt={`Foto ${imgIndex + 1}`}

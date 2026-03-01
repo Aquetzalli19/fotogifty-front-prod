@@ -27,7 +27,6 @@ import {
   Save,
   Edit,
   Check,
-  ImageIcon,
   CheckCircle2,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
@@ -185,8 +184,6 @@ export default function StandardEditor() {
     return savedImages.find(img => img.id === editingImageId)?.copies || 1;
   }, [editingImageId, savedImages]);
 
-  // LEGACY: mantener copiesAvailable para retrocompatibilidad
-  const copiesAvailable = maxImages - copiesUsed;
 
   // Máximo de copias permitidas para el INPUT (sin incluir copiesToSave para evitar círculo vicioso)
   const maxCopiesAllowed = React.useMemo(() => {
@@ -265,6 +262,7 @@ export default function StandardEditor() {
       }, 10);
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasOrientation, imageSrc]);
 
   // Cargar personalización existente si estamos en modo carrito
@@ -286,6 +284,7 @@ export default function StandardEditor() {
         }
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const [isDownloadPreviewOpen, setIsDownloadPreviewOpen] = useState(false);
@@ -705,6 +704,7 @@ export default function StandardEditor() {
                           editingImageId === img.id ? "border-primary" : "border-transparent"
                         }`}
                       >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={img.thumbnailDataUrl || img.imageSrc}
                           alt={`Imagen ${index + 1}`}
@@ -1108,6 +1108,7 @@ export default function StandardEditor() {
                       editingImageId === img.id ? "border-primary" : "border-border"
                     }`}
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={img.thumbnailDataUrl || img.imageSrc}
                       alt={`${index + 1}`}

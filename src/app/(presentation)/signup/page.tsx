@@ -44,7 +44,7 @@ export default function RegisterPage() {
 
   // Estado para términos activos
   const [activeTerms, setActiveTerms] = useState<LegalDocument | null>(null);
-  const [isLoadingTerms, setIsLoadingTerms] = useState(true);
+  const [, setIsLoadingTerms] = useState(true);
 
   const registerForm = useForm<UserSchemaType>({
     resolver: zodResolver(UserSchema),
@@ -64,7 +64,7 @@ export default function RegisterPage() {
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();
 
-  const { control, handleSubmit, setError } = registerForm;
+  const { control, handleSubmit } = registerForm;
 
   // Cargar términos activos al montar el componente
   useEffect(() => {

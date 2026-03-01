@@ -55,14 +55,14 @@ const AddItemPage = () => {
 
   // Estados para template (Polaroid)
   const [templateFile, setTemplateFile] = useState<File | null>(null);
-  const [hasTemplate, setHasTemplate] = useState(false);
+  const [, setHasTemplate] = useState(false);
 
   // Estados para templates de calendario (12 meses)
   const [calendarTemplates, setCalendarTemplates] = useState<Record<number, File | null>>({
     1: null, 2: null, 3: null, 4: null, 5: null, 6: null,
     7: null, 8: null, 9: null, 10: null, 11: null, 12: null
   });
-  const [hasCalendarTemplates, setHasCalendarTemplates] = useState(false);
+  const [, setHasCalendarTemplates] = useState(false);
 
   // Toast notifications
   const { toasts, removeToast, success, error: showError } = useToast();

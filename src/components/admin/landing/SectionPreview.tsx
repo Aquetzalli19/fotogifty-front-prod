@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LandingSectionDTO, LandingSlide, LandingOption, SectionKey, SECTION_METADATA, CarouselConfig } from "@/interfaces/landing-content";
+import { LandingSectionDTO, LandingSlide, LandingOption, SectionKey, CarouselConfig } from "@/interfaces/landing-content";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "./SafeImage";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -19,8 +19,6 @@ export function SectionPreview({
   slides,
   options,
 }: SectionPreviewProps) {
-  const metadata = SECTION_METADATA[sectionKey];
-
   // Render different previews based on section type
   switch (sectionKey) {
     case "hero":

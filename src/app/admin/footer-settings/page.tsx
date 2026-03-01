@@ -37,6 +37,7 @@ export default function FooterSettingsPage() {
 
   useEffect(() => {
     loadFooterConfig();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading || !footerConfig) {

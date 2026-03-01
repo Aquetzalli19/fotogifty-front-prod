@@ -198,7 +198,7 @@ export async function descargarPedidoZip(pedidoId: number) {
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorData.message || errorMessage;
-      } catch (_e) {
+      } catch {
         // Si no se puede parsear el JSON, usar mensaje genérico
         errorMessage = `Error ${response.status}: ${response.statusText}`;
       }

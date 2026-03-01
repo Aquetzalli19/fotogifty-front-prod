@@ -46,6 +46,7 @@ export default function LandingContentPage() {
 
   useEffect(() => {
     loadSections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleToggle = async (sectionKey: SectionKey) => {

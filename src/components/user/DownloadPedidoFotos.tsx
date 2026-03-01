@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, CheckCircle2, AlertCircle, FileArchive, Lock } from "lucide-react";
-import { descargarMultiplesFotos } from "@/services/fotos";
+import { Loader2, FileArchive } from "lucide-react";
 import { useToast } from "@/hooks/useToast";
 import { Progress } from "@/components/ui/progress";
 import { useAuthStore } from "@/stores/auth-store";
@@ -20,7 +19,6 @@ interface DownloadPedidoFotosProps {
 export default function DownloadPedidoFotos({
   fotoIds,
   pedidoId,
-  nombrePedido,
   variant = "default",
   size = "default",
   className = ""

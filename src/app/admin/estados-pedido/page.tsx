@@ -82,6 +82,7 @@ export default function EstadosPedidoAdmin() {
 
   useEffect(() => {
     cargar();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleOpenDialog = (estado?: EstadoPedido) => {

@@ -114,7 +114,7 @@ export async function renderPolaroid(
   // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
   const canvasWidth = options?.canvasWidth ?? POLAROID_WIDTH;
   const canvasHeight = options?.canvasHeight ?? POLAROID_HEIGHT;
-  const photoAreaRaw = options?.photoArea ?? PHOTO_AREA;
+  const photoAreaRaw: RenderOptions['photoArea'] = options?.photoArea ?? PHOTO_AREA;
   const exportResolution = options?.exportResolution ?? 300;
   const widthInches = options?.widthInches ?? (canvasWidth / exportResolution);
   const heightInches = options?.heightInches ?? (canvasHeight / exportResolution);
@@ -206,7 +206,7 @@ export async function renderPolaroidCropped(
   if (!polaroidData.imageSrc) return undefined;
 
   // Usar opciones proporcionadas o valores hardcodeados para compatibilidad
-  const photoAreaRaw = options?.photoArea ?? PHOTO_AREA;
+  const photoAreaRaw: RenderOptions['photoArea'] = options?.photoArea ?? PHOTO_AREA;
 
   // Normalizar photoArea para soportar ambos formatos (x/y y left/top)
   const photoArea = {

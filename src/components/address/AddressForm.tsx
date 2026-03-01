@@ -37,7 +37,7 @@ interface AddressFormProps {
 }
 
 const AddressForm: React.FC<AddressFormProps> = ({ onSubmit, onCancel, editingAddress }) => {
-  const [formData, setFormData] = useState<Omit<Address, 'id' | 'usuario_id'>>({
+  const [, setFormData] = useState<Omit<Address, 'id' | 'usuario_id'>>({
     alias: '',
     pais: '',
     estado: '',

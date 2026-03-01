@@ -18,7 +18,6 @@ import PasswordEdit from "@/components/user/main/edit-modal/PasswordEdit";
 import PhoneEdit from "@/components/user/main/edit-modal/PhoneEdit";
 import NameEdit from "@/components/user/main/edit-modal/NameEdit";
 import DeleteAccountForm from "@/components/user/main/edit-modal/DeleteAccountForm";
-import { Cliente } from "@/interfaces/users";
 import { obtenerUsuarioActual } from "@/services/auth";
 import { useToast } from "@/hooks/useToast";
 import { Toast, ToastContainer } from "@/components/ui/toast";

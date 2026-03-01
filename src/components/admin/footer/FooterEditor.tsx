@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SocialLinksManager } from "./SocialLinksManager";
 import { actualizarFooterConfig } from "@/services/footer-config";
 import type { FooterConfig, SocialLink } from "@/interfaces/footer-config";
-import Footer from "@/components/landing-page/sections/Footer";
 
 interface FooterEditorProps {
   initialConfig: FooterConfig;
@@ -20,7 +19,7 @@ interface FooterEditorProps {
   onError: (message: string) => void;
 }
 
-export function FooterEditor({ initialConfig, onConfigUpdated, onSuccess, onError }: FooterEditorProps) {
+export function FooterEditor({ initialConfig, onSuccess, onError }: FooterEditorProps) {
   const [descripcion, setDescripcion] = useState(initialConfig.descripcion || "");
   const [email, setEmail] = useState(initialConfig.email || "");
   const [telefono, setTelefono] = useState(initialConfig.telefono || "");

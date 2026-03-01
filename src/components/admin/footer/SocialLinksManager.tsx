@@ -69,7 +69,7 @@ export function SocialLinksManager({ socialLinks, onLinksUpdated, onSuccess, onE
       setIsAdding(false);
       onSuccess("Red social agregada exitosamente");
     } catch (err) {
-      console.onError("Error adding social link:", err);
+      console.error("Error adding social link:", err);
       onError("Error al agregar la red social");
     }
   };
@@ -82,7 +82,7 @@ export function SocialLinksManager({ socialLinks, onLinksUpdated, onSuccess, onE
       );
       onSuccess("✅ Cambios guardados");
     } catch (err) {
-      console.onError("Error updating social link:", err);
+      console.error("Error updating social link:", err);
       onError("Error al guardar los cambios");
     }
   };
@@ -105,7 +105,7 @@ export function SocialLinksManager({ socialLinks, onLinksUpdated, onSuccess, onE
           );
           onSuccess("✅ Cambios guardados");
         } catch (err) {
-          console.onError("Error updating social link:", err);
+          console.error("Error updating social link:", err);
           onError("Error al guardar los cambios");
         }
       }
@@ -133,7 +133,7 @@ export function SocialLinksManager({ socialLinks, onLinksUpdated, onSuccess, onE
       await reordenarSocialLinks(ids);
       onSuccess("Red social eliminada");
     } catch (err) {
-      console.onError("Error deleting social link:", err);
+      console.error("Error deleting social link:", err);
       onError("Error al eliminar la red social");
     }
   };
@@ -159,7 +159,7 @@ export function SocialLinksManager({ socialLinks, onLinksUpdated, onSuccess, onE
       await reordenarSocialLinks(ids);
       onSuccess("✅ Orden actualizado");
     } catch (err) {
-      console.onError("Error reordering links:", err);
+      console.error("Error reordering links:", err);
       onError("Error al reordenar");
       // Revertir en caso de onError
       onLinksUpdated(socialLinks);

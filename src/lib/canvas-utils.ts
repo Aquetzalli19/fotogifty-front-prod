@@ -141,7 +141,7 @@ export const compressImage = (
   imageSrc: string,
   maxWidth = 800,
   maxHeight = 800,
-  quality = 0.7, // Mantener parámetro para compatibilidad (no usado en PNG)
+  _quality = 0.7, // eslint-disable-line @typescript-eslint/no-unused-vars
   minWidth = 0,  // Tamaño mínimo (no comprimir por debajo)
   minHeight = 0
 ): Promise<string> => {
@@ -205,7 +205,7 @@ export const compressCanvas = (
   canvas: HTMLCanvasElement,
   maxWidth = 400,
   maxHeight = 400,
-  quality = 0.6 // Mantener parámetro para compatibilidad (no usado en PNG)
+  _quality = 0.6 // eslint-disable-line @typescript-eslint/no-unused-vars
 ): string => {
   let { width, height } = canvas;
 

@@ -33,7 +33,6 @@ import {
 import * as XLSX from "xlsx";
 import type { AnalyticsData, AnalyticsFilters, VentasPorCategoria, EstadoPedidos } from "@/interfaces/analytics";
 import { obtenerTodosPedidos } from "@/services/pedidos";
-import { obtenerTodasCategorias } from "@/services/categories";
 
 // Colores para las gráficas
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82ca9d"];
@@ -51,6 +50,7 @@ export default function AnalyticsPage() {
   // Cargar datos
   useEffect(() => {
     loadAnalyticsData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   // Función para obtener analytics desde el backend

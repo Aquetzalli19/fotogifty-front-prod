@@ -2,7 +2,7 @@
 
 import { ModeToggle } from "@/components/modeToggle";
 import { navbarLinks } from "@/interfaces/navbar";
-import { Menu, X, User, ShoppingCart, Package, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";

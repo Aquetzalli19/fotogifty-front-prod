@@ -31,7 +31,6 @@ interface OptionsManagerProps {
 
 export function OptionsManager({
   options,
-  sectionKey,
   onAdd,
   onUpdate,
   onDelete,

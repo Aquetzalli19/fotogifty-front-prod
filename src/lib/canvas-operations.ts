@@ -286,6 +286,7 @@ export const useCanvasRendering = (
         cancelAnimationFrame(rafIdRef.current);
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     imageSrc,
     transformations,

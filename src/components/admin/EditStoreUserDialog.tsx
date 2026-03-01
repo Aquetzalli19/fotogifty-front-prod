@@ -118,7 +118,7 @@ const EditStoreUserDialog: React.FC<EditStoreUserDialogProps> = ({
       }
 
       // Realizamos la actualización (ya sea con o sin contraseña)
-      const response = await actualizarStoreUser(Number(user.id), updateData);
+      await actualizarStoreUser(Number(user.id), updateData);
 
       // Actualización exitosa (ya sea con o sin cambio de contraseña)
       onUserUpdated();

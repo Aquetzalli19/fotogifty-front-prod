@@ -5,7 +5,6 @@ import { Address } from '@/types/Address';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Card } from '@/components/ui/card';
 
 interface AddressSelectorProps {
   addresses: Address[];
@@ -20,8 +19,6 @@ const AddressSelector: React.FC<AddressSelectorProps> = ({
   onSelect,
   onAddNew 
 }) => {
-  const defaultAddress = addresses.find(addr => addr.predeterminada);
-
   if (addresses.length === 0) {
     return (
       <div className="border rounded-lg p-4 mb-4">

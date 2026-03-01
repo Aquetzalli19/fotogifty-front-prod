@@ -36,7 +36,6 @@ interface SlideManagerProps {
 
 export function SlideManager({
   slides,
-  sectionKey,
   slideType,
   maxSlides,
   onAdd,
