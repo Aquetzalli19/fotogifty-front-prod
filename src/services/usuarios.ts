@@ -89,3 +89,18 @@ export async function cambiarContraseñaCliente(id: number, currentPassword: str
     newPassword
   });
 }
+
+/**
+ * Elimina permanentemente la cuenta de un cliente.
+ * El backend valida contraseña y teléfono, luego anonimiza los datos.
+ * Endpoint esperado: DELETE /api/usuarios/:id con body { password, phoneNumber }
+ */
+export async function eliminarCuentaCliente(
+  id: number,
+  password: string,
+  phoneNumber: string
+): Promise<ApiResponse<void>> {
+  return apiClient.delete<void>(`/usuarios/${id}`, {
+    body: JSON.stringify({ password, phoneNumber }),
+  });
+}

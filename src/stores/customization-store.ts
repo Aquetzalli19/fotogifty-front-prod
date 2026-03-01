@@ -418,7 +418,8 @@ export const useCustomizationStore = create<CustomizationState>()(
                   cleanedData = {
                     ...calendarData,
                     months: calendarData.months?.map((m) => {
-                      const { renderedImageSrc, ...rest } = m as { renderedImageSrc?: string; [key: string]: unknown };
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      const { renderedImageSrc: _renderedImageSrc, ...rest } = m as { renderedImageSrc?: string; [key: string]: unknown };
                       return rest;
                     }) ?? [],
                   } as CalendarCustomization;

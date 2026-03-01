@@ -165,7 +165,7 @@ export async function subirImagenesPedido(
       const error = await response.json();
       errorMessage = error.message || errorMessage;
       console.error('❌ Error del backend:', error);
-    } catch (e) {
+    } catch (_e) {
       console.error('❌ No se pudo parsear el error del backend');
     }
     throw new Error(errorMessage);
@@ -229,7 +229,7 @@ export async function subirFotoConCopias(
         console.error(`   - Copias usadas: ${error.data.copias_usadas_total}`);
         console.error(`   - Límite paquete: ${error.data.limite_paquete}`);
       }
-    } catch (e) {
+    } catch (_e) {
       console.error('❌ No se pudo parsear el error del backend');
     }
     throw new Error(errorMessage);

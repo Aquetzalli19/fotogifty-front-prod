@@ -6,7 +6,6 @@ import { apiClient } from '@/lib/api-client';
 import {
   TermsAcceptanceStatus,
   BackendTermsStatusItem,
-  AcceptTermsRequest,
   AcceptTermsResponse,
 } from '@/interfaces/terms-acceptance';
 import { obtenerDocumentoLegalActivo } from './legal-documents';

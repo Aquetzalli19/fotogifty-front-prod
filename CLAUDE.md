@@ -45,7 +45,7 @@ Route groups organize layouts without affecting URL paths:
 - `src/app/user/` — Authenticated user area: product catalogue, editor, cart, order-success, profile, backlog
   - `(presentation)/` sub-group shares NavBar/Footer layout
   - `editor/page.tsx` — Photo editor (no shared layout wrapper)
-- `src/app/admin/` — Admin dashboard: order delivery, inventory, categories, users, analytics, legal docs, landing content, store settings
+- `src/app/admin/` — Admin dashboard: order delivery, inventory, categories, users, analytics, legal docs, landing content, store settings, footer settings, order states
 - `src/app/store/` — Point-of-sale interface with separate login
 - `src/app/login/` — Login routing for admin and store roles
 
@@ -60,8 +60,7 @@ All stores are in `src/stores/` and persist to localStorage:
 | `auth-store.ts` | `auth-storage` | User session, token, role. Methods: `login()`, `logout()`, `updateUserData()` |
 | `cart-store.ts` | `shopping-cart-storage-final` | Cart items, quantities, totals. Syncs to backend via debounced `temp-cart` service (2s). **Prices include IVA (16% tax) — no separate tax calculation.** |
 | `customization-store.ts` | `customization-storage` | Per-item photo editor state: transformations, effects, filters, canvas styling. Supports multiple instances per item (qty=3 → 3 customizations). |
-| `cart-step-store.ts` | — | Checkout flow step tracking |
-| `order-success-store.ts` | — | Temporary post-payment order display |
+| `cart-step-store.ts` | `cart-step-storage` | Checkout flow step tracking (step 1–N) |
 
 **Sync-before-logout pattern**: NavBar calls explicit backend sync on both cart and customizations _before_ calling `logout()`. Always use this pattern when clearing stores.
 
@@ -173,5 +172,8 @@ Detailed docs in `docs/` directory:
 - `STRIPE_PAYMENT_SPECIFICATION.md` — Payment integration spec
 - `EDITOR_TYPE_USAGE.md` — Editor type system guide
 - `API_REAL_DOCUMENTATION.md` — Full API reference with examples
-- `PASSWORD_RECOVERY_FLOW.md` — Password recovery with DOB verification
 - `BACKEND_API_DOCS.md`, `API_ORDENES_BACKEND.md` — Backend API docs
+- `CALENDAR_TEMPLATES_BACKEND_SPEC.md`, `CALENDAR_AREA_CONFIG.md` — Calendar editor specs
+- `BACKEND_TERMS_IMPLEMENTATION_GUIDE.md`, `TERMS_ACCEPTANCE_FLOW_DIAGRAM.md` — Terms flow
+- `LANDING_CMS_BACKEND_SPEC.md` — CMS spec for landing page content
+- `VERCEL_DEPLOYMENT.md` — Full deployment guide

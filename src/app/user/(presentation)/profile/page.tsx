@@ -2,13 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from 'next/link';
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import EditModal from "@/components/user/main/edit-modal/EditModal";
 import EmailEdit from "@/components/user/main/edit-modal/EmailEdit";
 import PasswordEdit from "@/components/user/main/edit-modal/PasswordEdit";
 import PhoneEdit from "@/components/user/main/edit-modal/PhoneEdit";
 import NameEdit from "@/components/user/main/edit-modal/NameEdit";
+import DeleteAccountForm from "@/components/user/main/edit-modal/DeleteAccountForm";
 import { Cliente } from "@/interfaces/users";
 import { obtenerUsuarioActual } from "@/services/auth";
 import { useToast } from "@/hooks/useToast";
@@ -17,6 +26,7 @@ import { useAuthStore } from "@/stores/auth-store";
 
 const ProfilePage = () => {
   const [loading, setLoading] = useState(true);
+  const [openDelete, setOpenDelete] = useState(false);
   const { user: currentUser, updateUserData } = useAuthStore();
 
   // Toast notifications
@@ -227,6 +237,32 @@ const ProfilePage = () => {
               Administra tus direcciones de envío
             </p>
           </div>
+        </div>
+
+        {/* Zona de peligro */}
+        <div className="mt-8 border border-destructive/30 rounded-lg p-4">
+          <h2 className="text-sm font-semibold text-destructive mb-1">Zona de peligro</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Una vez que elimines tu cuenta, no hay vuelta atrás.
+          </p>
+          <Dialog open={openDelete} onOpenChange={setOpenDelete}>
+            <DialogTrigger asChild>
+              <Button variant="destructive" size="sm">Eliminar mi cuenta</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Eliminar cuenta
+                </DialogTitle>
+              </DialogHeader>
+              <DeleteAccountForm
+                userId={currentUser.id}
+                userPhone={currentUser.telefono ?? ''}
+                onSuccess={() => setOpenDelete(false)}
+              />
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
