@@ -2,7 +2,7 @@
 
 import { ModeToggle } from "@/components/modeToggle";
 import { navbarLinks } from "@/interfaces/navbar";
-import { Menu, X, User, LogOut } from "lucide-react";
+import { Menu, X, User, LogOut, LayoutDashboard } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import React, { useState, useEffect } from "react";
@@ -131,6 +131,12 @@ const NavBar = ({ sections }: navBarProps) => {
                   <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
+                    <Link href="/user" className="cursor-pointer">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      Ir a mi área
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
                     <Link href="/user/profile" className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
                       Perfil
@@ -223,6 +229,15 @@ const NavBar = ({ sections }: navBarProps) => {
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
+
+              <Link
+                href="/user"
+                onClick={closeMenu}
+                className="flex items-center gap-3 py-3 px-4 rounded-lg hover:bg-gray-200/70 dark:hover:bg-gray-200/20 transition-colors"
+              >
+                <LayoutDashboard className="w-5 h-5" />
+                <span>Ir a mi área</span>
+              </Link>
 
               <Link
                 href="/user/profile"

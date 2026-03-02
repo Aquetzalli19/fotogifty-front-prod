@@ -27,6 +27,8 @@ function loadImageFromSource(source: File | string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error('Error cargando imagen'));
 
     if (typeof source === 'string') {
+      // crossOrigin requerido para URLs de S3 — evita tainted canvas al exportar
+      img.crossOrigin = "anonymous";
       img.src = source;
     } else {
       const reader = new FileReader();

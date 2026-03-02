@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { customizationStorage } from "@/lib/customization-storage";
 import { EditorType } from "@/lib/category-utils";
 import { Effect } from "@/lib/types";
 import {
@@ -167,6 +168,15 @@ export interface CustomizationState {
   // Obtener copias disponibles restantes
   getRemainingCopies: (cartItemId: number, instanceIndex: number, packageQuantity: number) => number;
 
+  // Eliminar una instancia y desplazar índices superiores hacia abajo
+  removeInstanceAndShift: (cartItemId: number, instanceIndex: number) => void;
+
+  // Eliminar customizaciones cuyos cartItemIds ya no existen en el carrito
+  removeOrphanCustomizations: (validCartItemIds: number[]) => void;
+
+  // Duplicar una instancia a otro slot (clon profundo sin imágenes renderizadas)
+  duplicateCustomization: (cartItemId: number, sourceIndex: number, targetIndex: number) => void;
+
   // Limpiar todo
   clearAll: () => void;
 
@@ -269,6 +279,26 @@ export const useCustomizationStore = create<CustomizationState>()(
       removeAllForCartItem: (cartItemId) => {
         set((state) => ({
           customizations: state.customizations.filter((c) => c.cartItemId !== cartItemId),
+        }));
+      },
+
+      removeInstanceAndShift: (cartItemId, instanceIndex) => {
+        set((state) => {
+          const updated = state.customizations
+            .filter(c => !(c.cartItemId === cartItemId && c.instanceIndex === instanceIndex))
+            .map(c => {
+              if (c.cartItemId === cartItemId && c.instanceIndex > instanceIndex) {
+                return { ...c, instanceIndex: c.instanceIndex - 1 };
+              }
+              return c;
+            });
+          return { customizations: updated };
+        });
+      },
+
+      removeOrphanCustomizations: (validCartItemIds) => {
+        set((state) => ({
+          customizations: state.customizations.filter(c => validCartItemIds.includes(c.cartItemId)),
         }));
       },
 
@@ -390,6 +420,56 @@ export const useCustomizationStore = create<CustomizationState>()(
         return Math.max(0, packageQuantity - used);
       },
 
+      duplicateCustomization: (cartItemId, sourceIndex, targetIndex) => {
+        const source = get().getCustomization(cartItemId, sourceIndex);
+        if (!source) return;
+
+        // Deep-clone usando JSON para evitar referencias compartidas
+        const clonedData = JSON.parse(JSON.stringify(source.data)) as typeof source.data;
+
+        // Limpiar campos de imágenes renderizadas: nunca se deben persistir en localStorage
+        switch (source.editorType) {
+          case 'standard': {
+            const data = clonedData as StandardCustomization;
+            data.images = data.images.map((img) => {
+              const clone = { ...img } as Record<string, unknown>;
+              delete clone.renderedImageSrc;
+              delete clone.thumbnailDataUrl;
+              return clone as unknown as SavedStandardImage;
+            });
+            break;
+          }
+          case 'calendar': {
+            const data = clonedData as CalendarCustomization;
+            data.months = data.months.map((m) => {
+              const clone = { ...m } as Record<string, unknown>;
+              delete clone.renderedImageSrc;
+              delete clone.croppedPhotoSrc;
+              return clone as typeof m;
+            });
+            break;
+          }
+          case 'polaroid': {
+            const data = clonedData as PolaroidCustomization;
+            data.polaroids = data.polaroids.map((p) => {
+              const clone = { ...p } as Record<string, unknown>;
+              delete clone.renderedImageSrc;
+              delete clone.thumbnailDataUrl;
+              return clone as typeof p;
+            });
+            break;
+          }
+        }
+
+        get().saveCustomization({
+          cartItemId,
+          instanceIndex: targetIndex,
+          editorType: source.editorType,
+          data: clonedData,
+          completed: source.completed,
+        });
+      },
+
       clearAll: () => {
         set({ customizations: [] });
       },
@@ -503,6 +583,8 @@ export const useCustomizationStore = create<CustomizationState>()(
     }),
     {
       name: "customization-storage",
+      // Adaptador personalizado: metadatos en localStorage, imágenes en IndexedDB
+      storage: createJSONStorage(() => customizationStorage),
       // Solo persistir customizations, no el estado de sincronización
       partialize: (state) => ({ customizations: state.customizations }),
     }

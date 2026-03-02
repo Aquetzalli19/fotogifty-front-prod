@@ -102,11 +102,14 @@ export const useAuthStore = create<AuthState>()(
       loadUserDataFromBackend: async () => {
         set({ isLoadingUserData: true });
         try {
-          // Cargar carrito y customizaciones en paralelo
-          await Promise.all([
-            useCartStore.getState().loadFromBackend(),
-            useCustomizationStore.getState().loadFromBackend(),
-          ]);
+          // Cargar carrito primero para poder validar customizaciones contra él
+          await useCartStore.getState().loadFromBackend();
+          await useCustomizationStore.getState().loadFromBackend();
+
+          // Limpiar customizaciones huérfanas: cartItemIds que ya no existen en el carrito
+          // Esto evita que el editor cargue datos obsoletos de items ya eliminados
+          const cartItemIds = useCartStore.getState().items.map(i => i.id);
+          useCustomizationStore.getState().removeOrphanCustomizations(cartItemIds);
         } catch (error) {
           console.error('Error cargando datos del usuario desde backend:', error);
         } finally {

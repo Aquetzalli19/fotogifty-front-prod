@@ -22,7 +22,7 @@ interface CartItemProps {
   description: string;
   quantity: number;
   price: number;
-  showQuantityControls?: boolean; // Optional prop to show/hide quantity controls
+  showQuantityControls?: boolean;
 }
 
 const CartItem = ({ ...item }: CartItemProps) => {
@@ -54,17 +54,19 @@ const CartItem = ({ ...item }: CartItemProps) => {
                     variant={"outline"}
                     onClick={() => decreaseQuantity(item.id)}
                     className="border-0 bg-transparent text-secondary shadow-none cursor-pointer hover:bg-transparent hover:text-secondary w-8 h-8 p-0 aspect-square"
+                    aria-label="Reducir cantidad"
                   >
                     <Minus size={16} />
                   </Button>
 
-                  <span className="text-center font-poppins w-8">
+                  <span className="text-center font-poppins w-8" aria-live="polite" aria-label={`Cantidad: ${item.quantity}`}>
                     {item.quantity}
                   </span>
                   <Button
                     variant={"outline"}
                     onClick={() => increaseQuantity(item.id)}
                     className="border-0 bg-transparent text-secondary shadow-none cursor-pointer hover:bg-transparent hover:text-secondary w-8 h-8 p-0 aspect-square"
+                    aria-label="Aumentar cantidad"
                   >
                     <Plus size={16} />
                   </Button>
@@ -78,6 +80,7 @@ const CartItem = ({ ...item }: CartItemProps) => {
               <Button
                 onClick={() => removeItem(item.id)}
                 className="h-8 w-full sm:w-auto px-3 py-1 text-xs sm:text-sm"
+                aria-label={`Eliminar ${item.packageName} del carrito`}
               >
                 <X size={16} className="mr-1" /> Eliminar
               </Button>

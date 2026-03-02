@@ -2,6 +2,8 @@ import React from 'react';
 import Link from 'next/link';
 import { obtenerFooterConfig } from '@/services/footer-config';
 import type { FooterConfig, SocialPlatform } from '@/interfaces/footer-config';
+import { extractYouTubeVideoId } from '@/lib/youtube-utils';
+import YouTubeModal from './YouTubeModal';
 
 // Iconos SVG inline para redes sociales
 const SocialIcons: Record<SocialPlatform, { svg: React.ReactNode; color: string }> = {
@@ -102,6 +104,21 @@ export default async function Footer() {
               <div className="flex gap-3">
                 {activeSocialLinks.map((link) => {
                   const icon = SocialIcons[link.plataforma];
+
+                  if (link.plataforma === 'youtube') {
+                    const videoId = extractYouTubeVideoId(link.url);
+                    if (videoId) {
+                      return (
+                        <YouTubeModal
+                          key={link.id}
+                          videoId={videoId}
+                          icon={icon.svg}
+                          color={icon.color}
+                        />
+                      );
+                    }
+                  }
+
                   return (
                     <Link
                       key={link.id}

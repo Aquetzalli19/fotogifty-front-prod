@@ -5,6 +5,7 @@
  */
 
 import { canvasToBlobWithDPI, addPrintMetadataToPNG } from "@/lib/png-dpi";
+import { loadCorsImage } from "@/lib/load-cors-image";
 
 interface PolaroidData {
   imageSrc: string;
@@ -76,17 +77,10 @@ export interface RenderOptions {
 }
 
 /**
- * Carga una imagen desde una URL
+ * Carga una imagen desde una URL de forma segura para canvas.
+ * Usa fetch+blob para URLs externas (S3) y carga directa para locales.
  */
-async function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Error cargando imagen`));
-    img.src = src;
-  });
-}
+const loadImage = loadCorsImage;
 
 /**
  * Convierte un Blob a data URL
@@ -141,6 +135,12 @@ export async function renderPolaroid(
       loadImage(polaroidData.imageSrc),
       loadImage(templateUrl),
     ]);
+
+    // 0. Rellenar fondo del canvas con el color de fondo configurado (default: blanco).
+    //    Sin esto, las zonas transparentes del template PNG (caption/bordes) muestran negro.
+    const backgroundColor = polaroidData.canvasStyle?.backgroundColor ?? "#FFFFFF";
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
     // 1. Dibujar la foto del usuario con transformaciones (SIN CLIP - cubre toda el área necesaria)
     ctx.save();
@@ -228,6 +228,10 @@ export async function renderPolaroidCropped(
 
   try {
     const img = await loadImage(polaroidData.imageSrc);
+
+    // Rellenar fondo blanco para evitar áreas negras en zonas sin foto
+    ctx.fillStyle = polaroidData.canvasStyle?.backgroundColor ?? "#FFFFFF";
+    ctx.fillRect(0, 0, photoArea.width, photoArea.height);
 
     // Dibujar solo la foto con transformaciones (sin marco)
     ctx.save();

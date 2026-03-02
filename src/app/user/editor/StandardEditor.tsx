@@ -28,6 +28,7 @@ import {
   Edit,
   Check,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
 import TransformTab from "@/components/editor-components/TransformTab";
@@ -46,6 +47,9 @@ import { useCustomizationStore, StandardCustomization, SavedStandardImage } from
 import { compressCanvas } from "@/lib/canvas-utils";
 import { getEditorType } from "@/lib/category-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import { uploadImageToS3 } from "@/lib/s3-upload";
+import { loadCorsImage } from "@/lib/load-cors-image";
+import { toast } from "sonner";
 
 export default function StandardEditor() {
   const searchParams = useSearchParams();
@@ -76,6 +80,7 @@ export default function StandardEditor() {
 
   // NUEVO: Estado para cantidad de copias
   const [copiesToSave, setCopiesToSave] = useState(1);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Estado para orientación del canvas (portrait/landscape)
   const [canvasOrientation, setCanvasOrientation] = useState<"portrait" | "landscape">(
@@ -297,15 +302,11 @@ export default function StandardEditor() {
 
   // Genera un canvas de alta resolución para exportar
   const generateHighResCanvas = (): Promise<HTMLCanvasElement | null> => {
-    return new Promise((resolve) => {
-      if (!imageSrc) {
-        resolve(null);
-        return;
-      }
+    if (!imageSrc) return Promise.resolve(null);
 
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
+    // Cargar imagen de forma segura (fetch+blob evita canvas tainted por caché CORS)
+    return loadCorsImage(imageSrc)
+      .then(img => {
         console.log("=== GENERANDO CANVAS A TAMAÑO REAL (WYSIWYG) ===");
         console.log("Dimensiones del paquete:", { widthInches, heightInches, exportResolution });
         console.log("Canvas (tamaño real de impresión):", canvasDimensions);
@@ -324,7 +325,6 @@ export default function StandardEditor() {
         console.log("Scale Factor (preview → export):", scaleFactor);
 
         // Escalar SOLO las transformaciones de posición
-        // La escala de la imagen se mantiene igual (proporción respecto al canvas)
         const scaledTransformations = {
           ...transformations,
           posX: transformations.posX * scaleFactor,
@@ -333,7 +333,6 @@ export default function StandardEditor() {
 
         console.log("Transformaciones escaladas:", scaledTransformations);
 
-        // Escalar el estilo del borde
         const scaledStyle = {
           ...canvasStyle,
           borderWidth: canvasStyle.borderWidth * scaleFactor,
@@ -341,21 +340,15 @@ export default function StandardEditor() {
 
         console.log("Estilo escalado:", scaledStyle);
 
-        // Renderizar en alta resolución
         const imageRef = { current: img };
         renderCanvas(highResCanvas, imageRef, scaledTransformations, effects, scaledStyle);
 
-        console.log("Canvas final generado:", {
-          width: highResCanvas.width,
-          height: highResCanvas.height
-        });
+        console.log("Canvas final generado:", { width: highResCanvas.width, height: highResCanvas.height });
         console.log("==========================================");
 
-        resolve(highResCanvas);
-      };
-      img.onerror = () => resolve(null);
-      img.src = imageSrc;
-    });
+        return highResCanvas;
+      })
+      .catch(() => null);
   };
 
   const handleConfirmDownload = async () => {
@@ -462,28 +455,7 @@ export default function StandardEditor() {
 
   // Editar una imagen guardada
   const handleEditSavedImage = (image: SavedStandardImage) => {
-    // Crear un objeto Image para pre-cargar la imagen
-    const img = new Image();
-    img.src = image.imageSrc;
-
-    img.onload = () => {
-      // Una vez cargada la imagen, actualizar todos los estados
-      setImageSrc(image.imageSrc);
-      setTransformations(image.transformations);
-      setEffects(image.effects);
-      setCanvasStyle(image.canvasStyle);
-      setSelectedFilter(image.selectedFilter);
-      setCopiesToSave(image.copies || 1);
-      setEditingImageId(image.id);
-
-      // Forzar re-render del canvas después de un pequeño delay
-      setTimeout(() => {
-        setTransformations(prev => ({ ...prev }));
-      }, 50);
-    };
-
-    // Si hay error al cargar, establecer estados de todas formas
-    img.onerror = () => {
+    const applyState = () => {
       setImageSrc(image.imageSrc);
       setTransformations(image.transformations);
       setEffects(image.effects);
@@ -492,6 +464,16 @@ export default function StandardEditor() {
       setCopiesToSave(image.copies || 1);
       setEditingImageId(image.id);
     };
+
+    // Cargar de forma segura (fetch+blob evita canvas tainted por caché CORS)
+    loadCorsImage(image.imageSrc)
+      .then(() => {
+        applyState();
+        setTimeout(() => {
+          setTransformations(prev => ({ ...prev }));
+        }, 50);
+      })
+      .catch(() => applyState());
   };
 
   // Eliminar una imagen guardada
@@ -944,46 +926,46 @@ export default function StandardEditor() {
               type="file"
               accept="image/*"
               className="absolute opacity-0 w-60 h-40"
-              disabled={copiesProjected >= maxImages}
+              disabled={copiesProjected >= maxImages || isUploadingPhoto}
               onChange={async (e) => {
-                if (e.target.files?.[0]) {
-                  const file = e.target.files[0];
-                  try {
-                    // Comprimir la imagen para localStorage
-                    // Usar dimensiones óptimas para impresión de calidad
-                    const maxWidth = Math.round(exportDimensions.width * 1.5);
-                    const maxHeight = Math.round(exportDimensions.height * 1.5);
+                const file = e.target.files?.[0];
+                if (!file) return;
 
-                    console.log("Comprimiendo imagen a:", {
-                      max: { maxWidth, maxHeight }
-                    });
+                setIsUploadingPhoto(true);
+                try {
+                  // 1. Comprimir (sin pérdida de calidad de impresión)
+                  const maxWidth = Math.round(exportDimensions.width * 1.5);
+                  const maxHeight = Math.round(exportDimensions.height * 1.5);
+                  const compressedDataUrl = await compressAndResizeImage(file, {
+                    maxWidth,
+                    maxHeight,
+                    quality: 0.85,
+                    mimeType: 'image/jpeg'
+                  });
 
-                    const compressedSrc = await compressAndResizeImage(file, {
-                      maxWidth,
-                      maxHeight,
-                      quality: 0.85,
-                      mimeType: 'image/jpeg'
-                    });
-                    setImageSrc(compressedSrc);
-                    reset();
-                  } catch (error) {
-                    console.error("Error comprimiendo imagen:", error);
-                    // Fallback: intentar cargar la imagen original
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                      setImageSrc(event.target?.result as string);
-                      reset();
-                    };
-                    reader.readAsDataURL(file);
-                  }
+                  // 2. Subir directo a S3 vía presigned URL
+                  const { publicUrl } = await uploadImageToS3(compressedDataUrl);
+
+                  setImageSrc(publicUrl); // URL de S3, no data URL
+                  reset();
+                } catch (error) {
+                  console.error("Error subiendo imagen:", error);
+                  toast.error("No se pudo subir la foto. Intenta de nuevo.");
+                } finally {
+                  setIsUploadingPhoto(false);
                 }
               }}
             />{" "}
             <div className="w-full flex flex-col gap-4 items-center">
               {" "}
-              <Upload className="text-foreground/70" />
+              {isUploadingPhoto
+                ? <Loader2 className="text-foreground/70 animate-spin" />
+                : <Upload className="text-foreground/70" />
+              }
               <p className="text-center px-4 text-foreground/80 font-medium">
-                {copiesProjected >= maxImages
+                {isUploadingPhoto
+                  ? 'Subiendo foto...'
+                  : copiesProjected >= maxImages
                   ? 'Paquete completo - Reduce copias o elimina fotos para agregar más'
                   : 'Sube una foto'
                 }

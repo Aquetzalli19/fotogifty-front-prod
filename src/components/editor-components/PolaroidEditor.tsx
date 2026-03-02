@@ -23,6 +23,7 @@ import {
   Check,
   X,
   Settings2,
+  Loader2,
   AlertCircle,
 } from "lucide-react";
 import { useHistory } from "@/hooks/useHistory";
@@ -31,6 +32,9 @@ import { useCustomizationStore, PolaroidCustomization } from "@/stores/customiza
 import { getEditorType } from "@/lib/category-utils";
 import { compressCanvas } from "@/lib/canvas-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import { uploadImageToS3 } from "@/lib/s3-upload";
+import { loadCorsImage } from "@/lib/load-cors-image";
+import { toast } from "sonner";
 import { obtenerPaquetePorId } from "@/services/packages";
 import TransformTab from "@/components/editor-components/TransformTab";
 import AdjustTab from "@/components/editor-components/AdjustTab";
@@ -104,6 +108,7 @@ export default function PolaroidEditor() {
 
   const [activeTab, setActiveTab] = useState<string | null>("transform");
   const [disclaimerAccepted, setDisclaimerAccepted] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Área de la foto basada en porcentajes del template PNG
   const PHOTO_AREA = React.useMemo(() => ({
@@ -376,45 +381,37 @@ export default function PolaroidEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingPhoto(true);
     try {
-      // Comprimir la imagen para localStorage
-      // Polaroid área de foto: 700x700px, usamos 1000px para permitir zoom
-      const compressedSrc = await compressAndResizeImage(file, {
+      // 1. Comprimir (sin pérdida de calidad de impresión)
+      const compressedDataUrl = await compressAndResizeImage(file, {
         maxWidth: 1000,
         maxHeight: 1000,
         quality: 0.85,
         mimeType: 'image/jpeg'
       });
 
-      // Cargar la imagen comprimida
+      // 2. Subir directo a S3 vía presigned URL
+      const { publicUrl } = await uploadImageToS3(compressedDataUrl);
+
+      // 3. Cargar imagen para el canvas usando la versión local comprimida.
+      // Evita el problema de caché CORS: la data URL es same-origin y nunca mancha el canvas.
+      // publicUrl (S3) se guarda en estado para persistencia entre sesiones.
       const img = new Image();
-      img.src = compressedSrc;
+      img.src = compressedDataUrl;
       img.onload = () => {
         currentImageRef.current = img;
-        setCurrentImageSrc(compressedSrc);
+        setCurrentImageSrc(publicUrl); // URL de S3, no data URL
         setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
         setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
         setSelectedFilter("none");
         reset();
       };
     } catch (error) {
-      console.error("Error comprimiendo imagen:", error);
-      // Fallback: cargar imagen original
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const originalSrc = event.target?.result as string;
-        const img = new Image();
-        img.src = originalSrc;
-        img.onload = () => {
-          currentImageRef.current = img;
-          setCurrentImageSrc(originalSrc);
-          setCurrentTransformations({ scale: 1, rotation: 0, posX: 0, posY: 0 });
-          setCurrentEffects({ brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
-          setSelectedFilter("none");
-          reset();
-        };
-      };
-      reader.readAsDataURL(file);
+      console.error("Error subiendo imagen:", error);
+      toast.error("No se pudo subir la foto. Intenta de nuevo.");
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -659,13 +656,8 @@ export default function PolaroidEditor() {
 
   // Editar un polaroid guardado
   const handleEditPolaroid = (polaroid: SavedPolaroid) => {
-    // Cargar la imagen primero
-    const img = new Image();
-    img.src = polaroid.imageSrc;
-
-    img.onload = () => {
-      // Una vez cargada la imagen, actualizar todos los estados
-      currentImageRef.current = img;
+    const applyState = (img: HTMLImageElement | null) => {
+      if (img) currentImageRef.current = img;
       setCurrentImageSrc(polaroid.imageSrc);
       setCurrentTransformations({ ...polaroid.transformations });
       setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
@@ -673,23 +665,17 @@ export default function PolaroidEditor() {
       setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
       setCopiesToSave(polaroid.copies || 1);
       setEditingPolaroidId(polaroid.id);
-
-      // Forzar re-render del canvas después de un pequeño delay
-      setTimeout(() => {
-        setCurrentTransformations(prev => ({ ...prev }));
-      }, 50);
+      if (img) {
+        setTimeout(() => {
+          setCurrentTransformations(prev => ({ ...prev }));
+        }, 50);
+      }
     };
 
-    // Si hay error al cargar, establecer estados de todas formas
-    img.onerror = () => {
-      setCurrentImageSrc(polaroid.imageSrc);
-      setCurrentTransformations({ ...polaroid.transformations });
-      setCurrentEffects(polaroid.effects || { brightness: 0, contrast: 0, saturation: 0, sepia: 0 });
-      setSelectedFilter(polaroid.selectedFilter || "none");
-      setCanvasStyle(polaroid.canvasStyle || { borderColor: "#FFFFFF", borderWidth: 50, backgroundColor: "#FFFFFF" });
-      setCopiesToSave(polaroid.copies || 1);
-      setEditingPolaroidId(polaroid.id);
-    };
+    // Cargar desde S3 de forma segura (fetch+blob evita canvas tainted por caché CORS)
+    loadCorsImage(polaroid.imageSrc)
+      .then(img => applyState(img))
+      .catch(() => applyState(null));
   };
 
   // Eliminar un polaroid guardado
@@ -809,15 +795,24 @@ export default function PolaroidEditor() {
             onClick={() => fileInputRef.current?.click()}
             className="w-full"
             variant="secondary"
-            disabled={!currentImageSrc && copiesProjected >= maxPolaroids}
+            disabled={isUploadingPhoto || (!currentImageSrc && copiesProjected >= maxPolaroids)}
           >
-            <Upload className="mr-2 h-4 w-4" />
-            {!currentImageSrc && copiesProjected >= maxPolaroids
-              ? "Paquete completo"
-              : currentImageSrc
-              ? "Cambiar foto"
-              : "Cargar foto"
-            }
+            {isUploadingPhoto ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Subiendo foto...
+              </>
+            ) : (
+              <>
+                <Upload className="mr-2 h-4 w-4" />
+                {!currentImageSrc && copiesProjected >= maxPolaroids
+                  ? "Paquete completo"
+                  : currentImageSrc
+                  ? "Cambiar foto"
+                  : "Cargar foto"
+                }
+              </>
+            )}
           </Button>
           {!currentImageSrc && copiesProjected >= maxPolaroids && (
             <p className="text-xs text-red-500 text-center">

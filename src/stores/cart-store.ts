@@ -6,6 +6,8 @@ import {
   obtenerCarritoTemporal,
   guardarCarritoTemporal,
   eliminarCarritoTemporal,
+  duplicarCustomizacionTemporal,
+  eliminarCustomizacionTemporal,
   TempCartItem,
   debounce,
 } from "@/services/temp-cart";
@@ -19,6 +21,8 @@ export interface CartState {
   removeItem: (itemId: number) => void;
   increaseQuantity: (itemId: number) => void;
   decreaseQuantity: (itemId: number) => void;
+  duplicateItem: (itemId: number, sourceIndex?: number) => Promise<void>;
+  removeInstance: (itemId: number, instanceIndex: number) => void;
   clearCart: () => void;
   getTotals: () => CartTotals;
   // Nuevos métodos para sincronización con backend
@@ -82,6 +86,10 @@ export const useCartStore = create<CartState>()(
       },
 
       removeItem: (itemId) => {
+        // Obtener instancias antes de limpiar el store local (para el DELETE al backend)
+        const instances = useCustomizationStore.getState().customizations
+          .filter(c => c.cartItemId === itemId);
+
         set((state) => {
           const newItems = state.items.filter((item) => item.id !== itemId);
           // Sincronizar con backend después de eliminar
@@ -92,6 +100,11 @@ export const useCartStore = create<CartState>()(
           useCustomizationStore.getState().removeAllForCartItem(itemId);
 
           return { items: newItems };
+        });
+
+        // Eliminar customizaciones del backend (fire-and-forget)
+        instances.forEach(inst => {
+          eliminarCustomizacionTemporal(String(itemId), inst.instanceIndex);
         });
       },
 
@@ -122,6 +135,68 @@ export const useCartStore = create<CartState>()(
           });
         } else {
           get().removeItem(itemId);
+        }
+      },
+
+      duplicateItem: async (itemId, sourceIndex) => {
+        const item = get().items.find((i) => i.id === itemId);
+        if (!item) return;
+
+        // Si no se especifica, clonar la última instancia
+        const resolvedSourceIndex = sourceIndex ?? item.quantity - 1;
+        const targetIndex = item.quantity; // nuevo slot tras el incremento
+
+        // 1. Actualización local optimista: el usuario ve el resultado inmediatamente
+        get().increaseQuantity(itemId);
+        useCustomizationStore.getState().duplicateCustomization(itemId, resolvedSourceIndex, targetIndex);
+
+        // 2. Notificar al backend para consistencia multi-dispositivo
+        const result = await duplicarCustomizacionTemporal(
+          String(itemId),
+          resolvedSourceIndex,
+          targetIndex
+        );
+
+        if (!result.success) {
+          // 409: el índice ya existe en el servidor (sesión multi-dispositivo).
+          // El debounce PUT de 2 s sincronizará el estado local. No hay acción adicional.
+          // Otro error: igual, el debounce lo resolverá.
+          console.warn('⚠️ duplicateItem backend:', result.message);
+          return;
+        }
+
+        // 3. Reconciliar si el servidor asignó un índice distinto al calculado localmente
+        const backendTargetIndex = result.data?.targetInstanceIndex;
+        if (backendTargetIndex !== undefined && backendTargetIndex !== targetIndex) {
+          const custStore = useCustomizationStore.getState();
+          const localClone = custStore.getCustomization(itemId, targetIndex);
+          if (localClone) {
+            custStore.removeCustomization(itemId, targetIndex);
+            custStore.saveCustomization({ ...localClone, instanceIndex: backendTargetIndex });
+          }
+        }
+      },
+
+      removeInstance: (itemId, instanceIndex) => {
+        const { items, removeItem } = get();
+        const item = items.find(i => i.id === itemId);
+        if (!item) return;
+
+        // Limpiar customización local y desplazar índices superiores
+        useCustomizationStore.getState().removeInstanceAndShift(itemId, instanceIndex);
+
+        if (item.quantity <= 1) {
+          // Última instancia: eliminar el item completo del carrito
+          removeItem(itemId);
+        } else {
+          // Reducir cantidad en 1
+          const updated = items.map(i =>
+            i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i
+          );
+          set({ items: updated });
+          debouncedSync(updated);
+          // Eliminar customización del backend (fire-and-forget)
+          eliminarCustomizacionTemporal(String(itemId), instanceIndex);
         }
       },
 

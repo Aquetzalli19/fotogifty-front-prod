@@ -35,6 +35,7 @@ interface MonthData {
     scale: number;
     posX: number;
     posY: number;
+    rotation?: number;
   };
 }
 
@@ -80,15 +81,31 @@ function drawBlurredBackground(
 }
 
 /**
- * Carga una imagen desde una URL (data URL o HTTP)
+ * Carga una imagen desde una URL de forma segura para canvas.
+ * Para URLs HTTP/HTTPS usa fetch+blob para evitar canvas tainted por caché CORS.
  */
 async function loadImage(src: string): Promise<HTMLImageElement> {
+  // Rutas locales (templates del calendario) - carga directa sin CORS
+  if (!src.startsWith('http')) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Error cargando template: ${src.substring(0, 50)}`));
+      img.src = src;
+    });
+  }
+
+  // URLs externas (S3): fetch con no-cache para headers CORS frescos → blob URL same-origin
+  const response = await fetch(src, { mode: 'cors', cache: 'no-cache' });
+  if (!response.ok) throw new Error(`HTTP ${response.status} cargando imagen`);
+  const blob = await response.blob();
+  const blobUrl = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = "anonymous"; // Permitir exportar canvas con esta imagen
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Error cargando imagen: ${src.substring(0, 50)}...`));
-    img.src = src;
+    img.onerror = () => reject(new Error(`Error cargando imagen desde blob`));
+    img.src = blobUrl;
   });
 }
 
@@ -175,32 +192,33 @@ export async function renderCalendarMonth(
     const ctx = tempCanvas.getContext("2d");
     if (!ctx) return undefined;
 
+    // Rellenar fondo blanco ANTES de dibujar cualquier cosa.
+    // JPEG no soporta transparencia: sin este relleno, las zonas transparentes
+    // del template (p.ej. área de caption de un polaroid) se exportan en negro.
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, actualWidth, actualHeight);
+
     console.log(`🎨 Canvas creado: ${tempCanvas.width}x${tempCanvas.height}`);
 
     const photoImg = await loadImage(monthData.imageSrc);
     console.log(`📷 Foto cargada: ${photoImg.width}x${photoImg.height}`);
 
-    // 2. Dibujar fondo difuminado
+    // 2. Dibujar fondo difuminado (SIN CLIP - el template actuará como máscara natural)
     console.log(`🌫️  Dibujando fondo blur...`);
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-    ctx.clip();
     drawBlurredBackground(ctx, photoImg, PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
     ctx.restore();
 
-    // 3. Dibujar la foto del usuario encima del blur (CON CLIP)
+    // 3. Dibujar la foto del usuario encima del blur (SIN CLIP - el template hará de máscara natural)
     console.log(`🖼️  Dibujando foto principal...`);
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(PHOTO_AREA.left, PHOTO_AREA.top, PHOTO_AREA.width, PHOTO_AREA.height);
-    ctx.clip();
 
-    const { scale, posX, posY } = monthData.transformations;
+    const { scale, posX, posY, rotation = 0 } = monthData.transformations;
     const centerX = PHOTO_AREA.left + PHOTO_AREA.width / 2;
     const centerY = PHOTO_AREA.top + PHOTO_AREA.height / 2;
 
     ctx.translate(centerX + posX, centerY + posY);
+    ctx.rotate((rotation * Math.PI) / 180);
     ctx.scale(scale, scale);
     ctx.drawImage(photoImg, -photoImg.width / 2, -photoImg.height / 2, photoImg.width, photoImg.height);
     ctx.restore();
@@ -247,6 +265,10 @@ export async function renderCroppedPhoto(
   if (!ctx) return undefined;
 
   try {
+    // Fondo blanco para evitar negro en áreas transparentes al exportar como JPEG
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, PHOTO_AREA.width, PHOTO_AREA.height);
+
     const photoImg = await loadImage(monthData.imageSrc);
 
     // 1. Dibujar fondo difuminado

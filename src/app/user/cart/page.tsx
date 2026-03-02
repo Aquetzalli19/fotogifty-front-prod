@@ -21,11 +21,22 @@ import CartItemComponent from "@/components/user/stepper/CartItem";
 import ProductRecommendations from "@/components/user/cart/ProductRecommendations";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardFooter, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard } from "lucide-react";
+import { Plus, CheckCircle2, Edit, AlertCircle, ImageIcon, Calendar, Grid3X3, MapPin, Loader2, CreditCard, Copy, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { obtenerTodosPaquetes, agruparPaquetesPorCategoria } from "@/services/packages";
 import { addressService } from "@/services/addressService";
@@ -36,6 +47,7 @@ import TermsAcceptanceModal from "@/components/legal/TermsAcceptanceModal";
 import { obtenerDocumentoLegalActivo } from "@/services/legal-documents";
 import { LegalDocument } from "@/interfaces/legal-documents";
 import StoreLocationInfo from "@/components/common/StoreLocationInfo";
+import { toast } from "sonner";
 
 const CartPage = () => {
   const router = useRouter();
@@ -57,8 +69,13 @@ const CartPage = () => {
   // Estado para método de entrega
   const [deliveryMethod, setDeliveryMethod] = useState<'envio_domicilio' | 'recogida_tienda'>('envio_domicilio');
 
-  const { items, getTotals, clearCart, removeItem } = useCartStore();
-  const { getCustomization, getTotalCopiesUsed, clearAll: clearCustomizations, removeAllForCartItem } = useCustomizationStore();
+  const { items, getTotals, clearAndSyncBackend: clearCartAndBackend, removeItem, duplicateItem, removeInstance } = useCartStore();
+
+  // Rastrea qué instancia se está duplicando: "cartItemId-instanceIndex"
+  const [duplicatingKey, setDuplicatingKey] = useState<string | null>(null);
+  // Rastrea qué instancia se está eliminando: "cartItemId-instanceIndex"
+  const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const { getCustomization, getTotalCopiesUsed, clearAllAndSyncBackend: clearCustomizationsAndBackend, removeAllForCartItem } = useCustomizationStore();
 
   // Hook para verificar términos y condiciones
   const {
@@ -74,11 +91,16 @@ const CartPage = () => {
   // Estado local para documento de términos (fallback si el hook no lo provee)
   const [localTermsDocument, setLocalTermsDocument] = useState<LegalDocument | null>(null);
 
-  // Función para limpiar todo (carrito + personalizaciones)
-  const handleClearAll = () => {
-    clearCart();
-    clearCustomizations();
-    window.location.reload();
+  // Función para limpiar todo (carrito + personalizaciones) — también borra en el backend
+  const handleClearAll = async () => {
+    try {
+      await Promise.all([
+        clearCartAndBackend(),
+        clearCustomizationsAndBackend(),
+      ]);
+    } finally {
+      window.location.reload();
+    }
   };
 
   // Verificar si todas las personalizaciones están completas para avanzar al paso 3
@@ -734,9 +756,41 @@ const CartPage = () => {
                     return null;
                   };
 
+                  const dupKey = `${cartItem.id}-${index}`;
+                  const isDuplicating = duplicatingKey === dupKey;
+
+                  const handleDuplicate = async () => {
+                    setDuplicatingKey(dupKey);
+                    try {
+                      await duplicateItem(cartItem.id, index);
+                      toast.success("Paquete duplicado", {
+                        description: `Se creó una copia de "${itemDetails.name}" con tu personalización.`,
+                        duration: 3000,
+                      });
+                    } catch {
+                      toast.error("No se pudo duplicar", {
+                        description: "Intenta de nuevo.",
+                        duration: 3000,
+                      });
+                    } finally {
+                      setTimeout(() => setDuplicatingKey(null), 600);
+                    }
+                  };
+
+                  const handleRemoveInstance = async (cartItemId: number, instanceIdx: number) => {
+                    const key = `${cartItemId}-${instanceIdx}`;
+                    setRemovingKey(key);
+                    try {
+                      removeInstance(cartItemId, instanceIdx);
+                      toast.success("Instancia eliminada");
+                    } finally {
+                      setRemovingKey(null);
+                    }
+                  };
+
                   return (
                     <Card
-                      key={`${cartItem.id}-${index}`}
+                      key={dupKey}
                       className={`p-4 transition-all ${
                         isComplete ? "border-green-500 border-2" : ""
                       }`}
@@ -745,7 +799,10 @@ const CartPage = () => {
                         <span className="flex items-center gap-2">
                           {itemDetails.name} #{index + 1}
                         </span>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-base font-semibold font-poppins text-muted-foreground">
+                            $ {itemDetails.itemPrice.toFixed(2)}
+                          </span>
                           {isComplete && (
                             <span className="text-sm text-green-600 font-normal">Completo</span>
                           )}
@@ -763,9 +820,7 @@ const CartPage = () => {
                         <Button
                           variant={customization ? "secondary" : "default"}
                           className="w-full h-12"
-                          onClick={() => {
-                            onAddImage(cartItem, itemDetails, index);
-                          }}
+                          onClick={() => onAddImage(cartItem, itemDetails, index)}
                         >
                           {customization ? (
                             <>
@@ -779,6 +834,60 @@ const CartPage = () => {
                             </>
                           )}
                         </Button>
+
+                        {/* Botón de duplicar — solo si hay al menos una imagen */}
+                        {customization && (
+                          <Button
+                            variant="outline"
+                            className="w-full h-10 border-secondary text-secondary hover:bg-secondary/10 hover:text-secondary"
+                            onClick={handleDuplicate}
+                            disabled={isDuplicating}
+                            aria-label={isDuplicating ? "Duplicando paquete…" : `Duplicar ${itemDetails.name} #${index + 1}`}
+                          >
+                            {isDuplicating ? (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                              <Copy className="mr-2 h-4 w-4" />
+                            )}
+                            {isDuplicating ? "Duplicando…" : "Duplicar este paquete"}
+                          </Button>
+                        )}
+
+                        {/* Botón Eliminar instancia */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="w-full h-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={removingKey === dupKey}
+                            >
+                              {removingKey === dupKey ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="mr-2 h-4 w-4" />
+                              )}
+                              {removingKey === dupKey ? "Eliminando…" : "Eliminar este paquete"}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>¿Eliminar este paquete?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Se eliminará <strong>{itemDetails.name} #{index + 1}</strong> y todas sus fotos.
+                                Esta acción no se puede deshacer.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => handleRemoveInstance(cartItem.id, index)}
+                              >
+                                Eliminar
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </CardContent>
 
                       <CardFooter className="w-full flex flex-col gap-2 pt-4">

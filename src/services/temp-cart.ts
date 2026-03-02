@@ -47,6 +47,15 @@ export interface TempImageData {
   url: string;
 }
 
+export interface DuplicateCustomizationResponse {
+  cartItemId: string;
+  sourceInstanceIndex: number;
+  targetInstanceIndex: number;
+  editorType: 'standard' | 'calendar' | 'polaroid';
+  completed: boolean;
+  createdAt: string;
+}
+
 export interface TempImageUrlData {
   url: string;
   expiresIn: number;
@@ -113,6 +122,26 @@ export async function obtenerCustomizacionesTemporales(): Promise<ApiResponse<Te
 }
 
 /**
+ * Reemplaza data URLs base64 por null antes de enviar al backend.
+ * El backend rechaza data URLs (solo acepta URLs de S3).
+ * Las imágenes originales se preservan en localStorage para renderizado local.
+ */
+function sanitizeDataForBackend(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(sanitizeDataForBackend);
+  if (obj !== null && typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>).map(([key, val]) => {
+        if (typeof val === 'string' && val.startsWith('data:') && val.length > 200) {
+          return [key, null]; // data URL → null (backend lo acepta, imagen queda en localStorage)
+        }
+        return [key, sanitizeDataForBackend(val)];
+      })
+    );
+  }
+  return obj;
+}
+
+/**
  * Guarda una customización específica
  */
 export async function guardarCustomizacionTemporal(
@@ -125,7 +154,7 @@ export async function guardarCustomizacionTemporal(
   try {
     const response = await apiClient.put<void>(
       `/customizations/temp/${cartItemId}/${instanceIndex}`,
-      { editorType, data, completed }
+      { editorType, data: sanitizeDataForBackend(data) as Record<string, unknown>, completed }
     );
     return response;
   } catch (error) {
@@ -149,6 +178,33 @@ export async function eliminarCustomizacionTemporal(
   } catch (error) {
     console.error('Error eliminando customización:', error);
     return { success: false, message: 'Error al eliminar customización' };
+  }
+}
+
+/**
+ * Duplica una customización en el backend.
+ * Si targetInstanceIndex se omite, el servidor asigna max(instanceIndex)+1.
+ * En caso de 409 (ya existe), retorna success:false con error INSTANCE_ALREADY_EXISTS —
+ * el debounce PUT de 2 s eventualmente sincronizará el estado local.
+ */
+export async function duplicarCustomizacionTemporal(
+  cartItemId: string,
+  sourceInstanceIndex: number,
+  targetInstanceIndex?: number
+): Promise<ApiResponse<DuplicateCustomizationResponse>> {
+  try {
+    const body: Record<string, unknown> = { sourceInstanceIndex };
+    if (targetInstanceIndex !== undefined) {
+      body.targetInstanceIndex = targetInstanceIndex;
+    }
+    const response = await apiClient.post<DuplicateCustomizationResponse>(
+      `/customizations/temp/${cartItemId}/duplicate`,
+      body
+    );
+    return response;
+  } catch (error) {
+    console.error('Error duplicando customización en backend:', error);
+    return { success: false, message: 'Error al duplicar customización' };
   }
 }
 

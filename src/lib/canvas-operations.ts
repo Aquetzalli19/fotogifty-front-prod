@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Transformations, Effect } from "./types";
+import { loadCorsImage } from "./load-cors-image";
 
 type CanvasStyle = {
   backgroundColor: string;
@@ -220,6 +221,7 @@ export const useCanvasRendering = (
   exportDimensions?: CanvasDimensions // Para validación correcta de resolución
 ) => {
   const imageRef = useRef<HTMLImageElement | null>(null);
+  const loadedSrcRef = useRef<string | null>(null); // URL original cargada (≠ blob URL)
   const rafIdRef = useRef<number | null>(null);
   // Cache para la imagen con efectos aplicados (evitar recalcular sepia en cada frame)
   const effectsCacheRef = useRef<{
@@ -243,20 +245,21 @@ export const useCanvasRendering = (
     }
 
     const doRender = () => {
-      if (imageSrc && (!imageRef.current || imageRef.current.src !== imageSrc)) {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = () => {
-          imageRef.current = img;
-          // Invalidar cache cuando cambia la imagen
-          effectsCacheRef.current = { canvas: null, effectsKey: '', imageSrc: null };
+      if (imageSrc && loadedSrcRef.current !== imageSrc) {
+        const capturedSrc = imageSrc;
+        loadedSrcRef.current = capturedSrc; // Marcar como "en carga" para evitar cargas duplicadas
 
-          // Validar contra dimensiones de export, no de preview
-          validateImageResolution(img, canvasDimensions, setResolutionWarning, exportDimensions);
-
-          renderCanvas(canvas, imageRef, transformations, effects, canvasStyle);
-        };
-        img.src = imageSrc;
+        loadCorsImage(capturedSrc)
+          .then(img => {
+            if (loadedSrcRef.current !== capturedSrc) return; // Imagen obsoleta, descartar
+            imageRef.current = img;
+            // Invalidar cache cuando cambia la imagen
+            effectsCacheRef.current = { canvas: null, effectsKey: '', imageSrc: null };
+            // Validar contra dimensiones de export, no de preview
+            validateImageResolution(img, canvasDimensions, setResolutionWarning, exportDimensions);
+            renderCanvas(canvas, imageRef, transformations, effects, canvasStyle);
+          })
+          .catch(() => { /* Silencioso - el canvas quedará vacío */ });
       } else if (imageRef.current && imageSrc) {
         renderCanvas(canvas, imageRef, transformations, effects, canvasStyle);
       } else {

@@ -39,6 +39,9 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useCustomizationStore, CalendarCustomization } from "@/stores/customization-store";
 import { getEditorType } from "@/lib/category-utils";
 import { compressAndResizeImage } from "@/lib/image-compression";
+import { uploadImageToS3 } from "@/lib/s3-upload";
+import { loadCorsImage } from "@/lib/load-cors-image";
+import { toast } from "sonner";
 import { obtenerPaquetePorId } from "@/services/packages";
 import { renderCalendarMonth } from "@/lib/calendar-render-utils";
 import TransformTab from "@/components/editor-components/TransformTab";
@@ -194,6 +197,7 @@ export default function CalendarEditor() {
   const [imagesLoaded, setImagesLoaded] = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false); // NUEVO: Estado para rastrear carga del template
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [copyFromMonth, setCopyFromMonth] = useState<string>("");
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -350,16 +354,21 @@ export default function CalendarEditor() {
 
         (data?.months || []).forEach((monthData) => {
           if (monthData.imageSrc) {
-            const img = new Image();
-            img.onload = () => {
-              photoImageRefs.current.set(monthData.month, img);
-              loadedCount++;
-              // Cuando todas las imágenes cargaron, forzar re-render
-              if (loadedCount >= totalToLoad) {
-                setImagesLoaded(true);
-              }
-            };
-            img.src = monthData.imageSrc;
+            loadCorsImage(monthData.imageSrc)
+              .then(img => {
+                photoImageRefs.current.set(monthData.month, img);
+                loadedCount++;
+                if (loadedCount >= totalToLoad) {
+                  setImagesLoaded(true);
+                }
+              })
+              .catch(() => {
+                // Falló la carga de esta imagen; avanzar el contador
+                loadedCount++;
+                if (loadedCount >= totalToLoad) {
+                  setImagesLoaded(true);
+                }
+              });
           }
         });
       }
@@ -469,7 +478,9 @@ export default function CalendarEditor() {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    ctx.clearRect(0, 0, calendarDimensions.width, calendarDimensions.height);
+    // Limpiar con fondo blanco. clearRect deja transparente → negro al exportar como JPEG.
+    ctx.fillStyle = "#FFFFFF";
+    ctx.fillRect(0, 0, calendarDimensions.width, calendarDimensions.height);
 
     // 1. Dibujar fondo difuminado si hay imagen (SIN clip - puede cubrir más área)
     if (currentMonthPhoto.imageSrc) {
@@ -604,52 +615,65 @@ export default function CalendarEditor() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingPhoto(true);
     try {
-      // Comprimir y redimensionar la imagen antes de guardarla
-      const imageSrc = await compressAndResizeImage(file);
+      // 1. Comprimir y redimensionar (sin pérdida de calidad de impresión)
+      const compressedDataUrl = await compressAndResizeImage(file);
 
+      // 2. Subir imagen comprimida directo a S3 vía presigned URL
+      const { publicUrl } = await uploadImageToS3(compressedDataUrl);
+
+      // 3. Pre-cargar imagen para el canvas usando la versión local comprimida.
+      // Evita el problema de caché CORS: la data URL es same-origin y nunca mancha el canvas.
+      // publicUrl (S3) se guarda en estado para persistencia entre sesiones.
       const img = new Image();
-      img.src = imageSrc;
-      img.onload = () => {
-        photoImageRefs.current.set(selectedMonth, img);
-        renderCanvas();
-      };
+      img.src = compressedDataUrl;
 
       const previousImageSrc = currentMonthPhoto.imageSrc;
 
-      execute({
-        undo: () => {
-          setMonthPhotos((prev) => {
-            const newPhotos = [...prev];
-            newPhotos[selectedMonth - 1] = {
-              ...newPhotos[selectedMonth - 1],
-              imageSrc: previousImageSrc,
-            };
-            return newPhotos;
-          });
-        },
-        redo: () => {
-          setMonthPhotos((prev) => {
-            const newPhotos = [...prev];
-            newPhotos[selectedMonth - 1] = {
-              ...newPhotos[selectedMonth - 1],
-              imageSrc,
-            };
-            return newPhotos;
-          });
-        },
-      });
+      img.onload = () => {
+        // IMPORTANTE: Guardar la imagen en refs ANTES de actualizar el estado.
+        // Si setMonthPhotos se llama antes de que la imagen esté en photoImageRefs,
+        // renderCanvas() se dispara con imageSrc!=null pero sin imagen en refs → canvas negro.
+        photoImageRefs.current.set(selectedMonth, img);
 
-      setMonthPhotos((prev) => {
-        const newPhotos = [...prev];
-        newPhotos[selectedMonth - 1] = {
-          ...newPhotos[selectedMonth - 1],
-          imageSrc,
-        };
-        return newPhotos;
-      });
+        execute({
+          undo: () => {
+            setMonthPhotos((prev) => {
+              const newPhotos = [...prev];
+              newPhotos[selectedMonth - 1] = {
+                ...newPhotos[selectedMonth - 1],
+                imageSrc: previousImageSrc,
+              };
+              return newPhotos;
+            });
+          },
+          redo: () => {
+            setMonthPhotos((prev) => {
+              const newPhotos = [...prev];
+              newPhotos[selectedMonth - 1] = {
+                ...newPhotos[selectedMonth - 1],
+                imageSrc: publicUrl,
+              };
+              return newPhotos;
+            });
+          },
+        });
+
+        setMonthPhotos((prev) => {
+          const newPhotos = [...prev];
+          newPhotos[selectedMonth - 1] = {
+            ...newPhotos[selectedMonth - 1],
+            imageSrc: publicUrl,
+          };
+          return newPhotos;
+        });
+      };
     } catch (error) {
-      console.error("Error comprimiendo imagen:", error);
+      console.error("Error subiendo imagen:", error);
+      toast.error("No se pudo subir la foto. Intenta de nuevo.");
+    } finally {
+      setIsUploadingPhoto(false);
     }
 
     // Reset input para permitir seleccionar la misma imagen
@@ -1608,9 +1632,19 @@ export default function CalendarEditor() {
               onClick={() => fileInputRef.current?.click()}
               className="w-full h-12 sm:h-14 text-base sm:text-lg"
               variant={currentMonthPhoto.imageSrc ? "secondary" : "default"}
+              disabled={isUploadingPhoto}
             >
-              <Upload className="mr-2 h-5 w-5" />
-              {currentMonthPhoto.imageSrc ? "Cambiar foto" : "Subir foto"}
+              {isUploadingPhoto ? (
+                <>
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Subiendo foto...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-5 w-5" />
+                  {currentMonthPhoto.imageSrc ? "Cambiar foto" : "Subir foto"}
+                </>
+              )}
             </Button>
 
             {/* Opciones de edición */}
