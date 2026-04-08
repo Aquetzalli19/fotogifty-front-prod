@@ -427,14 +427,18 @@ export const useCustomizationStore = create<CustomizationState>()(
         // Deep-clone usando JSON para evitar referencias compartidas
         const clonedData = JSON.parse(JSON.stringify(source.data)) as typeof source.data;
 
-        // Limpiar campos de imágenes renderizadas: nunca se deben persistir en localStorage
+        // Limpiar SOLO las imágenes de alta resolución (`renderedImageSrc` y
+        // `croppedPhotoSrc`): nunca se persisten en localStorage porque son
+        // muy pesadas. En cambio, `thumbnailDataUrl` SÍ se conserva — es el
+        // thumbnail pequeño (500×500 JPEG) diseñado para las previews del
+        // carrito. Sin él, la duplicada cae al fallback de la foto cruda y
+        // pierde el frame polaroid / ajustes aplicados.
         switch (source.editorType) {
           case 'standard': {
             const data = clonedData as StandardCustomization;
             data.images = data.images.map((img) => {
               const clone = { ...img } as Record<string, unknown>;
               delete clone.renderedImageSrc;
-              delete clone.thumbnailDataUrl;
               return clone as unknown as SavedStandardImage;
             });
             break;
@@ -454,7 +458,6 @@ export const useCustomizationStore = create<CustomizationState>()(
             data.polaroids = data.polaroids.map((p) => {
               const clone = { ...p } as Record<string, unknown>;
               delete clone.renderedImageSrc;
-              delete clone.thumbnailDataUrl;
               return clone as typeof p;
             });
             break;

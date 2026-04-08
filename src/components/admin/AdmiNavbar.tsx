@@ -83,6 +83,7 @@ const AdmiNavbar = () => {
       icon: LayoutDashboard,
       items: [
         { href: "/admin/landing-content", label: "Landing Page", icon: LayoutDashboard },
+        { href: "/admin/product-page-content", label: "Página de Producto", icon: ShoppingCart },
         { href: "/admin/legal-documents", label: "Documentos Legales", icon: FileText },
         { href: "/admin/footer-settings", label: "Footer", icon: LayoutDashboard },
       ],

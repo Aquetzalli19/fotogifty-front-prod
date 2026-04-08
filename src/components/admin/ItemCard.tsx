@@ -10,9 +10,10 @@ import {
 import { itemPackages } from "@/interfaces/admi-items";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { Trash2, ImageIcon } from "lucide-react";
+import { Trash2, ImageIcon, LayoutDashboard } from "lucide-react";
 import EditItemDialog from "./EditItemDialog";
 import Image from "next/image";
+import Link from "next/link";
 
 interface ItemCardProps {
   item: itemPackages;
@@ -84,6 +85,12 @@ const ItemCard = ({ item, onDelete, onUpdate }: ItemCardProps) => {
             <Trash2 className="h-4 w-4" />
             Eliminar
           </Button>
+          <Link href={`/admin/itemcontrol/${item.id}/page-content`}>
+            <Button variant="outline" className="text-sm sm:text-base gap-2 w-full sm:w-auto">
+              <LayoutDashboard className="h-4 w-4" />
+              Contenido
+            </Button>
+          </Link>
           <Button
             variant="default"
             onClick={() => setIsDialogOpen(true)}
